@@ -1,10 +1,11 @@
-"""Entry point: connects to GT7, runs the dashboard."""
+"""Entry point: loads config, connects to telemetry device, runs the dashboard."""
 
 import argparse
 import asyncio
 import logging
 import threading
 
+from .config import AppConfig
 from .dashboard.app import DashboardApp
 from .telemetry.gt7 import GT7TelemetryProvider
 
@@ -22,7 +23,6 @@ async def _telemetry_loop(provider, queue: asyncio.Queue) -> None:
             try:
                 queue.put_nowait(data)
             except asyncio.QueueFull:
-                # Drop oldest, put newest
                 try:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
@@ -36,7 +36,8 @@ def _run_asyncio(provider, queue: asyncio.Queue) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sim Racing Cockpit Dashboard")
-    parser.add_argument("--ps5-ip", required=True, help="IP address of the PS5")
+    parser.add_argument("--ps5-ip", default=None,
+                        help="IP of the telemetry device (overrides config file and env var)")
     parser.add_argument("--bind", default="0.0.0.0", help="Local IP to bind UDP socket")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
@@ -44,15 +45,22 @@ def main() -> None:
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    # Load config (file → env var); CLI arg takes highest priority
+    config = AppConfig()
+    if args.ps5_ip:
+        config.device_ip = args.ps5_ip
+
     queue: asyncio.Queue = asyncio.Queue(maxsize=4)
-    provider = GT7TelemetryProvider(ps5_ip=args.ps5_ip, bind_ip=args.bind)
 
-    # Run telemetry receiver in a background thread (asyncio loop)
-    t = threading.Thread(target=_run_asyncio, args=(provider, queue), daemon=True)
-    t.start()
+    if config.device_ip:
+        provider = GT7TelemetryProvider(ps5_ip=config.device_ip, bind_ip=args.bind)
+        t = threading.Thread(target=_run_asyncio, args=(provider, queue), daemon=True)
+        t.start()
+        log.info("Connecting to device at %s", config.device_ip)
+    else:
+        log.warning("No device IP configured — open Settings (⚙) to set it")
 
-    # Run pygame dashboard on the main thread (required by pygame on macOS)
-    app = DashboardApp(telemetry_queue=queue)
+    app = DashboardApp(telemetry_queue=queue, config=config)
     app.run()
 
     log.info("Dashboard closed")

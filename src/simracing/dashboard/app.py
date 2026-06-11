@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pygame
 
+from ..config import AppConfig
 from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
 from .widgets.gauge import draw_gauge
+from .widgets.settings_panel import SettingsPanel
 from .widgets.tire_widget import draw_tires
 
 log = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ log = logging.getLogger(__name__)
 WIN_W, WIN_H = 1280, 720
 FPS = 60
 
-HEADER_H = 52          # height of the title strip
+HEADER_H = 52
 RPM_BAR_Y = HEADER_H + 10
 
 C_BG = (14, 14, 18)
@@ -25,11 +27,11 @@ C_HEADER = (20, 20, 26)
 C_TEXT = (230, 230, 230)
 C_DIM = (100, 100, 110)
 C_ACCENT = (80, 140, 220)
-C_RED = (220, 60, 60)
 C_GREEN = (60, 200, 80)
 C_ORANGE = (255, 165, 0)
-C_PANEL = (22, 22, 28)
 C_SEPARATOR = (45, 45, 55)
+C_BTN_GEAR = (38, 38, 50)
+C_BTN_GEAR_HOVER = (55, 55, 70)
 
 _IMG_DIR = Path(__file__).parent.parent / "img"
 
@@ -44,18 +46,20 @@ def _fmt_lap(ms: int) -> str:
 
 
 class DashboardApp:
-    def __init__(self, telemetry_queue: asyncio.Queue) -> None:
+    def __init__(self, telemetry_queue: asyncio.Queue, config: AppConfig) -> None:
         self._queue = telemetry_queue
+        self._config = config
         self._data = TelemetryData()
         self._running = False
         self._icon: pygame.Surface | None = None
+        self._settings: SettingsPanel | None = None
+        self._gear_btn = pygame.Rect(WIN_W - 44, (HEADER_H - 28) // 2, 28, 28)
 
     def _load_assets(self) -> None:
         icon_path = _IMG_DIR / "engineer.png"
         if icon_path.exists():
             raw = pygame.image.load(str(icon_path)).convert_alpha()
             raw = pygame.transform.smoothscale(raw, (32, 32))
-            # Recolor black icon to light color: BLEND_RGB_MAX keeps alpha intact
             raw.fill(C_TEXT, special_flags=pygame.BLEND_RGB_MAX)
             self._icon = raw
         else:
@@ -68,6 +72,11 @@ class DashboardApp:
         clock = pygame.time.Clock()
 
         self._load_assets()
+        self._settings = SettingsPanel(WIN_W, WIN_H)
+
+        # Open settings automatically if no IP configured
+        if not self._config.device_ip:
+            self._settings.open(self._config.device_ip)
 
         font_xl = pygame.font.SysFont("monospace", 64, bold=True)
         font_lg = pygame.font.SysFont("monospace", 32, bold=True)
@@ -76,11 +85,27 @@ class DashboardApp:
 
         self._running = True
         while self._running:
+            dt = clock.tick(FPS)
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    continue
+
+                # Settings panel absorbs all events when open
+                if self._settings and self._settings.active:
+                    action = self._settings.handle_event(event)
+                    if action == "saved":
+                        self._config.device_ip = self._settings.ip_text
+                        self._config.save()
+                        log.info("Config saved: device_ip=%s", self._config.device_ip)
+                    continue
+
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self._running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self._gear_btn.collidepoint(event.pos):
+                        self._settings.open(self._config.device_ip)
 
             while not self._queue.empty():
                 try:
@@ -90,18 +115,17 @@ class DashboardApp:
 
             screen.fill(C_BG)
             self._draw(screen, font_xl, font_lg, font_md, font_sm)
+            if self._settings:
+                self._settings.draw(screen, font_md, font_sm, dt)
             pygame.display.flip()
-            clock.tick(FPS)
 
         pygame.quit()
 
     def _draw(self, screen, font_xl, font_lg, font_md, font_sm) -> None:
         d = self._data
 
-        # ── Header ────────────────────────────────────────────────────────────
-        self._draw_header(screen, font_md)
+        self._draw_header(screen, font_md, font_sm)
 
-        # ── Speedometer (left) ────────────────────────────────────────────────
         draw_gauge(
             screen, cx=220, cy=380, radius=155,
             value=d.speed_kmh, min_val=0, max_val=d.speed_max_kmh if d.speed_max_kmh > 0 else 320,
@@ -110,7 +134,6 @@ class DashboardApp:
             font_large=font_lg, font_small=font_sm,
         )
 
-        # ── Tachometer (right) ────────────────────────────────────────────────
         draw_gauge(
             screen, cx=1060, cy=380, radius=155,
             value=d.rpm, min_val=0, max_val=d.rpm_max,
@@ -119,7 +142,6 @@ class DashboardApp:
             font_large=font_lg, font_small=font_sm,
         )
 
-        # ── Gear (centre-top) ─────────────────────────────────────────────────
         gear_surf = font_xl.render(d.gear_label, True, C_TEXT)
         screen.blit(gear_surf, gear_surf.get_rect(center=(640, 155)))
 
@@ -130,7 +152,6 @@ class DashboardApp:
             sg = font_lg.render(f"→ {d.suggested_gear}", True, C_ORANGE)
             screen.blit(sg, sg.get_rect(center=(640, 252)))
 
-        # ── Clutch / Brake / Throttle bars (centre) ───────────────────────────
         bar_y = 300
         bar_h = 200
         bar_w = 42
@@ -138,40 +159,30 @@ class DashboardApp:
         bar_start = 640 - (3 * bar_w + 2 * bar_gap) // 2
 
         draw_bar(screen, x=bar_start, y=bar_y, width=bar_w, height=bar_h,
-                 value=d.clutch, color=(80, 140, 220),
-                 label="C", font=font_sm)
-
+                 value=d.clutch, color=(80, 140, 220), label="C", font=font_sm)
         draw_bar(screen, x=bar_start + bar_w + bar_gap, y=bar_y, width=bar_w, height=bar_h,
-                 value=d.brake, color=(220, 60, 60),
-                 label="B", font=font_sm)
-
+                 value=d.brake, color=(220, 60, 60), label="B", font=font_sm)
         draw_bar(screen, x=bar_start + 2 * (bar_w + bar_gap), y=bar_y, width=bar_w, height=bar_h,
-                 value=d.throttle, color=(60, 200, 80),
-                 label="T", font=font_sm)
+                 value=d.throttle, color=(60, 200, 80), label="T", font=font_sm)
 
-        # ── Tire temps (bottom-centre) ────────────────────────────────────────
         draw_tires(screen, cx=640, cy=630,
                    tire_data=d.tires, font=font_sm,
                    tile_w=60, tile_h=68, gap=14)
 
-        # ── Info panel (right-centre) ─────────────────────────────────────────
         self._draw_info(screen, font_sm, d)
 
-        # ── Fuel bar (left of pedals) ─────────────────────────────────────────
         draw_bar(screen, x=bar_start - 58, y=bar_y, width=30, height=bar_h,
-                 value=d.fuel_pct, color=(80, 140, 220),
-                 label="FUEL", font=font_sm)
+                 value=d.fuel_pct, color=(80, 140, 220), label="FUEL", font=font_sm)
 
-        # ── RPM bar (below header) ────────────────────────────────────────────
         self._draw_rpm_bar(screen, d)
 
-        # ── Rev limiter flash ─────────────────────────────────────────────────
         if d.rev_limiter:
             overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
             overlay.fill((220, 40, 40, 40))
             screen.blit(overlay, (0, 0))
 
-    def _draw_header(self, screen, font_md: pygame.font.Font) -> None:
+    def _draw_header(self, screen, font_md: pygame.font.Font,
+                     font_sm: pygame.font.Font) -> None:
         pygame.draw.rect(screen, C_HEADER, (0, 0, WIN_W, HEADER_H))
         pygame.draw.line(screen, C_SEPARATOR, (0, HEADER_H), (WIN_W, HEADER_H), 1)
 
@@ -180,14 +191,25 @@ class DashboardApp:
             screen.blit(self._icon, (icon_x, icon_y))
 
         title = font_md.render("RACE ENGINEER", True, C_TEXT)
-        text_x = icon_x + 32 + 10
-        text_y = (HEADER_H - title.get_height()) // 2
-        screen.blit(title, (text_x, text_y))
+        screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
+
+        # Device IP indicator
+        ip = self._config.device_ip or "not configured"
+        ip_color = C_DIM if self._config.device_ip else C_ORANGE
+        ip_surf = font_sm.render(f"device: {ip}", True, ip_color)
+        screen.blit(ip_surf, ip_surf.get_rect(
+            midright=(self._gear_btn.left - 12, HEADER_H // 2)))
+
+        # Settings gear button ⚙
+        mouse = pygame.mouse.get_pos()
+        btn_color = C_BTN_GEAR_HOVER if self._gear_btn.collidepoint(mouse) else C_BTN_GEAR
+        pygame.draw.rect(screen, btn_color, self._gear_btn, border_radius=5)
+        gear_sym = font_md.render("⚙", True, C_TEXT)
+        screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
 
     def _draw_rpm_bar(self, screen, d: TelemetryData) -> None:
         bar_x, bar_y, bar_w, bar_h = 80, RPM_BAR_Y, WIN_W - 160, 16
-        pct = (d.rpm / d.rpm_max) if d.rpm_max > 0 else 0.0
-        pct = max(0.0, min(1.0, pct))
+        pct = max(0.0, min(1.0, (d.rpm / d.rpm_max) if d.rpm_max > 0 else 0.0))
 
         pygame.draw.rect(screen, (35, 35, 45), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
         if pct > 0:
@@ -227,5 +249,4 @@ class DashboardApp:
         if not d.in_race:
             flags.append("MENU")
         if flags:
-            f_surf = font_sm.render(" | ".join(flags), True, C_ORANGE)
-            screen.blit(f_surf, (x, y))
+            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (x, y))
