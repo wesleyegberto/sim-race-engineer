@@ -155,12 +155,20 @@ class DashboardApp:
                 slip = 0.0
             self._slip_ratios[i] = 0.3 * slip + 0.7 * self._slip_ratios[i]
 
-        # Slip angle: angle between velocity vector and car heading
+        # Slip angle: angle between velocity vector and car heading.
+        # rotation.(x,y,z) are quaternion imaginary components (qi, qj, qk).
+        # Reconstruct qw from unit-quaternion constraint, then derive the
+        # world-space forward vector (GT7: Y-up, -Z = car forward).
         if d.speed_ms > 5.0:
-            # GT7 forward = -Z, so negate vel.z to get conventional atan2 angle
-            vel_dir = math.atan2(d.velocity.x, -d.velocity.z)
-            raw_slip = math.degrees(vel_dir - d.rotation.y)
-            raw_slip = (raw_slip + 180.0) % 360.0 - 180.0  # normalize to ±180
+            qi, qj, qk = d.rotation.x, d.rotation.y, d.rotation.z
+            qw = math.sqrt(max(0.0, 1.0 - qi*qi - qj*qj - qk*qk))
+            # Forward vector in world XZ (car's -Z axis rotated by quaternion)
+            fwd_x = 2.0 * (qi * qk - qw * qj)
+            fwd_z = -(1.0 - 2.0 * (qi * qi + qj * qj))
+            # Project velocity onto car frame: dot=forward component, cross=lateral
+            dot   = d.velocity.x * fwd_x + d.velocity.z * fwd_z
+            cross = d.velocity.z * fwd_x - d.velocity.x * fwd_z
+            raw_slip = math.degrees(math.atan2(cross, dot))
             self._slip_angle = 0.2 * raw_slip + 0.8 * self._slip_angle
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
