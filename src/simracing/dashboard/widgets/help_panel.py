@@ -14,7 +14,7 @@ C_DIM = (95, 95, 108)
 C_ACCENT = (80, 140, 220)
 C_ORANGE = (255, 165, 0)
 C_SPIN = (255, 140, 0)
-C_LOCK = (0, 190, 230)
+C_LOCK = (220, 40, 40)
 C_RED = (210, 55, 55)
 C_YELLOW = (240, 210, 0)
 C_LIGHT = (190, 200, 255)
@@ -43,7 +43,7 @@ _RIGHT = [
     ("section", "TIRES (bottom center)"),
     ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT),
     ("item",  "Orange border",     "wheelspin: wheel spinning faster than expected for current speed",           C_SPIN),
-    ("item",  "Cyan border",       "lockup: wheel locking under heavy braking",                                  C_LOCK),
+    ("item",  "Red border",        "lockup: wheel locking under heavy braking",                                  C_LOCK),
     ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM),
 
     ("section", "STATUS STRIP (below RPM bar)"),

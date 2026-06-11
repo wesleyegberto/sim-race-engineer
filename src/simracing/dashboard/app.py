@@ -157,7 +157,8 @@ class DashboardApp:
 
         # Slip angle: angle between velocity vector and car heading
         if d.speed_ms > 5.0:
-            vel_dir = math.atan2(d.velocity.x, d.velocity.z)
+            # GT7 forward = -Z, so negate vel.z to get conventional atan2 angle
+            vel_dir = math.atan2(d.velocity.x, -d.velocity.z)
             raw_slip = math.degrees(vel_dir - d.rotation.y)
             raw_slip = (raw_slip + 180.0) % 360.0 - 180.0  # normalize to ±180
             self._slip_angle = 0.2 * raw_slip + 0.8 * self._slip_angle
