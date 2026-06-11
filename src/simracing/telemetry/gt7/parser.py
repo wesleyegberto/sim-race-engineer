@@ -158,7 +158,8 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
     brake_raw = struct.unpack_from("<B", buf, 0x92)[0]
 
     gear = gear_byte & 0x0F
-    suggested_gear = (gear_byte >> 4) & 0x0F
+    suggested_gear_raw = (gear_byte >> 4) & 0x0F
+    suggested_gear = suggested_gear_raw if suggested_gear_raw < 15 else 0
 
     clutch = struct.unpack_from("<f", buf, 0xF4)[0]
     handbrake = struct.unpack_from("<f", buf, 0x110)[0]
