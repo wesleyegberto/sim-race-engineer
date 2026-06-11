@@ -8,8 +8,8 @@ C_HOT = (220, 60, 40)
 C_TEXT = (230, 230, 230)
 C_DIM = (100, 100, 110)
 C_BORDER = (70, 70, 80)
-C_SLIP_SPIN = (255, 140, 0)    # wheelspin
-C_SLIP_LOCK = (0, 190, 230)    # lockup
+C_SLIP_SPIN = (255, 140, 0)    # wheelspin — orange
+C_SLIP_LOCK = (220, 40, 40)    # lockup   — red
 
 _SUS_BG = (30, 30, 40)
 _SUS_BORDER = (55, 55, 68)
@@ -91,7 +91,7 @@ def draw_tires(
             border_w = 2
         elif slip < -_SLIP_THRESHOLD:
             border_color = C_SLIP_LOCK
-            border_w = 2
+            border_w = 3
         else:
             border_color = C_BORDER
             border_w = 1
