@@ -53,6 +53,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from ..telemetry.models import TelemetryData
+
 log = logging.getLogger(__name__)
 
 _SAVE_DIR = Path.home() / "simracing_laps"
@@ -115,7 +117,7 @@ class LapData:
 
     def record(
         self,
-        d,                   # TelemetryData
+        d: TelemetryData,
         g_lat: float,
         g_lon: float,
         slip_angle: float,
@@ -241,7 +243,7 @@ class LapRecorder:
         self._session_dir = None
         log.info("LapRecorder session stopped")
 
-    def on_frame(self, d, g_lat: float, g_lon: float, slip_angle: float) -> None:
+    def on_frame(self, d: TelemetryData, g_lat: float, g_lon: float, slip_angle: float) -> None:
         if self._session_dir is None:
             return
 
