@@ -12,6 +12,7 @@ from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
 from .widgets.gauge import draw_gauge
+from .widgets.help_panel import HelpPanel
 from .widgets.settings_panel import SettingsPanel
 from .widgets.tire_widget import draw_tires
 
@@ -55,7 +56,10 @@ class DashboardApp:
         self._running = False
         self._icon: pygame.Surface | None = None
         self._settings: SettingsPanel | None = None
-        self._gear_btn = pygame.Rect(WIN_W - 44, (HEADER_H - 28) // 2, 28, 28)
+        self._help: HelpPanel | None = None
+        _btn_y = (HEADER_H - 28) // 2
+        self._gear_btn = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
+        self._help_btn = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
 
         # Fuel rate tracking
         self._prev_lap: int = -1
@@ -123,6 +127,7 @@ class DashboardApp:
 
         self._load_assets()
         self._settings = SettingsPanel(WIN_W, WIN_H)
+        self._help = HelpPanel(WIN_W, WIN_H)
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
@@ -142,6 +147,11 @@ class DashboardApp:
                     self._running = False
                     continue
 
+                # Help panel absorbs all events when open
+                if self._help and self._help.active:
+                    self._help.handle_event(event)
+                    continue
+
                 # Settings panel absorbs all events when open
                 if self._settings and self._settings.active:
                     action = self._settings.handle_event(event)
@@ -156,6 +166,8 @@ class DashboardApp:
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip)
+                    elif self._help_btn.collidepoint(event.pos):
+                        self._help.open()
 
             while not self._queue.empty():
                 try:
@@ -167,6 +179,8 @@ class DashboardApp:
             self._draw(screen, font_xl, font_lg, font_md, font_sm)
             if self._settings:
                 self._settings.draw(screen, font_md, font_sm, dt)
+            if self._help:
+                self._help.draw(screen, font_md, font_sm)
             pygame.display.flip()
 
         pygame.quit()
@@ -248,17 +262,24 @@ class DashboardApp:
         title = font_md.render("RACE ENGINEER", True, C_TEXT)
         screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
 
-        # Device IP indicator
+        # Device IP indicator (right of title, left of buttons)
         ip = self._config.device_ip or "not configured"
         ip_color = C_DIM if self._config.device_ip else C_ORANGE
         ip_surf = font_sm.render(f"device: {ip}", True, ip_color)
         screen.blit(ip_surf, ip_surf.get_rect(
-            midright=(self._gear_btn.left - 12, HEADER_H // 2)))
+            midright=(self._help_btn.left - 12, HEADER_H // 2)))
 
-        # Settings gear button ⚙
         mouse = pygame.mouse.get_pos()
-        btn_color = C_BTN_GEAR_HOVER if self._gear_btn.collidepoint(mouse) else C_BTN_GEAR
-        pygame.draw.rect(screen, btn_color, self._gear_btn, border_radius=5)
+
+        # Help button ?
+        hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR
+        pygame.draw.rect(screen, hbtn_color, self._help_btn, border_radius=5)
+        h_sym = font_md.render("?", True, C_TEXT)
+        screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
+
+        # Settings button ⚙
+        gbtn_color = C_BTN_GEAR_HOVER if self._gear_btn.collidepoint(mouse) else C_BTN_GEAR
+        pygame.draw.rect(screen, gbtn_color, self._gear_btn, border_radius=5)
         gear_sym = font_md.render("⚙", True, C_TEXT)
         screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
 
