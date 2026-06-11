@@ -9,6 +9,7 @@ from pathlib import Path
 import pygame
 
 from ..config import AppConfig
+from ..recording.lap_recorder import LapRecorder
 from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
@@ -72,6 +73,7 @@ class DashboardApp:
         self._data: TelemetryData | None = None
         self._running = False
         self._icon: pygame.Surface | None = None
+        self._recorder = LapRecorder()
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
         _btn_y = (HEADER_H - 28) // 2
@@ -118,7 +120,10 @@ class DashboardApp:
         if d.in_race != self._prev_in_race:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
-            if not d.in_race:
+            if d.in_race:
+                self._recorder.start_session()
+            else:
+                self._recorder.stop_session()
                 self._reset_derived()
 
         if not d.in_race:
@@ -189,6 +194,7 @@ class DashboardApp:
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
 
+        self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle)
         self._data = d
 
     def _load_assets(self) -> None:
