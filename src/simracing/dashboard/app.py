@@ -80,7 +80,7 @@ class DashboardApp:
         # ── Speedometer (left) ────────────────────────────────────────────────
         draw_gauge(
             screen, cx=220, cy=360, radius=160,
-            value=d.speed_kmh, min_val=0, max_val=320,
+            value=d.speed_kmh, min_val=0, max_val=d.speed_max_kmh if d.speed_max_kmh > 0 else 320,
             label="SPEED", unit="km/h",
             warn_pct=0.85, crit_pct=0.95,
             font_large=font_lg, font_small=font_sm,
@@ -97,41 +97,45 @@ class DashboardApp:
 
         # ── Gear (centre-top) ─────────────────────────────────────────────────
         gear_surf = font_xl.render(d.gear_label, True, C_TEXT)
-        screen.blit(gear_surf, gear_surf.get_rect(center=(640, 180)))
+        screen.blit(gear_surf, gear_surf.get_rect(center=(640, 135)))
 
         gear_lbl = font_sm.render("GEAR", True, C_DIM)
-        screen.blit(gear_lbl, gear_lbl.get_rect(center=(640, 228)))
+        screen.blit(gear_lbl, gear_lbl.get_rect(center=(640, 202)))
 
         if d.suggested_gear > 0 and d.suggested_gear != d.gear:
             sg = font_lg.render(f"→ {d.suggested_gear}", True, C_ORANGE)
-            screen.blit(sg, sg.get_rect(center=(640, 260)))
+            screen.blit(sg, sg.get_rect(center=(640, 232)))
 
-        # ── Throttle / Brake bars (centre) ────────────────────────────────────
-        bar_y = 310
+        # ── Clutch / Brake / Throttle bars (centre) ───────────────────────────
+        # 3 bars × 42px wide + 2 gaps × 22px = 170px → centred at x=640
+        bar_y = 282
         bar_h = 200
-        bar_w = 32
+        bar_w = 42
+        bar_gap = 22
+        bar_start = 640 - (3 * bar_w + 2 * bar_gap) // 2   # = 555
 
-        draw_bar(screen, x=560, y=bar_y, width=bar_w, height=bar_h,
-                 value=d.throttle, color=(60, 200, 80),
-                 label="T", font=font_sm)
-
-        draw_bar(screen, x=608, y=bar_y, width=bar_w, height=bar_h,
-                 value=d.brake, color=(220, 60, 60),
-                 label="B", font=font_sm)
-
-        draw_bar(screen, x=656, y=bar_y, width=bar_w, height=bar_h,
+        draw_bar(screen, x=bar_start, y=bar_y, width=bar_w, height=bar_h,
                  value=d.clutch, color=(80, 140, 220),
                  label="C", font=font_sm)
 
-        # ── Tire temps (bottom-centre) ────────────────────────────────────────
-        draw_tires(screen, cx=640, cy=590,
-                   tire_data=d.tires, font=font_sm)
+        draw_bar(screen, x=bar_start + bar_w + bar_gap, y=bar_y, width=bar_w, height=bar_h,
+                 value=d.brake, color=(220, 60, 60),
+                 label="B", font=font_sm)
+
+        draw_bar(screen, x=bar_start + 2 * (bar_w + bar_gap), y=bar_y, width=bar_w, height=bar_h,
+                 value=d.throttle, color=(60, 200, 80),
+                 label="T", font=font_sm)
+
+        # ── Tire temps (bottom-centre) — 60px below the bar labels ───────────
+        draw_tires(screen, cx=640, cy=636,
+                   tire_data=d.tires, font=font_sm,
+                   tile_w=60, tile_h=68, gap=14)
 
         # ── Info panel (right-centre) ─────────────────────────────────────────
         self._draw_info(screen, font_md, font_sm, d)
 
-        # ── Turbo / fuel (left-centre) ────────────────────────────────────────
-        draw_bar(screen, x=430, y=bar_y, width=20, height=bar_h,
+        # ── Fuel bar (left of pedals, separated by 40px) ──────────────────────
+        draw_bar(screen, x=bar_start - 58, y=bar_y, width=30, height=bar_h,
                  value=d.fuel_pct, color=(80, 140, 220),
                  label="FUEL", font=font_sm)
 

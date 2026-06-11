@@ -141,6 +141,7 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
     last_lap = struct.unpack_from("<i", buf, 0x74)[0]
 
     min_rpm, max_rpm = struct.unpack_from("<HH", buf, 0x80)
+    calc_max_speed = struct.unpack_from("<H", buf, 0x84)[0]   # km/h, 0=unknown
     flags = struct.unpack_from("<H", buf, 0x86)[0]
     gear_byte = struct.unpack_from("<B", buf, 0x88)[0]
     throttle_raw = struct.unpack_from("<B", buf, 0x89)[0]
@@ -178,6 +179,7 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
         rotation=Vector3(rot_x, rot_y, rot_z),
         angular_velocity=Vector3(ang_x, ang_y, ang_z),
         speed_ms=abs(speed_ms),
+        speed_max_kmh=float(calc_max_speed) if calc_max_speed > 0 else 0.0,
         rpm=engine_rpm,
         rpm_max=float(max_rpm) if max_rpm > 0 else 8000.0,
         rpm_idle=float(min_rpm) if min_rpm > 0 else 800.0,

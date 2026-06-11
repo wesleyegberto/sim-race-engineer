@@ -35,6 +35,7 @@ class TelemetryData:
 
     # Powertrain
     speed_ms: float = 0.0        # m/s
+    speed_max_kmh: float = 0.0   # calculated top speed (0 = unknown)
     rpm: float = 0.0
     rpm_max: float = 8000.0
     rpm_idle: float = 800.0
