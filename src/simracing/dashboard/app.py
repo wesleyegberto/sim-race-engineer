@@ -215,10 +215,11 @@ class DashboardApp:
         if not self._config.device_ip:
             self._settings.open(self._config.device_ip, self._config.rpm_flash)
 
-        font_xl = pygame.font.SysFont("monospace", 64, bold=True)
-        font_lg = pygame.font.SysFont("monospace", 32, bold=True)
-        font_md = pygame.font.SysFont("monospace", 20)
-        font_sm = pygame.font.SysFont("monospace", 14)
+        font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
+        font_spd = pygame.font.SysFont("monospace", 48, bold=True)
+        font_lg  = pygame.font.SysFont("monospace", 32, bold=True)
+        font_md  = pygame.font.SysFont("monospace", 20)
+        font_sm  = pygame.font.SysFont("monospace", 14)
 
         self._running = True
         while self._running:
@@ -269,7 +270,7 @@ class DashboardApp:
                     break
 
             screen.fill(C_BG)
-            self._draw(screen, font_xl, font_lg, font_md, font_sm)
+            self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
             if self._settings:
                 self._settings.draw(screen, font_md, font_sm, dt)
             if self._help:
@@ -278,7 +279,7 @@ class DashboardApp:
 
         pygame.quit()
 
-    def _draw(self, screen, font_xl, font_lg, font_md, font_sm) -> None:
+    def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
         d = self._data
         if d is None:
             self._draw_header(screen, font_md, font_sm)
@@ -291,11 +292,11 @@ class DashboardApp:
             value=d.speed_kmh, min_val=0, max_val=d.speed_max_kmh if d.speed_max_kmh > 0 else 320,
             label="SPEED", unit="km/h",
             warn_pct=0.85, crit_pct=0.95,
-            font_large=font_lg, font_small=font_sm,
+            font_large=font_spd, font_small=font_sm,
         )
 
         draw_gauge(
-            screen, cx=1060, cy=380, radius=155,
+            screen, cx=1100, cy=380, radius=155,
             value=d.rpm, min_val=0, max_val=d.rpm_max,
             label="ENGINE", unit="RPM",
             warn_pct=0.85, crit_pct=0.95,
@@ -460,7 +461,7 @@ class DashboardApp:
         pygame.draw.rect(screen, (60, 60, 70), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
 
     def _draw_info(self, screen, font_sm: pygame.font.Font, d: TelemetryData) -> None:
-        x, y = 820, 305
+        x, y = 760, 305
         line_h = 26
 
         def row(label: str, value: str, color=C_TEXT) -> None:
