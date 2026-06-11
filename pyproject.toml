@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sim-racing-dashboard"
+name = "simracing-engineer"
 version = "0.1.0"
 description = "Cockpit dashboard for sim racing games with GT7 telemetry support"
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ dev = [
 ]
 
 [project.scripts]
-sim-dashboard = "simracing.main:main"
+simracing-engineer = "simracing.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simracing"]
