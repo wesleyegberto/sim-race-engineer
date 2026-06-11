@@ -71,6 +71,11 @@ class TelemetryData:
     paused: bool = False
     loading: bool = False
     rev_limiter: bool = False
+    handbrake_active: bool = False
+    tcs_active: bool = False
+    asm_active: bool = False
+    lights_on: bool = False
+    high_beam: bool = False
 
     # Raw timestamp from the game packet (monotonic counter)
     packet_id: int = 0

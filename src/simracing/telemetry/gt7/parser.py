@@ -165,13 +165,19 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
         for i in range(4)
     ]
 
-    # flags bits: 0=in_race, 1=paused, 5=loading, 6=in_gear, 7=has_turbo,
-    #             8=rev_limiter, 9=hand_brake, 10=lights, 11=low_beam,
-    #             12=high_beam, 13=asm, 14=tcs
-    in_race = bool(flags & (1 << 0))
-    paused = bool(flags & (1 << 1))
-    loading = bool(flags & (1 << 5))
-    rev_limiter = bool(flags & (1 << 8))
+    # flags bits (per gt7-telemetry.md):
+    # 0=in_race, 1=paused, 2=loading, 3=in_gear, 4=has_turbo,
+    # 5=rev_limiter, 6=handbrake, 7=lights_on, 8=low_beam,
+    # 9=high_beam, 10=asm_active, 11=tcs_active
+    in_race = bool(flags & 0x0001)
+    paused = bool(flags & 0x0002)
+    loading = bool(flags & 0x0004)
+    rev_limiter = bool(flags & 0x0020)
+    handbrake_active = bool(flags & 0x0040)
+    lights_on = bool(flags & 0x0080)
+    high_beam = bool(flags & 0x0200)
+    asm_active = bool(flags & 0x0400)
+    tcs_active = bool(flags & 0x0800)
 
     return TelemetryData(
         position=Vector3(pos_x, pos_y, pos_z),
@@ -204,5 +210,10 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
         paused=paused,
         loading=loading,
         rev_limiter=rev_limiter,
+        handbrake_active=handbrake_active,
+        tcs_active=tcs_active,
+        asm_active=asm_active,
+        lights_on=lights_on,
+        high_beam=high_beam,
         packet_id=packet_id,
     )

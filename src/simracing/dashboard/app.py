@@ -229,6 +229,7 @@ class DashboardApp:
                  value=d.fuel_pct, color=(80, 140, 220), label="FUEL", font=font_sm)
 
         self._draw_rpm_bar(screen, d)
+        self._draw_indicators(screen, font_sm, d)
 
         if d.rev_limiter:
             overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
@@ -260,6 +261,39 @@ class DashboardApp:
         pygame.draw.rect(screen, btn_color, self._gear_btn, border_radius=5)
         gear_sym = font_md.render("⚙", True, C_TEXT)
         screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
+
+    def _draw_indicators(self, screen, font: pygame.font.Font, d: TelemetryData) -> None:
+        """Status chip strip between RPM bar and main gauges."""
+        CHIP_W, CHIP_H = 64, 18
+        CHIP_GAP = 8
+        STRIP_Y = RPM_BAR_Y + 16 + 5   # 5px below RPM bar
+
+        # (label, active, active_fg, active_bg)
+        chips = [
+            ("TCS",   d.tcs_active,        (15, 10, 5),  (255, 140, 0)),
+            ("ASM",   d.asm_active,         (15, 10, 5),  (255, 190, 0)),
+            ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30)),
+            ("HB",    d.handbrake_active,   (15, 15, 5),  (240, 210, 0)),
+            ("LIGHT", d.lights_on,          (10, 10, 20), (190, 200, 255)),
+            ("OIL!",  d.oil_temp > 130,     (255, 240, 240), (200, 30, 30)),
+            ("H₂O!",  d.water_temp > 105,  (255, 240, 240), (200, 30, 30)),
+        ]
+
+        total_w = len(chips) * CHIP_W + (len(chips) - 1) * CHIP_GAP
+        x = (WIN_W - total_w) // 2
+
+        for label, active, fg, bg in chips:
+            rect = pygame.Rect(x, STRIP_Y, CHIP_W, CHIP_H)
+            if active:
+                pygame.draw.rect(screen, bg, rect, border_radius=4)
+                pygame.draw.rect(screen, fg, rect, 1, border_radius=4)
+                txt = font.render(label, True, fg)
+            else:
+                pygame.draw.rect(screen, (28, 28, 36), rect, border_radius=4)
+                pygame.draw.rect(screen, (48, 48, 58), rect, 1, border_radius=4)
+                txt = font.render(label, True, (52, 52, 62))
+            screen.blit(txt, txt.get_rect(center=rect.center))
+            x += CHIP_W + CHIP_GAP
 
     def _draw_rpm_bar(self, screen, d: TelemetryData) -> None:
         bar_x, bar_y, bar_w, bar_h = 80, RPM_BAR_Y, WIN_W - 160, 16
