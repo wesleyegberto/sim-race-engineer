@@ -289,7 +289,7 @@ class DashboardApp:
         screen.blit(gear_lbl, gear_lbl.get_rect(center=(640, 222)))
 
         if 0 < d.suggested_gear < 15 and d.suggested_gear != d.gear:
-            sg = font_lg.render(f"→ {d.suggested_gear}", True, C_ORANGE)
+            sg = font_lg.render(f"> {d.suggested_gear}", True, C_ORANGE)
             screen.blit(sg, sg.get_rect(center=(640, 252)))
 
         bar_y = 300

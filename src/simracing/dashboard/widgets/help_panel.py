@@ -28,7 +28,7 @@ _LEFT = [
 
     ("section", "GEARS & PEDALS"),
     ("item",  "Gear",           "large number in center · N=neutral · R=reverse",                               C_TEXT),
-    ("item",  "→ N (orange)",   "game suggested gear — appears when different from current",                     C_ORANGE),
+    ("item",  "> N (orange)",   "game suggested gear — appears when different from current",                    C_ORANGE),
     ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT),
     ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT),
 

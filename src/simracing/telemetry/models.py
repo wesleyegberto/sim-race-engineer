@@ -39,7 +39,7 @@ class TelemetryData:
     rpm: float = 0.0
     rpm_max: float = 8000.0
     rpm_idle: float = 800.0
-    gear: int = 0                # 0=neutral, 15=reverse
+    gear: int = 0                # 0=reverse, 1..14=gears 1..14, 15=neutral
     suggested_gear: int = 0
     throttle: float = 0.0        # 0.0–1.0
     brake: float = 0.0           # 0.0–1.0
@@ -93,9 +93,9 @@ class TelemetryData:
     @property
     def gear_label(self) -> str:
         if self.gear == 0:
-            return "N"
-        if self.gear == 15:
             return "R"
+        if self.gear == 15:
+            return "N"
         return str(self.gear)
 
     @property
