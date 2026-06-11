@@ -150,7 +150,7 @@ class DashboardApp:
                  label="T", font=font_sm)
 
         # ── Tire temps (bottom-centre) ────────────────────────────────────────
-        draw_tires(screen, cx=640, cy=648,
+        draw_tires(screen, cx=640, cy=630,
                    tire_data=d.tires, font=font_sm,
                    tile_w=60, tile_h=68, gap=14)
 
