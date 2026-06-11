@@ -55,13 +55,20 @@ class GT7TelemetryProvider(TelemetryProvider):
     async def read(self) -> Optional[TelemetryData]:
         if self._sock is None:
             return None
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             raw = await asyncio.wait_for(
                 loop.sock_recv(self._sock, 4096),
                 timeout=_RECV_TIMEOUT,
             )
-            return parse(raw)
+            log.debug("UDP recv %d bytes — first8=%s", len(raw), raw[:8].hex())
+            result = parse(raw)
+            if result is None:
+                log.warning("parse() returned None for %d-byte packet — magic mismatch or bad decrypt", len(raw))
+            else:
+                log.debug("Parsed OK — pkt_id=%d  spd=%.0f km/h  rpm=%.0f  gear=%s",
+                          result.packet_id, result.speed_kmh, result.rpm, result.gear_label)
+            return result
         except TimeoutError:
             return None
         except OSError as exc:

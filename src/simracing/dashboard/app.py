@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+from collections.abc import Callable
 from pathlib import Path
 
 import pygame
@@ -33,9 +34,12 @@ C_DIM = (100, 100, 110)
 C_ACCENT = (80, 140, 220)
 C_GREEN = (60, 200, 80)
 C_ORANGE = (255, 165, 0)
+C_RED = (220, 60, 60)
 C_SEPARATOR = (45, 45, 55)
 C_BTN_GEAR = (38, 38, 50)
 C_BTN_GEAR_HOVER = (55, 55, 70)
+
+ERROR_BAR_H = 22
 
 _IMG_DIR = Path(__file__).parent.parent / "img"
 
@@ -50,9 +54,21 @@ def _fmt_lap(ms: int) -> str:
 
 
 class DashboardApp:
-    def __init__(self, telemetry_queue: asyncio.Queue, config: AppConfig) -> None:
+    def __init__(
+        self,
+        telemetry_queue: asyncio.Queue,
+        config: AppConfig,
+        connect_fn: Callable[[], None] | None = None,
+        disconnect_fn: Callable[[], None] | None = None,
+        get_status_fn: Callable[[], str] | None = None,
+        get_error_fn: Callable[[], str] | None = None,
+    ) -> None:
         self._queue = telemetry_queue
         self._config = config
+        self._connect_fn = connect_fn
+        self._disconnect_fn = disconnect_fn
+        self._get_status_fn = get_status_fn or (lambda: "disconnected")
+        self._get_error_fn = get_error_fn or (lambda: "")
         self._data = TelemetryData()
         self._running = False
         self._icon: pygame.Surface | None = None
@@ -61,11 +77,18 @@ class DashboardApp:
         _btn_y = (HEADER_H - 28) // 2
         self._gear_btn = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
         self._help_btn = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
+        self._conn_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
 
         # Fuel rate tracking
         self._prev_lap: int = -1
         self._lap_fuel_start: float = 0.0
         self._fuel_per_lap: float = 0.0
+
+        # State transition tracking (for debug logging)
+        self._prev_in_race: bool = False
+        self._prev_paused: bool = False
+        self._prev_tcs: bool = False
+        self._prev_asm: bool = False
 
         # G-meter (smoothed)
         self._prev_speed_ms: float = 0.0
@@ -80,6 +103,20 @@ class DashboardApp:
 
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
+        # State transition logging
+        if d.in_race != self._prev_in_race:
+            log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
+            self._prev_in_race = d.in_race
+        if d.paused != self._prev_paused:
+            log.debug("Paused → %s", d.paused)
+            self._prev_paused = d.paused
+        if d.tcs_active and not self._prev_tcs:
+            log.debug("TCS activated  spd=%.0f km/h  gear=%s", d.speed_kmh, d.gear_label)
+        self._prev_tcs = d.tcs_active
+        if d.asm_active and not self._prev_asm:
+            log.debug("ASM activated  spd=%.0f km/h  gear=%s", d.speed_kmh, d.gear_label)
+        self._prev_asm = d.asm_active
+
         # Fuel rate per lap
         if d.current_lap > 0:
             if self._prev_lap < 0:
@@ -89,6 +126,13 @@ class DashboardApp:
                 delta = self._lap_fuel_start - d.fuel_level
                 if 0 < delta < 200:
                     self._fuel_per_lap = delta
+                log.info(
+                    "Lap %d complete — time=%s  fuel_used=%.2fL  fuel_left=%.1fL",
+                    self._prev_lap,
+                    _fmt_lap(d.last_lap_ms),
+                    delta if 0 < delta < 200 else 0.0,
+                    d.fuel_level,
+                )
                 self._lap_fuel_start = d.fuel_level
                 self._prev_lap = d.current_lap
 
@@ -172,12 +216,22 @@ class DashboardApp:
                         self._config.device_ip = self._settings.ip_text
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
+                        if self._config.device_ip and self._get_status_fn() != "connected":
+                            if self._connect_fn:
+                                self._connect_fn()
                     continue
 
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self._running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self._gear_btn.collidepoint(event.pos):
+                    if self._conn_btn.collidepoint(event.pos):
+                        if self._get_status_fn() == "connected":
+                            if self._disconnect_fn:
+                                self._disconnect_fn()
+                        else:
+                            if self._connect_fn:
+                                self._connect_fn()
+                    elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
@@ -279,14 +333,47 @@ class DashboardApp:
         title = font_md.render("RACE ENGINEER", True, C_TEXT)
         screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
 
-        # Device IP indicator (right of title, left of buttons)
-        ip = self._config.device_ip or "not configured"
-        ip_color = C_DIM if self._config.device_ip else C_ORANGE
-        ip_surf = font_sm.render(f"device: {ip}", True, ip_color)
-        screen.blit(ip_surf, ip_surf.get_rect(
-            midright=(self._help_btn.left - 12, HEADER_H // 2)))
+        # Device IP / error indicator (right of title, left of buttons)
+        status = self._get_status_fn()
+        error = self._get_error_fn()
+        if status == "error" and error:
+            info_text = f"⚠ {error[:38]}"
+            info_color = C_RED
+        else:
+            info_text = f"device: {self._config.device_ip or 'not configured'}"
+            info_color = C_DIM if self._config.device_ip else C_ORANGE
+        info_surf = font_sm.render(info_text, True, info_color)
+        screen.blit(info_surf, info_surf.get_rect(
+            midright=(self._conn_btn.left - 12, HEADER_H // 2)))
 
         mouse = pygame.mouse.get_pos()
+
+        # Connect/disconnect button — 4 states
+        conn_hover = self._conn_btn.collidepoint(mouse)
+        _h = 15 if conn_hover else 0
+        if status == "connected":
+            conn_bg = (30 + _h, 80 + _h, 35 + _h)
+            conn_dot = (60, 220, 80)
+            conn_label = "LIVE"
+        elif status == "connecting":
+            conn_bg = (55 + _h, 50 + _h, 15 + _h)
+            conn_dot = (220, 180, 60)
+            conn_label = "WAIT"
+        elif status == "error":
+            conn_bg = (80 + _h, 30 + _h, 10 + _h)
+            conn_dot = (220, 110, 40)
+            conn_label = "ERR"
+        else:
+            conn_bg = (70 + _h, 20 + _h, 20 + _h)
+            conn_dot = (200, 50, 50)
+            conn_label = "OFF"
+        pygame.draw.rect(screen, conn_bg, self._conn_btn, border_radius=5)
+        pygame.draw.rect(screen, conn_dot, self._conn_btn, 1, border_radius=5)
+        dot_x = self._conn_btn.left + 12
+        dot_y = self._conn_btn.centery
+        pygame.draw.circle(screen, conn_dot, (dot_x, dot_y), 4)
+        lbl_surf = font_sm.render(conn_label, True, conn_dot)
+        screen.blit(lbl_surf, lbl_surf.get_rect(midleft=(dot_x + 9, dot_y)))
 
         # Help button ?
         hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR
