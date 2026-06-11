@@ -8,6 +8,8 @@ C_HOT = (220, 60, 40)
 C_TEXT = (230, 230, 230)
 C_DIM = (100, 100, 110)
 C_BORDER = (70, 70, 80)
+C_SLIP_SPIN = (255, 140, 0)    # wheelspin
+C_SLIP_LOCK = (0, 190, 230)    # lockup
 
 
 def _temp_color(temp: float) -> tuple:
@@ -30,6 +32,9 @@ def _temp_color(temp: float) -> tuple:
     )
 
 
+_SLIP_THRESHOLD = 0.05   # below this = no significant slip
+
+
 def draw_tires(
     surface: pygame.Surface,
     cx: int,
@@ -39,8 +44,13 @@ def draw_tires(
     tile_w: int = 52,
     tile_h: int = 70,
     gap: int = 8,
+    slip_ratios: list | None = None,   # 4 floats, positive=wheelspin, negative=lockup
 ) -> None:
-    """Draw a 2×2 grid of tire tiles centered at (cx, cy)."""
+    """Draw a 2×2 grid of tire tiles centered at (cx, cy).
+
+    When slip_ratios is provided, tile borders reflect slip state:
+      orange = wheelspin, cyan = lockup, dim = normal rolling.
+    """
     positions = [
         (cx - tile_w - gap // 2, cy - tile_h - gap // 2),   # FL
         (cx + gap // 2, cy - tile_h - gap // 2),             # FR
@@ -54,9 +64,20 @@ def draw_tires(
         temp = tire.surface_temp if tire else 0.0
         color = _temp_color(temp)
 
+        slip = slip_ratios[i] if slip_ratios and i < len(slip_ratios) else 0.0
+        if slip > _SLIP_THRESHOLD:
+            border_color = C_SLIP_SPIN
+            border_w = 2
+        elif slip < -_SLIP_THRESHOLD:
+            border_color = C_SLIP_LOCK
+            border_w = 2
+        else:
+            border_color = C_BORDER
+            border_w = 1
+
         rect = pygame.Rect(tx, ty, tile_w, tile_h)
         pygame.draw.rect(surface, color, rect, border_radius=6)
-        pygame.draw.rect(surface, C_BORDER, rect, 1, border_radius=6)
+        pygame.draw.rect(surface, border_color, rect, border_w, border_radius=6)
 
         if font:
             lbl = font.render(labels[i], True, C_TEXT)

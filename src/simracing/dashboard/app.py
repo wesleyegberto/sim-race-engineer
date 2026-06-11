@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 from pathlib import Path
 
 import pygame
@@ -9,6 +10,7 @@ import pygame
 from ..config import AppConfig
 from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
+from .widgets.g_meter import draw_g_meter
 from .widgets.gauge import draw_gauge
 from .widgets.settings_panel import SettingsPanel
 from .widgets.tire_widget import draw_tires
@@ -54,6 +56,54 @@ class DashboardApp:
         self._icon: pygame.Surface | None = None
         self._settings: SettingsPanel | None = None
         self._gear_btn = pygame.Rect(WIN_W - 44, (HEADER_H - 28) // 2, 28, 28)
+
+        # Fuel rate tracking
+        self._prev_lap: int = -1
+        self._lap_fuel_start: float = 0.0
+        self._fuel_per_lap: float = 0.0
+
+        # G-meter (smoothed)
+        self._prev_speed_ms: float = 0.0
+        self._g_lat: float = 0.0
+        self._g_lon: float = 0.0
+
+        # Wheel slip (smoothed, 4 wheels)
+        self._slip_ratios: list[float] = [0.0, 0.0, 0.0, 0.0]
+
+    def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
+        """Process a new telemetry frame: update derived metrics and store data."""
+        # Fuel rate per lap
+        if d.current_lap > 0:
+            if self._prev_lap < 0:
+                self._lap_fuel_start = d.fuel_level
+                self._prev_lap = d.current_lap
+            elif d.current_lap > self._prev_lap:
+                delta = self._lap_fuel_start - d.fuel_level
+                if 0 < delta < 200:
+                    self._fuel_per_lap = delta
+                self._lap_fuel_start = d.fuel_level
+                self._prev_lap = d.current_lap
+
+        # G-forces
+        dt_s = max(dt_ms / 1000.0, 1e-4)
+        raw_lat = d.speed_ms * d.angular_velocity.y / 9.81
+        raw_lon = max(-4.0, min(4.0, (d.speed_ms - self._prev_speed_ms) / dt_s / 9.81))
+        self._g_lat = 0.25 * raw_lat + 0.75 * self._g_lat
+        self._g_lon = 0.15 * raw_lon + 0.85 * self._g_lon
+        self._prev_speed_ms = d.speed_ms
+
+        # Wheel slip ratio per tire
+        for i, t in enumerate(d.tires):
+            if d.speed_ms > 3.0 and t.radius > 0:
+                exp_rps = d.speed_ms / (2.0 * math.pi * t.radius)
+                actual_rps = t.wheel_rpm / 60.0
+                slip = (actual_rps - exp_rps) / max(exp_rps, 0.5)
+                slip = max(-1.5, min(1.5, slip))
+            else:
+                slip = 0.0
+            self._slip_ratios[i] = 0.3 * slip + 0.7 * self._slip_ratios[i]
+
+        self._data = d
 
     def _load_assets(self) -> None:
         icon_path = _IMG_DIR / "engineer.png"
@@ -109,7 +159,7 @@ class DashboardApp:
 
             while not self._queue.empty():
                 try:
-                    self._data = self._queue.get_nowait()
+                    self._update_telemetry(self._queue.get_nowait(), dt)
                 except asyncio.QueueEmpty:
                     break
 
@@ -167,7 +217,11 @@ class DashboardApp:
 
         draw_tires(screen, cx=640, cy=630,
                    tire_data=d.tires, font=font_sm,
-                   tile_w=60, tile_h=68, gap=14)
+                   tile_w=60, tile_h=68, gap=14,
+                   slip_ratios=self._slip_ratios)
+
+        draw_g_meter(screen, cx=160, cy=615, radius=55,
+                     lat_g=self._g_lat, lon_g=self._g_lon, font=font_sm)
 
         self._draw_info(screen, font_sm, d)
 
@@ -238,6 +292,11 @@ class DashboardApp:
         row("OIL", f"{d.oil_temp:.0f} °C",
             C_ORANGE if d.oil_temp > 130 else C_TEXT)
         row("FUEL", f"{d.fuel_level:.1f} L")
+        if self._fuel_per_lap > 0:
+            laps_left = d.fuel_level / self._fuel_per_lap
+            row("FUEL/LAP", f"{self._fuel_per_lap:.2f} L", C_ACCENT)
+            row("LAPS LEFT", f"{laps_left:.1f}",
+                C_ORANGE if laps_left < 3 else C_TEXT)
         row("BOOST", f"{d.turbo_boost:+.2f} bar",
             C_ACCENT if d.turbo_boost > 0 else C_DIM)
 
