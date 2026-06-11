@@ -5,7 +5,7 @@
 | # | Feature | Notes |
 |---|---------|-------|
 | 1 | G-Meter (lateral + longitudinal) | Bottom-left circle · EMA smoothed |
-| 2 | Wheel slip per tyre | Orange border = wheelspin · Cyan = lockup |
+| 2 | Wheel slip per tyre | Orange border = wheelspin · Red = lockup |
 | 3 | TCS / ASM / REV / HB status strip | 7 chips below RPM bar |
 | 4 | Slip angle / oversteer indicator | Horizontal bar · green / orange / red thresholds |
 | 5 | Suspension travel per corner | Side bars on tyre tiles · fill = compression |

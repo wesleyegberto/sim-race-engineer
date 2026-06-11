@@ -8,16 +8,16 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  RACE ENGINEER          device: 192.168.x.x          [?]  [⚙]  │  ← Header
+│  RACE ENGINEER          device: 192.168.x.x          [?]  [⚙]   │  ← Header
 ├─────────────────────────────────────────────────────────────────┤
-│  ████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │  ← RPM bar
-│  [ TCS ][ ASM ][ REV ][ HB ][ LIGHT ][ OIL! ][ H₂O! ]         │  ← Status strip
-│                                                                  │
+│  ████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   │  ← RPM bar
+│  [ TCS ][ ASM ][ REV ][ HB ][ LIGHT ][ OIL! ][ H₂O! ]           │  ← Status strip
+│                                                                 │
 │   SPEED         [GEAR]          [C][B][T]          ENGINE RPM   │
 │   gauge                         pedals             gauge        │
 │                                 [FUEL]                          │
-│                                                                  │
-│ G-METER  SLIP▬▬▬▬▬▬  |FL||FR|  ░░░░░░░  LAP / BEST / LAST     │
+│                                                                 │
+│ G-METER  SLIP▬▬▬▬▬▬  |FL||FR|  ░░░░░░░  LAP / BEST / LAST       │
 │                       |RL||RR|           FUEL · WATER · OIL     │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -31,7 +31,20 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 | **RACE ENGINEER** | App title and icon |
 | **device: x.x.x.x** | PS5 IP address currently in use. Orange if not configured. |
 | **?** | Opens the in-app help overlay |
-| **⚙** | Opens the Settings panel to change the device IP |
+| **⚙** | Opens the Settings panel |
+
+---
+
+## Settings Panel
+
+Opened via the **⚙** button in the header.
+
+| Option | Description |
+|--------|-------------|
+| **Device IP** | IP address of the PS5 (or PC running GT7). Persisted to `~/simracing.conf`. |
+| **Flash screen at rev limiter** | When enabled, the entire screen flashes red each time the rev limiter is hit. Disable if the effect is distracting. Default: on. |
+
+Settings are saved on **Save** and take effect immediately.
 
 ---
 
@@ -101,7 +114,7 @@ Large number showing the current gear engaged.
 | **N** | Neutral |
 | **R** | Reverse |
 
-Below the gear number, a smaller **→ N** in orange appears when the game's suggested gear differs from the current gear. This is the AI's upshift/downshift recommendation based on speed and throttle position.
+Below the gear number, a smaller **> N** in orange appears when the game's suggested gear differs from the current gear. This is the AI's upshift/downshift recommendation based on speed and throttle position. The indicator is hidden when the game sends no suggestion.
 
 **Use:** The suggested gear is useful when learning a new track or car. In competition it is often ignored in favour of driver judgement.
 
@@ -178,7 +191,7 @@ A horizontal bar showing the angle between the car's heading direction and its a
 
 **Use:** The slip angle bar distinguishes between *rotation* (desirable, controlled rear movement that tightens the line) and *oversteer* (uncontrolled, leading to a spin). A brief orange flash on corner entry when rotating the car is normal in rear-wheel-drive vehicles. A sustained red reading means the driver has exceeded the car's limit.
 
-> The value is derived from `velocity` and `rotation.y` (yaw) in the GT7 packet. It is smoothed with an EMA filter and decays to zero below 5 m/s to avoid noise at low speed.
+> The value is derived from `velocity` and the car's quaternion (`rotation.x/y/z` are the imaginary components qi, qj, qk) in the GT7 packet. The car's forward vector is reconstructed from the unit quaternion before computing the angle. The result is smoothed with an EMA filter and decays to zero below 5 m/s to avoid noise at low speed.
 
 ---
 
@@ -207,12 +220,12 @@ A 2×2 grid of tiles representing the four tires: **FL** (front-left), **FR** (f
 | Border | Meaning |
 |--------|---------|
 | **Orange** (thick) | Wheelspin — wheel rotating faster than ground speed predicts. Power is not being transferred. |
-| **Cyan** (thick) | Lockup — wheel rotating slower than ground speed predicts. Brake is locking the wheel. |
+| **Red** (thick) | Lockup — wheel rotating slower than ground speed predicts. Brake is locking the wheel. |
 | Dim grey (thin) | Normal rolling |
 
 **Wheelspin use:** Sustained orange on rear tires during acceleration means the driver is applying throttle before sufficient weight has transferred to the rear, or the throttle application is too aggressive for the grip available.
 
-**Lockup use:** Orange on front tires under braking is a trail-braking signature. Cyan on front tires under braking is lockup — the driver has exceeded the threshold. ABS (if off) would need earlier or lighter brake application.
+**Lockup use:** Red on front tires under braking is lockup — the driver has exceeded the braking threshold. ABS (if off) would need earlier or lighter brake application.
 
 ### Side bar — Suspension travel
 
@@ -259,9 +272,13 @@ Text readouts updated every frame.
 
 ---
 
-## State Indicators (info panel, bottom)
+## Out-of-Race State
 
-When the car is not in an active race, additional flags appear:
+When the car is not in an active race (garage, menu, loading, or after finish), the dashboard freezes: gauges, G-meter, slip angle, tire temperatures, and all derived metrics are cleared and not updated. Only the header with the connection status remains visible.
+
+All values reset when a new race session begins.
+
+When the car is not in an active race, additional flags may appear in the info panel:
 
 | Label | Meaning |
 |-------|---------|

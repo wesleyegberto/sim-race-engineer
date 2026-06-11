@@ -10,7 +10,7 @@ buried inside the game's menus or simply not shown at all.
 
 ---
 
-## What Race Engineer shows
+## What Sim Race Engineer shows
 
 | Widget | Data |
 |--------|------|
@@ -22,7 +22,7 @@ buried inside the game's menus or simply not shown at all.
 | G-meter | Lateral and longitudinal G-force as a circular trace |
 | Slip angle | Horizontal bar showing yaw angle between heading and velocity vector |
 | Tire tiles | Per-corner surface temperature with colour zones (cold / optimal / hot) |
-| Wheel slip | Orange border = wheelspin · Cyan border = lockup |
+| Wheel slip | Orange border = wheelspin · Red border = lockup |
 | Suspension bars | Per-corner travel bar showing load distribution in real time |
 | Status strip | TCS · ASM · REV limiter · Handbrake · Lights · OIL! · H₂O! chips |
 | Info panel | Lap times · Fuel/lap · Laps remaining · Water/oil temps · Boost |
