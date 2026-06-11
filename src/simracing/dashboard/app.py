@@ -54,7 +54,10 @@ class DashboardApp:
         icon_path = _IMG_DIR / "engineer.png"
         if icon_path.exists():
             raw = pygame.image.load(str(icon_path)).convert_alpha()
-            self._icon = pygame.transform.smoothscale(raw, (32, 32))
+            raw = pygame.transform.smoothscale(raw, (32, 32))
+            # Recolor black icon to light color: BLEND_RGB_MAX keeps alpha intact
+            raw.fill(C_TEXT, special_flags=pygame.BLEND_RGB_MAX)
+            self._icon = raw
         else:
             log.warning("Icon not found: %s", icon_path)
 
