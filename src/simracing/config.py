@@ -18,6 +18,7 @@ class AppConfig:
 
     def __init__(self) -> None:
         self.device_ip: str = ""
+        self.rpm_flash: bool = True
         self.load()
 
     def load(self) -> None:
@@ -28,7 +29,10 @@ class AppConfig:
 
     def save(self) -> None:
         cp = ConfigParser()
-        cp[self._SECTION] = {"device_ip": self.device_ip}
+        cp[self._SECTION] = {
+            "device_ip": self.device_ip,
+            "rpm_flash": str(self.rpm_flash),
+        }
         with open(self.PATH, "w") as fh:
             cp.write(fh)
 
@@ -37,4 +41,5 @@ class AppConfig:
             return ""
         cp = ConfigParser()
         cp.read(self.PATH)
+        self.rpm_flash = cp.getboolean(self._SECTION, "rpm_flash", fallback=True)
         return cp.get(self._SECTION, "device_ip", fallback="")

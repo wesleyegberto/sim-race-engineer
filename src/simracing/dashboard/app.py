@@ -69,7 +69,7 @@ class DashboardApp:
         self._disconnect_fn = disconnect_fn
         self._get_status_fn = get_status_fn or (lambda: "disconnected")
         self._get_error_fn = get_error_fn or (lambda: "")
-        self._data = TelemetryData()
+        self._data: TelemetryData | None = None
         self._running = False
         self._icon: pygame.Surface | None = None
         self._settings: SettingsPanel | None = None
@@ -101,12 +101,28 @@ class DashboardApp:
         # Slip angle (smoothed)
         self._slip_angle: float = 0.0
 
+    def _reset_derived(self) -> None:
+        self._prev_lap = -1
+        self._lap_fuel_start = 0.0
+        self._fuel_per_lap = 0.0
+        self._prev_speed_ms = 0.0
+        self._g_lat = 0.0
+        self._g_lon = 0.0
+        self._slip_ratios = [0.0, 0.0, 0.0, 0.0]
+        self._slip_angle = 0.0
+        self._data = None
+
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
         # State transition logging
         if d.in_race != self._prev_in_race:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
+            if not d.in_race:
+                self._reset_derived()
+
+        if not d.in_race:
+            return
         if d.paused != self._prev_paused:
             log.debug("Paused → %s", d.paused)
             self._prev_paused = d.paused
@@ -197,7 +213,7 @@ class DashboardApp:
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
-            self._settings.open(self._config.device_ip)
+            self._settings.open(self._config.device_ip, self._config.rpm_flash)
 
         font_xl = pygame.font.SysFont("monospace", 64, bold=True)
         font_lg = pygame.font.SysFont("monospace", 32, bold=True)
@@ -223,6 +239,7 @@ class DashboardApp:
                     action = self._settings.handle_event(event)
                     if action == "saved":
                         self._config.device_ip = self._settings.ip_text
+                        self._config.rpm_flash = self._settings.rpm_flash
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -241,7 +258,7 @@ class DashboardApp:
                             if self._connect_fn:
                                 self._connect_fn()
                     elif self._gear_btn.collidepoint(event.pos):
-                        self._settings.open(self._config.device_ip)
+                        self._settings.open(self._config.device_ip, self._config.rpm_flash)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 
@@ -263,6 +280,9 @@ class DashboardApp:
 
     def _draw(self, screen, font_xl, font_lg, font_md, font_sm) -> None:
         d = self._data
+        if d is None:
+            self._draw_header(screen, font_md, font_sm)
+            return
 
         self._draw_header(screen, font_md, font_sm)
 
@@ -325,7 +345,7 @@ class DashboardApp:
         self._draw_rpm_bar(screen, d)
         self._draw_indicators(screen, font_sm, d)
 
-        if d.rev_limiter:
+        if d.rev_limiter and self._config.rpm_flash:
             overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
             overlay.fill((220, 40, 40, 40))
             screen.blit(overlay, (0, 0))

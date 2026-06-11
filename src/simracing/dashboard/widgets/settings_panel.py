@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 210
+_CARD_W, _CARD_H = 480, 260
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled"] | None
@@ -28,6 +28,7 @@ class SettingsPanel:
         self._win_h = win_h
         self.active = False
         self._ip_text = ""
+        self._rpm_flash = True
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -39,12 +40,16 @@ class SettingsPanel:
         field_y = cy + 90
         self._field = pygame.Rect(field_x, field_y, _CARD_W - 40, 38)
 
+        check_y = field_y + 58
+        self._check_box = pygame.Rect(field_x, check_y, 18, 18)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
 
-    def open(self, current_ip: str) -> None:
+    def open(self, current_ip: str, rpm_flash: bool = True) -> None:
         self._ip_text = current_ip
+        self._rpm_flash = rpm_flash
         self.active = True
         self._cursor_timer = 0
         self._cursor_visible = True
@@ -71,6 +76,9 @@ class SettingsPanel:
             if self._btn_cancel.collidepoint(pos):
                 self.active = False
                 return "cancelled"
+            if self._check_box.collidepoint(pos):
+                self._rpm_flash = not self._rpm_flash
+                return None
             if not self._card.collidepoint(pos):
                 self.active = False
                 return "cancelled"
@@ -116,6 +124,16 @@ class SettingsPanel:
         ip_surf = font_md.render(display, True, C_TEXT)
         screen.blit(ip_surf, (self._field.x + 10, self._field.y + 8))
 
+        # RPM flash checkbox
+        pygame.draw.rect(screen, C_INPUT_BG, self._check_box, border_radius=3)
+        pygame.draw.rect(screen, C_ACCENT, self._check_box, 1, border_radius=3)
+        if self._rpm_flash:
+            inner = self._check_box.inflate(-5, -5)
+            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+        check_lbl = font_sm.render("Flash screen at rev limiter", True, C_TEXT)
+        screen.blit(check_lbl, (self._check_box.right + 10,
+                                self._check_box.y + (self._check_box.height - check_lbl.get_height()) // 2))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -136,3 +154,7 @@ class SettingsPanel:
     @property
     def ip_text(self) -> str:
         return self._ip_text
+
+    @property
+    def rpm_flash(self) -> bool:
+        return self._rpm_flash
