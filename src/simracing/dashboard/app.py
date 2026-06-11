@@ -14,6 +14,7 @@ from .widgets.g_meter import draw_g_meter
 from .widgets.gauge import draw_gauge
 from .widgets.help_panel import HelpPanel
 from .widgets.settings_panel import SettingsPanel
+from .widgets.slip_angle import draw_slip_angle
 from .widgets.tire_widget import draw_tires
 
 log = logging.getLogger(__name__)
@@ -74,6 +75,9 @@ class DashboardApp:
         # Wheel slip (smoothed, 4 wheels)
         self._slip_ratios: list[float] = [0.0, 0.0, 0.0, 0.0]
 
+        # Slip angle (smoothed)
+        self._slip_angle: float = 0.0
+
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
         # Fuel rate per lap
@@ -106,6 +110,15 @@ class DashboardApp:
             else:
                 slip = 0.0
             self._slip_ratios[i] = 0.3 * slip + 0.7 * self._slip_ratios[i]
+
+        # Slip angle: angle between velocity vector and car heading
+        if d.speed_ms > 5.0:
+            vel_dir = math.atan2(d.velocity.x, d.velocity.z)
+            raw_slip = math.degrees(vel_dir - d.rotation.y)
+            raw_slip = (raw_slip + 180.0) % 360.0 - 180.0  # normalize to ±180
+            self._slip_angle = 0.2 * raw_slip + 0.8 * self._slip_angle
+        else:
+            self._slip_angle *= 0.9  # decay to zero at low speed
 
         self._data = d
 
@@ -232,10 +245,14 @@ class DashboardApp:
         draw_tires(screen, cx=640, cy=630,
                    tire_data=d.tires, font=font_sm,
                    tile_w=60, tile_h=68, gap=14,
-                   slip_ratios=self._slip_ratios)
+                   slip_ratios=self._slip_ratios,
+                   suspension_heights=[t.suspension_height for t in d.tires])
 
         draw_g_meter(screen, cx=160, cy=615, radius=55,
                      lat_g=self._g_lat, lon_g=self._g_lon, font=font_sm)
+
+        draw_slip_angle(screen, cx=355, cy=615, width=200,
+                        slip_deg=self._slip_angle, font=font_sm)
 
         self._draw_info(screen, font_sm, d)
 

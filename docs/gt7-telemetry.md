@@ -1,264 +1,263 @@
 # Gran Turismo 7 — Telemetry Integration
 
-## Visão Geral
+## Overview
 
-O Gran Turismo 7 (PS5) transmite dados de telemetria em tempo real via **UDP** para a rede local.
-O stream é criptografado com **Salsa20** e requer o envio periódico de um pacote de heartbeat
-para manter a transmissão ativa.
+Gran Turismo 7 (PS5) streams real-time telemetry data over **UDP** to the local network.
+The stream is encrypted with **Salsa20** and requires periodic heartbeat packets
+to keep the transmission alive.
 
-### Pré-requisito no jogo
+### In-game prerequisite
 
-Habilitar o envio de dados em:
+Enable data output at:
 **Options → Machine Settings → Send Vehicle Data → On**
 
 ---
 
-## Protocolo de Rede
+## Network Protocol
 
-| Parâmetro | Valor |
+| Parameter | Value |
 |---|---|
-| Protocolo | UDP/IPv4 |
-| Porta de recepção (PS5 → cliente) | `33740` |
-| Porta de heartbeat (cliente → PS5) | `33739` |
-| Tamanho do pacote | `296 bytes` |
-| Frequência de envio | ~60 Hz |
+| Protocol | UDP/IPv4 |
+| Receive port (PS5 → client) | `33740` |
+| Heartbeat port (client → PS5) | `33739` |
+| Packet size | `296 bytes` |
+| Transmission rate | ~60 Hz |
 
 ### Heartbeat
 
-O PS5 só transmite dados enquanto receber um pacote `b"A"` (1 byte, ASCII) na porta `33739`
-a cada **100 ms**. Sem heartbeat, o stream para após alguns segundos.
+The PS5 only transmits data while it receives a `b"A"` packet (1 byte, ASCII) on port `33739`
+every **100 ms**. Without heartbeats, the stream stops after a few seconds.
 
 ```
-Cliente  ──── b"A" ────▶  PS5:33739   (a cada 100 ms)
-Cliente  ◀─── pacote ───  PS5:33740   (~60 Hz)
+Client  ──── b"A" ────▶  PS5:33739   (every 100 ms)
+Client  ◀─── packet ───  PS5:33740   (~60 Hz)
 ```
 
 ---
 
-## Criptografia
+## Encryption
 
-Cada pacote é cifrado com **Salsa20** (stream cipher).
+Each packet is encrypted with **Salsa20** (stream cipher).
 
-| Parâmetro | Valor |
+| Parameter | Value |
 |---|---|
-| Algoritmo | Salsa20 |
-| Chave (key) | `Simulator Interface Packet GT7 ver 0.0` (38 bytes, ASCII) |
-| Nonce | bytes `[0x40–0x47]` do pacote **criptografado**, invertidos |
+| Algorithm | Salsa20 |
+| Key | `Simulator Interface Packet GT7 ver 0.0` (38 bytes, ASCII) |
+| Nonce | bytes `[0x40–0x47]` of the **encrypted** packet, reversed |
 
-### Processo de decifração
+### Decryption process
 
 ```python
-nonce = raw_packet[0x40:0x48][::-1]          # 8 bytes, invertidos
+nonce = raw_packet[0x40:0x48][::-1]          # 8 bytes, reversed
 cipher = Salsa20.new(key=KEY, nonce=nonce)
 decrypted = cipher.decrypt(raw_packet)
 ```
 
-### Validação do Magic Number
+### Magic number validation
 
-Após decifrar, os primeiros 4 bytes devem ser `0x47375330` (`G75\x30` em little-endian).
-Se não baterem, o pacote deve ser descartado.
+After decryption, the first 4 bytes must be `0x47375330` (`G75\x30` in little-endian).
+Discard the packet if they do not match.
 
 ---
 
-## Estrutura do Pacote (296 bytes, little-endian)
+## Packet Structure (296 bytes, little-endian)
 
-Todos os offsets são em bytes após a decifração.
-Tipos: `f32` = float 32-bit, `u8/u16/u32` = unsigned int, `i16/i32/i64` = signed int.
+All offsets are in bytes after decryption.
+Types: `f32` = 32-bit float, `u8/u16/u32` = unsigned int, `i16/i32/i64` = signed int.
 
-### Identificação
+### Identification
 
-| Offset | Tipo | Campo | Descrição |
+| Offset | Type | Field | Description |
 |---|---|---|---|
-| `0x00` | `u32` | `magic` | Magic number `0x47375330` — valida o pacote |
-| `0x68` | `u32` | `packet_id` | Contador monotônico de pacotes (incrementa a cada frame) |
+| `0x00` | `u32` | `magic` | Magic number `0x47375330` — validates the packet |
+| `0x68` | `u32` | `packet_id` | Monotonic packet counter (increments each frame) |
 
 ---
 
-### Posição e Movimento
+### Position and Motion
 
-| Offset | Tipo | Campo | Unidade | Descrição |
+| Offset | Type | Field | Unit | Description |
 |---|---|---|---|---|
-| `0x04` | `f32×3` | `position` | metros | Posição X, Y, Z do carro no mundo 3D |
-| `0x10` | `f32×3` | `velocity` | m/s | Velocidade vetorial X, Y, Z |
-| `0x1C` | `f32×3` | `rotation` | rad | Orientação do carro: pitch (X), yaw (Y), roll (Z) |
-| `0x28` | `f32×3` | `angular_velocity` | rad/s | Velocidade angular em cada eixo |
-| `0x34` | `f32` | `body_height` | metros | Altura do centro de massa em relação ao solo |
-| `0x44` | `f32` | `speed` | m/s | Velocidade escalar do carro (pode ser negativa em marcha ré) |
+| `0x04` | `f32×3` | `position` | metres | Car position X, Y, Z in the 3D world |
+| `0x10` | `f32×3` | `velocity` | m/s | Velocity vector X, Y, Z |
+| `0x1C` | `f32×3` | `rotation` | rad | Car orientation: pitch (X), yaw (Y), roll (Z) |
+| `0x28` | `f32×3` | `angular_velocity` | rad/s | Angular velocity on each axis |
+| `0x34` | `f32` | `body_height` | metres | Centre-of-mass height above the road |
+| `0x44` | `f32` | `speed` | m/s | Scalar car speed (negative when reversing — use `abs()` for display) |
 
-> **Nota:** O eixo Y do GT7 é vertical (cima). A velocidade retornada pode ser negativa
-> na marcha ré — use `abs()` para exibição.
+> **Note:** GT7's Y axis is vertical (up). `rotation.y` is the yaw angle (heading) in radians.
 
 ---
 
-### Motor e Powertrain
+### Engine and Powertrain
 
-| Offset | Tipo | Campo | Unidade | Descrição |
+| Offset | Type | Field | Unit | Description |
 |---|---|---|---|---|
-| `0x38` | `f32` | `engine_rpm` | RPM | Rotação atual do motor |
-| `0x80` | `u16` | `min_alert_rpm` | RPM | RPM mínimo de alerta (aproxima-se do idle) |
-| `0x82` | `u16` | `max_alert_rpm` | RPM | RPM máximo de alerta (redline do carro atual) |
-| `0x84` | `u16` | `calc_max_speed` | km/h | Velocidade máxima calculada para o carro atual (0 = desconhecida) |
-| `0x48` | `f32` | `turbo_boost` | bar | Pressão do turbo **acima** de 1 atm (ex: `0.5` = 1.5 bar absoluto) |
-| `0xD0` | `f32` | `clutch` | 0–1 | Posição da embreagem (0 = totalmente pressionada, 1 = solta) |
-| `0xD4` | `f32` | `clutch_engagement` | 0–1 | Ponto de contato da embreagem |
-| `0xD8` | `f32` | `rpm_after_clutch` | RPM | RPM do lado da transmissão (após embreagem) |
+| `0x38` | `f32` | `engine_rpm` | RPM | Current engine revs |
+| `0x80` | `u16` | `min_alert_rpm` | RPM | Minimum alert RPM (near idle) |
+| `0x82` | `u16` | `max_alert_rpm` | RPM | Maximum alert RPM (redline for the current car) |
+| `0x84` | `u16` | `calc_max_speed` | km/h | Calculated top speed for the current car (0 = unknown) |
+| `0x48` | `f32` | `turbo_boost` | bar | Turbo pressure **above** 1 atm (e.g. `0.5` = 1.5 bar absolute) |
+| `0xD0` | `f32` | `clutch` | 0–1 | Clutch position (0 = fully pressed, 1 = released) |
+| `0xD4` | `f32` | `clutch_engagement` | 0–1 | Clutch bite point |
+| `0xD8` | `f32` | `rpm_after_clutch` | RPM | Transmission-side RPM (after clutch) |
 
 ---
 
-### Câmbio e Pedais
+### Gearbox and Pedals
 
-| Offset | Tipo | Campo | Descrição |
+| Offset | Type | Field | Description |
 |---|---|---|---|
-| `0x88` | `u8` | `gear_byte` | Bits `[3:0]` = marcha atual · Bits `[7:4]` = marcha sugerida |
-| `0x89` | `u8` | `throttle` | Posição do acelerador, 0–255 (divide por 255 para 0.0–1.0) |
-| `0x8A` | `u8` | `brake` | Posição do freio, 0–255 |
-| `0x108` | `f32` | `handbrake` | Freio de mão, 0.0–1.0 |
+| `0x88` | `u8` | `gear_byte` | Bits `[3:0]` = current gear · Bits `[7:4]` = suggested gear |
+| `0x89` | `u8` | `throttle` | Throttle position, 0–255 (divide by 255 for 0.0–1.0) |
+| `0x8A` | `u8` | `brake` | Brake position, 0–255 |
+| `0x108` | `f32` | `handbrake` | Handbrake, 0.0–1.0 |
 
-#### Decodificação da marcha
+#### Gear decoding
 
 ```
-marcha_atual   = gear_byte & 0x0F    # 0=neutra, 1–8=marchas, 15=ré
-marcha_sugerida = (gear_byte >> 4) & 0x0F   # 0 = sem sugestão
+current_gear   = gear_byte & 0x0F    # 0=neutral, 1–8=gears, 15=reverse
+suggested_gear = (gear_byte >> 4) & 0x0F   # 0 = no suggestion
 ```
 
-#### Ratios das marchas
+#### Gear ratios
 
-| Offset | Campo | Descrição |
+| Offset | Field | Description |
 |---|---|---|
-| `0x10C` | `gear_ratio[0]` | Ratio da ré |
-| `0x110` | `gear_ratio[1]` | Ratio da 1ª |
-| `0x114–0x128` | `gear_ratio[2–6]` | Ratios das demais marchas (até 8ª) |
+| `0x10C` | `gear_ratio[0]` | Reverse ratio |
+| `0x110` | `gear_ratio[1]` | 1st gear ratio |
+| `0x114–0x128` | `gear_ratio[2–6]` | Remaining gear ratios (up to 8th) |
 
 ---
 
-### Fluidos e Temperaturas
+### Fluids and Temperatures
 
-| Offset | Tipo | Campo | Unidade | Observação |
+| Offset | Type | Field | Unit | Notes |
 |---|---|---|---|---|
-| `0x3C` | `f32` | `fuel_level` | litros | Combustível atual no tanque |
-| `0x40` | `f32` | `fuel_capacity` | litros | Capacidade total do tanque |
-| `0x4C` | `f32` | `oil_pressure` | bar | Pressão do óleo (multiply × 100 para kPa) |
-| `0x50` | `f32` | `water_temp` | °C | Temperatura da água de arrefecimento |
-| `0x54` | `f32` | `oil_temp` | °C | Temperatura do óleo do motor |
+| `0x3C` | `f32` | `fuel_level` | litres | Current fuel in tank |
+| `0x40` | `f32` | `fuel_capacity` | litres | Total tank capacity |
+| `0x4C` | `f32` | `oil_pressure` | bar | Oil pressure (multiply × 100 for kPa) |
+| `0x50` | `f32` | `water_temp` | °C | Coolant temperature |
+| `0x54` | `f32` | `oil_temp` | °C | Engine oil temperature |
 
 ---
 
-### Pneus — Temperatura de Superfície
+### Tires — Surface Temperature
 
-Os 4 pneus seguem a ordem **FL · FR · RL · RR** em todos os campos.
+All 4 tires follow the order **FL · FR · RL · RR** across all fields.
 
-| Offset | Campo | Unidade |
+| Offset | Field | Unit |
 |---|---|---|
 | `0x58` | `tire_fl_surface_temp` | °C |
 | `0x5C` | `tire_fr_surface_temp` | °C |
 | `0x60` | `tire_rl_surface_temp` | °C |
 | `0x64` | `tire_rr_surface_temp` | °C |
 
-### Pneus — Temperatura Interna (3 zonas)
+### Tires — Internal Temperature (3 zones)
 
-Cada pneu tem **inner · middle · outer** (interno → externo).
+Each tire has **inner · middle · outer** zones (inner edge → outer edge).
 
-| Offset | Pneu | Campo |
+| Offset | Tire | Fields |
 |---|---|---|
 | `0xDC–0xE4` | FL | inner, middle, outer (3 × f32) |
 | `0xE8–0xF0` | FR | inner, middle, outer |
 | `0xF4–0xFC` | RL | inner, middle, outer |
 | `0x100–0x107` | RR | inner, middle, outer |
 
-### Pneus — Dinâmica
+### Tires — Dynamics
 
-| Offset | Campo | Unidade | Descrição |
+| Offset | Field | Unit | Description |
 |---|---|---|---|
-| `0x9C` | `tire_fl_rps` | rot/s | Velocidade angular da roda FL (negativo = marcha ré) |
-| `0xA0` | `tire_fr_rps` | rot/s | Velocidade angular da roda FR |
-| `0xA4` | `tire_rl_rps` | rot/s | Velocidade angular da roda RL |
-| `0xA8` | `tire_rr_rps` | rot/s | Velocidade angular da roda RR |
-| `0xAC` | `tire_fl_radius` | metros | Raio efectivo do pneu FL |
-| `0xB0` | `tire_fr_radius` | metros | Raio efectivo do pneu FR |
-| `0xB4` | `tire_rl_radius` | metros | Raio efectivo do pneu RL |
-| `0xB8` | `tire_rr_radius` | metros | Raio efectivo do pneu RR |
-| `0xBC` | `tire_fl_suspension` | metros | Altura de suspensão FL (compressão) |
-| `0xC0` | `tire_fr_suspension` | metros | Altura de suspensão FR |
-| `0xC4` | `tire_rl_suspension` | metros | Altura de suspensão RL |
-| `0xC8` | `tire_rr_suspension` | metros | Altura de suspensão RR |
+| `0x9C` | `tire_fl_rps` | rot/s | FL wheel angular velocity (negative = reversing) |
+| `0xA0` | `tire_fr_rps` | rot/s | FR wheel angular velocity |
+| `0xA4` | `tire_rl_rps` | rot/s | RL wheel angular velocity |
+| `0xA8` | `tire_rr_rps` | rot/s | RR wheel angular velocity |
+| `0xAC` | `tire_fl_radius` | metres | Effective FL tyre radius |
+| `0xB0` | `tire_fr_radius` | metres | Effective FR tyre radius |
+| `0xB4` | `tire_rl_radius` | metres | Effective RL tyre radius |
+| `0xB8` | `tire_rr_radius` | metres | Effective RR tyre radius |
+| `0xBC` | `tire_fl_suspension` | metres | FL suspension travel (compression height) |
+| `0xC0` | `tire_fr_suspension` | metres | FR suspension travel |
+| `0xC4` | `tire_rl_suspension` | metres | RL suspension travel |
+| `0xC8` | `tire_rr_suspension` | metres | RR suspension travel |
 
-> **Conversão RPM da roda:** `wheel_rpm = abs(rps) × 60`
+> **Wheel RPM conversion:** `wheel_rpm = abs(rps) × 60`
 
 ---
 
-### Corrida e Volta
+### Race and Lap
 
-| Offset | Tipo | Campo | Unidade | Descrição |
+| Offset | Type | Field | Unit | Description |
 |---|---|---|---|---|
-| `0x6C` | `u16` | `lap_count` | — | Número da volta atual |
-| `0x6E` | `u16` | `laps_in_race` | — | Total de voltas na corrida (0 = sem limite / não definido) |
-| `0x70` | `i32` | `best_lap_ms` | ms | Melhor volta (−1 = sem volta registrada) |
-| `0x74` | `i32` | `last_lap_ms` | ms | Última volta completa (−1 = sem volta) |
-| `0x78` | `i32` | `time_of_day_ms` | ms | Hora do dia no jogo (desde meia-noite) |
-| `0x7C` | `i16` | `race_start_pos` | — | Posição de largada na grade |
-| `0x7E` | `i16` | `pre_race_count` | — | Contagem regressiva pré-corrida |
+| `0x6C` | `u16` | `lap_count` | — | Current lap number |
+| `0x6E` | `u16` | `laps_in_race` | — | Total laps in race (0 = unlimited / not set) |
+| `0x70` | `i32` | `best_lap_ms` | ms | Best lap time (−1 = no lap recorded) |
+| `0x74` | `i32` | `last_lap_ms` | ms | Last completed lap (−1 = no lap) |
+| `0x78` | `i32` | `time_of_day_ms` | ms | In-game time of day (since midnight) |
+| `0x7C` | `i16` | `race_start_pos` | — | Grid starting position |
+| `0x7E` | `i16` | `pre_race_count` | — | Pre-race countdown value |
 
-> **Nota:** O `lap_time_ms` (tempo da volta atual em andamento) não está no pacote UDP.
-> Deve ser calculado localmente com base no `packet_id` e o timestamp de início da volta.
+> **Note:** The current lap time (`lap_time_ms`) is not included in the UDP packet.
+> It must be calculated locally using `packet_id` and the timestamp of the lap start.
 
 ---
 
-### Plano de Estrada
+### Road Plane
 
-| Offset | Tipo | Campo | Descrição |
+| Offset | Type | Field | Description |
 |---|---|---|---|
-| `0x8C` | `f32×3` | `road_plane` | Vetor normal do plano da pista sob o carro |
-| `0x98` | `f32` | `road_distance` | Distância do centro de massa ao plano da pista |
+| `0x8C` | `f32×3` | `road_plane` | Normal vector of the road surface beneath the car |
+| `0x98` | `f32` | `road_distance` | Distance from centre of mass to the road plane |
 
 ---
 
-### Identificação do Carro
+### Car Identification
 
-| Offset | Tipo | Campo | Descrição |
+| Offset | Type | Field | Description |
 |---|---|---|---|
-| `0x124` | `i64` | `car_code` | Identificador numérico do carro no catálogo do GT7 |
+| `0x124` | `i64` | `car_code` | Numeric identifier of the car in the GT7 catalogue |
 
 ---
 
-## Flags de Estado (`0x86`, u16)
+## State Flags (`0x86`, u16)
 
-Cada bit representa um estado booleano do jogo.
+Each bit represents a boolean game state.
 
-| Bit | Máscara | Nome | Descrição |
+| Bit | Mask | Name | Description |
 |---|---|---|---|
-| 0 | `0x0001` | `in_race` | Sessão de corrida/treino ativa |
-| 1 | `0x0002` | `paused` | Jogo pausado |
-| 2 | `0x0004` | `loading` | Carregando / tela de loading |
-| 3 | `0x0008` | `in_gear` | Carro está engatado (não em neutro) |
-| 4 | `0x0010` | `has_turbo` | Carro possui turbo |
-| 5 | `0x0020` | `rev_limiter` | Limitador de RPM ativo |
-| 6 | `0x0040` | `handbrake_active` | Freio de mão acionado |
-| 7 | `0x0080` | `lights_on` | Faróis ligados |
-| 8 | `0x0100` | `low_beam` | Farol baixo |
-| 9 | `0x0200` | `high_beam` | Farol alto |
-| 10 | `0x0400` | `asm_active` | ASM (Active Stability Management) atuando |
-| 11 | `0x0800` | `tcs_active` | TCS (Traction Control System) atuando |
+| 0 | `0x0001` | `in_race` | Race / practice session active |
+| 1 | `0x0002` | `paused` | Game is paused |
+| 2 | `0x0004` | `loading` | Loading screen active |
+| 3 | `0x0008` | `in_gear` | Car is in gear (not neutral) |
+| 4 | `0x0010` | `has_turbo` | Car has a turbocharger |
+| 5 | `0x0020` | `rev_limiter` | Rev limiter is active |
+| 6 | `0x0040` | `handbrake_active` | Handbrake applied |
+| 7 | `0x0080` | `lights_on` | Headlights on |
+| 8 | `0x0100` | `low_beam` | Low-beam headlights |
+| 9 | `0x0200` | `high_beam` | High-beam headlights |
+| 10 | `0x0400` | `asm_active` | ASM (Active Stability Management) intervening |
+| 11 | `0x0800` | `tcs_active` | TCS (Traction Control System) intervening |
 
 ---
 
-## Campos Não Disponíveis
+## Fields Not Available
 
-Os seguintes dados **não** são transmitidos pelo protocolo UDP do GT7:
+The following data is **not** transmitted by the GT7 UDP protocol:
 
-- Posição na corrida em tempo real (apenas largada em `race_start_pos`)
-- Tempo da volta em andamento (deve ser calculado localmente)
-- Temperatura dos freios
-- Nível de desgaste dos pneus
-- Dados de outros carros na corrida
-- DRS / ERS / bateria
+- Real-time race position (only grid position via `race_start_pos`)
+- Current lap time in progress (must be calculated locally)
+- Brake temperatures
+- Tyre wear level
+- Data from other cars in the race
+- DRS / ERS / battery state
 
 ---
 
-## Referência de Implementação
+## Implementation Reference
 
-| Arquivo | Responsabilidade |
+| File | Responsibility |
 |---|---|
-| `src/simracing/telemetry/gt7/parser.py` | Decifração Salsa20 + parsing dos 296 bytes |
-| `src/simracing/telemetry/gt7/receiver.py` | Socket UDP + loop de heartbeat |
-| `src/simracing/telemetry/models.py` | `TelemetryData` — modelo agnóstico de jogo |
+| `src/simracing/telemetry/gt7/parser.py` | Salsa20 decryption + 296-byte packet parsing |
+| `src/simracing/telemetry/gt7/receiver.py` | UDP socket + heartbeat loop |
+| `src/simracing/telemetry/models.py` | `TelemetryData` — game-agnostic data model |
 | `src/simracing/telemetry/provider.py` | `TelemetryProvider` ABC |

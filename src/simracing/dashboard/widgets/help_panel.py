@@ -22,43 +22,45 @@ C_LIGHT = (190, 200, 255)
 # fmt: off
 _LEFT = [
     ("section", "GAUGES"),
-    ("item",  "Velocidade",     "gauge esq. · km/h · arco: verde→laranja→vermelho ao se aproximar do limite",  C_ACCENT),
-    ("item",  "RPM",            "gauge dir. · rotação do motor · mesmo esquema de cores da velocidade",          C_ACCENT),
-    ("item",  "Barra RPM",      "faixa no topo · verde / laranja / vermelho conforme a zona de rotação",         C_ACCENT),
+    ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_ACCENT),
+    ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_ACCENT),
+    ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_ACCENT),
 
-    ("section", "MARCHAS & PEDAIS"),
-    ("item",  "Marcha",         "número grande no centro · N=neutro · R=ré",                                     C_TEXT),
-    ("item",  "→ N (laranja)",  "marcha sugerida pelo jogo — aparece quando diferente da atual",                  C_ORANGE),
-    ("item",  "C · B · T",      "barras verticais: embreagem (azul) · freio (vermelho) · acelerador (verde)",     C_TEXT),
-    ("item",  "FUEL (barra)",   "percentual de combustível restante no tanque",                                   C_ACCENT),
+    ("section", "GEARS & PEDALS"),
+    ("item",  "Gear",           "large number in center · N=neutral · R=reverse",                               C_TEXT),
+    ("item",  "→ N (orange)",   "game suggested gear — appears when different from current",                     C_ORANGE),
+    ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT),
+    ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT),
 
-    ("section", "G-METER (inf. esq.)"),
-    ("item",  "Ponto móvel",    "posição = força G atual: lateral (esq/dir) e longitudinal",                     C_TEXT),
-    ("item",  "Cor do ponto",   "verde <0.8G · laranja <1.5G · vermelho ≥1.5G",                                  C_TEXT),
-    ("item",  "Orientação",     "topo=frenagem · base=aceleração · lados=curvas esq./dir.",                      C_DIM),
+    ("section", "G-METER · SLIP (bottom left)"),
+    ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT),
+    ("item",  "G dot color",    "green <0.8G · orange <1.5G · red ≥1.5G",                                       C_TEXT),
+    ("item",  "SLIP bar",       "angle between velocity direction and car heading (oversteer indicator)",        C_TEXT),
+    ("item",  "SLIP color",     "green <5° (neutral) · orange <12° · red ≥12° (high oversteer)",                C_DIM),
 ]
 
 _RIGHT = [
-    ("section", "PNEUS (centro inf.)"),
-    ("item",  "Cor do tile",       "azul=frio (<60°C) · verde=ideal (60-130°C) · vermelho=quente (>130°C)",      C_TEXT),
-    ("item",  "Borda laranja",     "wheelspin: roda girando mais rápido que o esperado pela velocidade atual",    C_SPIN),
-    ("item",  "Borda ciano",       "lockup: roda travando sob frenagem intensa",                                  C_LOCK),
+    ("section", "TIRES (bottom center)"),
+    ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT),
+    ("item",  "Orange border",     "wheelspin: wheel spinning faster than expected for current speed",           C_SPIN),
+    ("item",  "Cyan border",       "lockup: wheel locking under heavy braking",                                  C_LOCK),
+    ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM),
 
-    ("section", "INDICADORES (strip abaixo do RPM)"),
-    ("item",  "TCS / ASM",         "controle de tração (laranja) ou estabilidade (amarelo) interveio",           C_SPIN),
-    ("item",  "REV / HB",          "limitador de RPM ativo · freio de mão acionado",                             C_RED),
-    ("item",  "LIGHT",             "faróis ligados — útil em corridas com segmentos noturnos",                   C_LIGHT),
-    ("item",  "OIL! / H₂O!",      "temperatura crítica: óleo >130°C ou água >105°C",                            C_RED),
+    ("section", "STATUS STRIP (below RPM bar)"),
+    ("item",  "TCS / ASM",         "traction control (orange) or stability (yellow) intervened",                C_SPIN),
+    ("item",  "REV / HB",          "rev limiter active · handbrake applied",                                    C_RED),
+    ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT),
+    ("item",  "OIL! / H₂O!",      "critical temperature: oil >130°C or water >105°C",                          C_RED),
 
-    ("section", "PAINEL DE INFO (dir.)"),
-    ("item",  "LAP / BEST / LAST", "volta atual · melhor volta · última volta completa",                          C_TEXT),
-    ("item",  "FUEL / FUEL·LAP",   "litros no tanque · consumo por volta após a 1ª troca de volta",              C_ACCENT),
-    ("item",  "LAPS LEFT",         "estimativa de voltas restantes com o combustível atual",                      C_TEXT),
-    ("item",  "WATER · OIL · BOOST", "fluidos e turbo · laranja = acima do limite seguro",                       C_ORANGE),
+    ("section", "INFO PANEL (right)"),
+    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT),
+    ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_ACCENT),
+    ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT),
+    ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE),
 ]
 # fmt: on
 
-_FOOTER = "ESC ou clique fora para fechar"
+_FOOTER = "Press ESC or click anywhere to close"
 
 _CARD_X, _CARD_Y = 56, 58       # card sits just below the header
 _CARD_W, _CARD_H = 1168, 632    # bottom ≈ 690, leaves margin on 720px screen
@@ -123,7 +125,7 @@ class HelpPanel:
             (_CARD_X, _CARD_Y + _TITLE_H),
             (_CARD_X + _CARD_W, _CARD_Y + _TITLE_H), 1,
         )
-        title = font_md.render("RACE ENGINEER  —  GUIA DOS ELEMENTOS", True, C_TITLE)
+        title = font_md.render("RACE ENGINEER  —  UI GUIDE", True, C_TITLE)
         surface.blit(title, title.get_rect(midleft=(_CARD_X + _PAD, _CARD_Y + _TITLE_H // 2)))
 
         mouse = pygame.mouse.get_pos()

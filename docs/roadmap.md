@@ -1,100 +1,52 @@
-# Roadmap — Funcionalidades de Telemetria
+# Roadmap — Telemetry Features
 
-Itens ordenados por valor prático para análise de performance em corrida.
+## Completed
 
----
-
-## 1. G-Meter (Lateral + Longitudinal)
-
-**O que é:** Exibição em tempo real das forças G sentidas pelo piloto — lateral (curvas) e longitudinal (frenagem e aceleração). Representado como um círculo com um ponto móvel (estilo MoTeC/AiM).
-
-**Como calcular:**
-- `G_lateral = speed_ms × angular_velocity.y / 9.81`
-- `G_longitudinal = Δspeed_ms / Δt / 9.81`
-
-**Onde exibir:** Canto inferior esquerdo, abaixo do gauge de velocidade.
-
-**Status:** ✅ Implementado
+| # | Feature | Notes |
+|---|---------|-------|
+| 1 | G-Meter (lateral + longitudinal) | Bottom-left circle · EMA smoothed |
+| 2 | Wheel slip per tyre | Orange border = wheelspin · Cyan = lockup |
+| 3 | TCS / ASM / REV / HB status strip | 7 chips below RPM bar |
+| 4 | Slip angle / oversteer indicator | Horizontal bar · green / orange / red thresholds |
+| 5 | Suspension travel per corner | Side bars on tyre tiles · fill = compression |
+| 6 | Fuel consumption rate per lap | Δfuel on lap change · laps remaining estimate |
 
 ---
 
-## 2. Wheel Slip por Roda
+## Pending
 
-**O que é:** Indica se cada roda está escorregando em relação à velocidade real do carro. Valores positivos = wheelspin (rodas girando mais rápido que o esperado, típico de aceleração excessiva). Valores negativos = lockup (rodas girando mais lento, típico de frenagem travada).
+### 7. Voice Communication
 
-**Como calcular:**
-```
-expected_rps = speed_ms / (2π × tire_radius)
-actual_rps   = wheel_rpm / 60
-slip_ratio   = (actual_rps - expected_rps) / expected_rps
-```
+Spoken feedback from the dashboard, replicating a real pit-wall engineer calling out information during the lap.
 
-**Onde exibir:** Borda colorida de cada tile de pneu (laranja = wheelspin, ciano = lockup).
+**Planned alerts:**
+- Tyre temperature out of window ("Fronts are cold", "Rear right overheating")
+- Fuel warning with laps remaining ("Four laps of fuel left")
+- Oil / water temperature critical
+- TCS / ASM sustained intervention ("You're losing it on exit")
+- Shift cue when near redline
 
-**Status:** ✅ Implementado
-
----
-
-## 3. Indicadores TCS / ASM
-
-**O que é:** Lights indicando quando o sistema eletrônico de controle de tração (TCS) e estabilidade (ASM) estão intervindo. Diretamente disponível nos bits 10 e 11 do campo `flags` do pacote GT7.
-
-**Onde exibir:** Linha de indicadores no header ou painel info.
-
-**Status:** Pendente
+**Implementation notes:**
+- Use `pyttsx3` (offline) or a cloud TTS API for voice synthesis
+- Throttle alerts with cooldown timers to avoid repetition
+- Configurable alert thresholds and voice toggle in Settings
 
 ---
 
-## 4. Slip Angle / Indicador de Oversteer
+### 8. Multi-Game Support
 
-**O que é:** Ângulo entre o vetor de velocidade do carro e a direção para a qual ele está apontando. Valor alto = oversteer (traseira saindo). Calculável a partir de `velocity` (espaço mundo) e `rotation` (orientação do carro).
+Extend the telemetry layer to support additional sim racing titles beyond GT7.
 
-**Como calcular:**
-```
-car_heading_x = sin(rotation.y)
-car_heading_z = cos(rotation.y)
-vel_dir = atan2(velocity.x, velocity.z)
-car_dir = atan2(car_heading_x, car_heading_z)
-slip_angle_deg = (vel_dir - car_dir) × (180/π)
-```
+| Game | Protocol | Notes |
+|------|----------|-------|
+| **Assetto Corsa** | UDP shared-memory bridge | `ac_physics` struct, port 9996 |
+| **Assetto Corsa Competizione** | UDP JSON (`graphics`, `physics`, `static`) | Port 9000 |
+| **F1 24 / F1 25** | Codemasters UDP telemetry | 20-byte header + typed packets |
+| **iRacing** | iRacing SDK shared memory | Windows only, requires `pyirsdk` |
 
-**Onde exibir:** Gauge dedicado ou linha numérica no painel info.
+**Implementation notes:**
+- Each game gets its own `simracing/telemetry/<game>/parser.py` + `receiver.py`
+- All parsers output a common `TelemetryData` object — dashboard requires no changes
+- Game auto-detection or manual selection in Settings panel
+- Some fields (e.g. suspension travel, angular velocity) may not be available in all titles and should fall back gracefully to zero / hidden widget
 
-**Status:** Pendente
-
----
-
-## 5. Suspensão (4 Cantos)
-
-**O que é:** Altura de viagem de suspensão em cada roda (FL, FR, RL, RR). Já disponível em `TireData.suspension_height`. Útil para detectar impacto em meio-fios, bottoming, e calibrar molas/amortecedores.
-
-**Onde exibir:** Diagrama de carro visto de cima com barras por canto, ou overlay no tile de pneu.
-
-**Status:** Pendente
-
----
-
-## 6. Consumo de Combustível (L/volta)
-
-**O que é:** Calcula automaticamente quanto combustível foi consumido por volta, e estima quantas voltas restam com o combustível atual. Essencial para estratégia de pit stop em corridas de endurance.
-
-**Como calcular:**
-```
-fuel_per_lap = fuel_at_lap_start - fuel_at_lap_end
-laps_remaining = current_fuel / fuel_per_lap
-```
-
-**Onde exibir:** Painel de informações (lado direito), logo abaixo das linhas de combustível existentes.
-
-**Status:** ✅ Implementado
-
----
-
-## Métricas Derivadas Futuras
-
-| Métrica | Fonte | Utilidade |
-|---|---|---|
-| Tempo da volta atual | `packet_id` × Δt desde início da volta | Exibir tempo corrente |
-| Velocidade máxima por marcha | `gear_ratios` × `rpm_max` × `radius` | Shift points no tacômetro |
-| Clutch slip | `rpm` vs `rpm_after_clutch` | Análise de largada |
-| Identificação do carro | `car_code` → tabela de nomes | Exibir nome no header |
