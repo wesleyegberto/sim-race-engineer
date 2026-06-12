@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -42,7 +43,9 @@ C_BTN_GEAR_HOVER = (55, 55, 70)
 
 ERROR_BAR_H = 22
 
-_IMG_DIR = Path(__file__).parent.parent / "img"
+# In a PyInstaller bundle __file__ is inside a temp dir; assets land in sys._MEIPASS.
+_BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
+_IMG_DIR = _BASE / "simracing" / "img" if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent / "img"
 
 
 def _fmt_lap(ms: int) -> str:
