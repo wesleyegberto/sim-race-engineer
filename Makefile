@@ -1,4 +1,4 @@
-.PHONY: install install-sys-deps run run-debug lint test clean
+.PHONY: install install-sys-deps run run-debug lint test build clean
 
 VENV    := .venv
 PYTHON  := $(VENV)/bin/python
@@ -29,5 +29,8 @@ lint:
 test:
 	$(VENV)/bin/pytest
 
+build:
+	./build.sh
+
 clean:
-	rm -rf $(VENV) __pycache__ src/**/__pycache__ .pytest_cache dist
+	rm -rf $(VENV) __pycache__ src/**/__pycache__ .pytest_cache dist build build_tmp

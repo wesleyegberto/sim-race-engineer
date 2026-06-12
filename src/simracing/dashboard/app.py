@@ -3,12 +3,14 @@
 import asyncio
 import logging
 import math
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pygame
 
 from ..config import AppConfig
+from ..recording.lap_recorder import LapRecorder
 from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
@@ -41,7 +43,9 @@ C_BTN_GEAR_HOVER = (55, 55, 70)
 
 ERROR_BAR_H = 22
 
-_IMG_DIR = Path(__file__).parent.parent / "img"
+# In a PyInstaller bundle __file__ is inside a temp dir; assets land in sys._MEIPASS.
+_BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
+_IMG_DIR = _BASE / "simracing" / "img" if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent / "img"
 
 
 def _fmt_lap(ms: int) -> str:
@@ -72,6 +76,7 @@ class DashboardApp:
         self._data: TelemetryData | None = None
         self._running = False
         self._icon: pygame.Surface | None = None
+        self._recorder = LapRecorder()
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
         _btn_y = (HEADER_H - 28) // 2
@@ -118,7 +123,10 @@ class DashboardApp:
         if d.in_race != self._prev_in_race:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
-            if not d.in_race:
+            if d.in_race:
+                self._recorder.start_session()
+            else:
+                self._recorder.stop_session()
                 self._reset_derived()
 
         if not d.in_race:
@@ -189,6 +197,7 @@ class DashboardApp:
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
 
+        self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle)
         self._data = d
 
     def _load_assets(self) -> None:
@@ -472,7 +481,10 @@ class DashboardApp:
             screen.blit(val, (x + 110, y))
             y += line_h
 
-        row("LAP", f"{d.current_lap} / {d.total_laps}")
+        lap_str = str(d.current_lap) if d.total_laps == 0 else f"{d.current_lap} / {d.total_laps}"
+        row("LAP", lap_str)
+        if d.race_position > 0 and d.cars_in_race > 0:
+            row("POS", f"{d.race_position} / {d.cars_in_race}")
         row("LAP TIME", _fmt_lap(d.lap_time_ms), C_ACCENT)
         row("BEST", _fmt_lap(d.best_lap_ms), C_GREEN)
         row("LAST", _fmt_lap(d.last_lap_ms))

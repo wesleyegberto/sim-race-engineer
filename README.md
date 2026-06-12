@@ -8,6 +8,8 @@ The dashboard is designed to help drivers improve lap times by making tyre state
 G-forces, fuel consumption, and electronic interventions immediately visible — information that is
 buried inside the game's menus or simply not shown at all.
 
+![](./img/dashboard-print-1.png)
+
 ---
 
 ## What Sim Race Engineer shows
