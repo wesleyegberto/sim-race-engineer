@@ -478,7 +478,10 @@ class DashboardApp:
             screen.blit(val, (x + 110, y))
             y += line_h
 
-        row("LAP", f"{d.current_lap} / {d.total_laps}")
+        lap_str = str(d.current_lap) if d.total_laps == 0 else f"{d.current_lap} / {d.total_laps}"
+        row("LAP", lap_str)
+        if d.race_position > 0 and d.cars_in_race > 0:
+            row("POS", f"{d.race_position} / {d.cars_in_race}")
         row("LAP TIME", _fmt_lap(d.lap_time_ms), C_ACCENT)
         row("BEST", _fmt_lap(d.best_lap_ms), C_GREEN)
         row("LAST", _fmt_lap(d.last_lap_ms))

@@ -149,6 +149,7 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
     lap_count, laps_in_race = struct.unpack_from("<hh", buf, 0x74)
     best_lap = struct.unpack_from("<i", buf, 0x78)[0]
     last_lap = struct.unpack_from("<i", buf, 0x7C)[0]
+    race_start_pos, total_positions = struct.unpack_from("<hh", buf, 0x84)
 
     min_rpm, max_rpm = struct.unpack_from("<HH", buf, 0x88)
     calc_max_speed = struct.unpack_from("<h", buf, 0x8C)[0]   # km/h, 0=unknown
@@ -217,6 +218,8 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
         tires=tires,
         current_lap=lap_count,
         total_laps=laps_in_race,
+        race_position=race_start_pos if race_start_pos > 0 else 0,
+        cars_in_race=total_positions if total_positions > 0 else 0,
         best_lap_ms=best_lap if best_lap > 0 else 0,
         last_lap_ms=last_lap if last_lap > 0 else 0,
         in_race=in_race,
