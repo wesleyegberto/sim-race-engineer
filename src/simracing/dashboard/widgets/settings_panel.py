@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 560
+_CARD_W, _CARD_H = 480, 620
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -40,6 +40,10 @@ class SettingsPanel:
         self._voice_alert_engine_temp = True
         self._voice_alert_tire_temp = True
         self._voice_alert_tire_inner_temp = True
+        self._voice_alert_oil_temp = True
+        self._voice_alert_tire_pressure = True
+        self._voice_alert_lap_delta = True
+        self._voice_alert_pit_window = True
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -81,6 +85,10 @@ class SettingsPanel:
         self._voice_chk_engine_temp   = pygame.Rect(col2_x,  alerts_y + 74, 18, 18)
         self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 100, 18, 18)
         self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 100, 18, 18)
+        self._voice_chk_oil_temp        = pygame.Rect(field_x, alerts_y + 126, 18, 18)
+        self._voice_chk_tire_pressure   = pygame.Rect(col2_x,  alerts_y + 126, 18, 18)
+        self._voice_chk_lap_delta       = pygame.Rect(field_x, alerts_y + 152, 18, 18)
+        self._voice_chk_pit_window      = pygame.Rect(col2_x,  alerts_y + 152, 18, 18)
 
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
@@ -101,6 +109,10 @@ class SettingsPanel:
         voice_alert_engine_temp: bool = True,
         voice_alert_tire_temp: bool = True,
         voice_alert_tire_inner_temp: bool = True,
+        voice_alert_oil_temp: bool = True,
+        voice_alert_tire_pressure: bool = True,
+        voice_alert_lap_delta: bool = True,
+        voice_alert_pit_window: bool = True,
     ) -> None:
         self._ip_text = current_ip
         self._rpm_flash = rpm_flash
@@ -115,6 +127,10 @@ class SettingsPanel:
         self._voice_alert_engine_temp = voice_alert_engine_temp
         self._voice_alert_tire_temp = voice_alert_tire_temp
         self._voice_alert_tire_inner_temp = voice_alert_tire_inner_temp
+        self._voice_alert_oil_temp = voice_alert_oil_temp
+        self._voice_alert_tire_pressure = voice_alert_tire_pressure
+        self._voice_alert_lap_delta = voice_alert_lap_delta
+        self._voice_alert_pit_window = voice_alert_pit_window
         self.active = True
         self._cursor_timer = 0
         self._cursor_visible = True
@@ -170,6 +186,10 @@ class SettingsPanel:
                 (self._voice_chk_engine_temp,   "_voice_alert_engine_temp"),
                 (self._voice_chk_tire_temp,       "_voice_alert_tire_temp"),
                 (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
+                (self._voice_chk_oil_temp,        "_voice_alert_oil_temp"),
+                (self._voice_chk_tire_pressure,   "_voice_alert_tire_pressure"),
+                (self._voice_chk_lap_delta,       "_voice_alert_lap_delta"),
+                (self._voice_chk_pit_window,      "_voice_alert_pit_window"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -305,6 +325,10 @@ class SettingsPanel:
             (self._voice_chk_engine_temp,   self._voice_alert_engine_temp,   "Engine temp"),
             (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
             (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Tyre wear"),
+            (self._voice_chk_oil_temp,        self._voice_alert_oil_temp,        "Oil temp"),
+            (self._voice_chk_tire_pressure,   self._voice_alert_tire_pressure,   "Tyre pres."),
+            (self._voice_chk_lap_delta,       self._voice_alert_lap_delta,       "Lap delta"),
+            (self._voice_chk_pit_window,      self._voice_alert_pit_window,      "Pit window"),
         ):
             enabled = self._voice_enabled
             pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
@@ -384,3 +408,19 @@ class SettingsPanel:
     @property
     def voice_alert_tire_inner_temp(self) -> bool:
         return self._voice_alert_tire_inner_temp
+
+    @property
+    def voice_alert_oil_temp(self) -> bool:
+        return self._voice_alert_oil_temp
+
+    @property
+    def voice_alert_tire_pressure(self) -> bool:
+        return self._voice_alert_tire_pressure
+
+    @property
+    def voice_alert_lap_delta(self) -> bool:
+        return self._voice_alert_lap_delta
+
+    @property
+    def voice_alert_pit_window(self) -> bool:
+        return self._voice_alert_pit_window

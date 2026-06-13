@@ -10,6 +10,11 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "engine_temp_high": "Water temp {temp:.0f} degrees. Watch the engine.",
         "tire_temp_high": "Tyre temp high. {corners}.",
         "tire_wear_excessive": "Excessive tyre wear. {corners}.",
+        "oil_temp_high": "Oil temp {temp:.0f} degrees. Watch the engine.",
+        "tire_pressure_low": "Tyre pressure low. {corners}.",
+        "tire_pressure_high": "Tyre pressure high. {corners}.",
+        "lap_delta_warn": "You are {delta:.1f} seconds off pace.",
+        "pit_window": "Box box box. {laps:.0f} laps of fuel.",
     },
     "pt": {
         "fuel_critical": "Combustível crítico. {fuel:.0f} litros restantes. {laps_text}",
@@ -20,6 +25,11 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "engine_temp_high": "Temperatura da água {temp:.0f} graus. Atenção ao motor.",
         "tire_temp_high": "Temperatura dos pneus alta. {corners}.",
         "tire_wear_excessive": "Desgaste excessivo de pneu. {corners}.",
+        "oil_temp_high": "Temperatura do óleo {temp:.0f} graus. Atenção ao motor.",
+        "tire_pressure_low": "Pressão dos pneus baixa. {corners}.",
+        "tire_pressure_high": "Pressão dos pneus alta. {corners}.",
+        "lap_delta_warn": "Você está {delta:.1f} segundos abaixo do ritmo.",
+        "pit_window": "Box box box. {laps:.0f} voltas de combustível.",
     },
 }
 
@@ -40,10 +50,13 @@ def _lap_time_text(ms: int, lang: str) -> str:
     return f"{m} minute {s} point {t}" if m > 0 else f"{s} point {t} seconds"
 
 
-def hot_corners_text(temps: list[float], threshold: float, lang: str) -> str:
+def hot_corners_text(temps: list[float], threshold: float, lang: str, invert: bool = False) -> str:
     names = _CORNERS.get(lang, _CORNERS["en"])
-    hot = [names[i] for i, t in enumerate(temps) if t > threshold]
-    return ", ".join(hot)
+    if invert:
+        corners = [names[i] for i, t in enumerate(temps) if 0 < t < threshold]
+    else:
+        corners = [names[i] for i, t in enumerate(temps) if t > threshold]
+    return ", ".join(corners)
 
 
 def _laps_text(laps: float, lang: str) -> str:

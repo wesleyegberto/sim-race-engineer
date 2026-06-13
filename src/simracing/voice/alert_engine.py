@@ -7,6 +7,8 @@ from .templates import _lap_time_text, _laps_text, format_alert, hot_corners_tex
 
 _TIRE_COOLDOWN_S = 30.0
 _ENGINE_COOLDOWN_S = 20.0
+_PRESSURE_COOLDOWN_S = 30.0
+_OIL_COOLDOWN_S = 20.0
 
 
 class AlertEngine:
@@ -112,6 +114,74 @@ class AlertEngine:
                 text = self._maybe_fire_interval(
                     "tire_wear", now, _TIRE_COOLDOWN_S,
                     format_alert("tire_wear_excessive", lang, corners=corners),
+                )
+                if text:
+                    alerts.append(text)
+
+        # ── Oil temperature ───────────────────────────────────────────────────
+        if cfg.voice_alert_oil_temp and data.oil_temp > 0:  # type: ignore[attr-defined]
+            oil_threshold: float = cfg.voice_oil_temp_threshold  # type: ignore[attr-defined]
+            if data.oil_temp > oil_threshold:
+                text = self._maybe_fire_interval(
+                    "oil_temp", now, _OIL_COOLDOWN_S,
+                    format_alert("oil_temp_high", lang, temp=data.oil_temp),
+                )
+                if text:
+                    alerts.append(text)
+
+        # ── Tire pressure ─────────────────────────────────────────────────────
+        if cfg.voice_alert_tire_pressure and data.tires:  # type: ignore[attr-defined]
+            pres_low: float = cfg.voice_tire_pressure_low_kpa  # type: ignore[attr-defined]
+            pres_high: float = cfg.voice_tire_pressure_high_kpa  # type: ignore[attr-defined]
+            pressures = [t.pressure for t in data.tires]
+            if any(p > 0 for p in pressures):  # only when data is populated
+                low_temps = [p for p in pressures if 0 < p < pres_low]
+                high_temps = [p for p in pressures if p > pres_high]
+                if low_temps:
+                    corners = hot_corners_text(
+                        pressures, pres_low,
+                        lang,
+                        invert=True,
+                    )
+                    text = self._maybe_fire_interval(
+                        "tire_pres_low", now, _PRESSURE_COOLDOWN_S,
+                        format_alert("tire_pressure_low", lang, corners=corners),
+                    )
+                    if text:
+                        alerts.append(text)
+                elif high_temps:
+                    corners = hot_corners_text(pressures, pres_high, lang)
+                    text = self._maybe_fire_interval(
+                        "tire_pres_high", now, _PRESSURE_COOLDOWN_S,
+                        format_alert("tire_pressure_high", lang, corners=corners),
+                    )
+                    if text:
+                        alerts.append(text)
+
+        # ── Lap delta ─────────────────────────────────────────────────────────
+        if cfg.voice_alert_lap_delta and data.best_lap_ms > 0 and data.lap_time_ms > 0:  # type: ignore[attr-defined]
+            delta_threshold_ms = int(cfg.voice_lap_delta_threshold_s * 1000)  # type: ignore[attr-defined]
+            delta_ms = data.lap_time_ms - data.best_lap_ms
+            past_halfway = data.lap_time_ms > data.best_lap_ms * 0.5
+            if delta_ms > delta_threshold_ms and past_halfway:
+                lap_key = f"lap_delta_{data.current_lap}"
+                text = self._maybe_fire_interval(
+                    lap_key, now, 9999.0,
+                    format_alert("lap_delta_warn", lang, delta=delta_ms / 1000.0),
+                )
+                if text:
+                    alerts.append(text)
+
+        # ── Pit window ────────────────────────────────────────────────────────
+        if cfg.voice_alert_pit_window and fuel_per_lap > 0 and data.total_laps > 0:  # type: ignore[attr-defined]
+            laps_of_fuel = data.fuel_level / fuel_per_lap
+            laps_remaining = max(0, data.total_laps - data.current_lap + 1)
+            pit_min: float = cfg.voice_pit_window_min_laps  # type: ignore[attr-defined]
+            pit_max: float = cfg.voice_pit_window_max_laps  # type: ignore[attr-defined]
+            if pit_min <= laps_of_fuel <= pit_max and laps_remaining > 1:
+                text = self._maybe_fire(
+                    "pit_window", now,
+                    format_alert("pit_window", lang, laps=laps_of_fuel),
                 )
                 if text:
                     alerts.append(text)

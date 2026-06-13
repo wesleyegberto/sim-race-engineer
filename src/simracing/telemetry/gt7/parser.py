@@ -55,6 +55,10 @@ Struct layout (little-endian, all offsets in bytes after decryption):
   0xC8  tire_fr_sus    f32
   0xCC  tire_rl_sus    f32
   0xD0  tire_rr_sus    f32
+  0xD4  tire_fl_pres   f32   (kPa)
+  0xD8  tire_fr_pres   f32
+  0xDC  tire_rl_pres   f32
+  0xE0  tire_rr_pres   f32
   0xF4  clutch         f32   (0-1)
   0xF8  clutch_engage  f32
   0xFC  rpm_after_clutch f32
@@ -105,17 +109,19 @@ def _vec3(buf: bytes, offset: int) -> Vector3:
 
 
 def _tire(buf: bytes, rps_off: int, rad_off: int, sus_off: int,
-          surface_temp: float, inner_off: int) -> TireData:
+          surface_temp: float, inner_off: int, pres_off: int) -> TireData:
     rps = struct.unpack_from("<f", buf, rps_off)[0]
     rad = struct.unpack_from("<f", buf, rad_off)[0]
     sus = struct.unpack_from("<f", buf, sus_off)[0]
     t_inner, t_mid, t_outer = struct.unpack_from("<fff", buf, inner_off)
+    pressure = struct.unpack_from("<f", buf, pres_off)[0]
     wheel_rpm = abs(rps) / (2.0 * 3.141592653589793) * 60.0
     return TireData(
         surface_temp=surface_temp,
         inner_temp=t_inner,
         middle_temp=t_mid,
         outer_temp=t_outer,
+        pressure=pressure,
         wheel_rpm=wheel_rpm,
         radius=rad,
         suspension_height=sus,
@@ -166,14 +172,15 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
     handbrake = struct.unpack_from("<f", buf, 0x110)[0]
 
     # Tire detailed data: FL=0, FR=1, RL=2, RR=3
-    rps_offsets = [0xA4, 0xA8, 0xAC, 0xB0]
-    rad_offsets = [0xB4, 0xB8, 0xBC, 0xC0]
-    sus_offsets = [0xC4, 0xC8, 0xCC, 0xD0]
+    rps_offsets  = [0xA4, 0xA8, 0xAC, 0xB0]
+    rad_offsets  = [0xB4, 0xB8, 0xBC, 0xC0]
+    sus_offsets  = [0xC4, 0xC8, 0xCC, 0xD0]
+    pres_offsets = [0xD4, 0xD8, 0xDC, 0xE0]
     inner_offsets = [0xE4, 0xF0, 0xFC, 0x108]
 
     tires = [
         _tire(buf, rps_offsets[i], rad_offsets[i], sus_offsets[i],
-              surf_temps[i], inner_offsets[i])
+              surf_temps[i], inner_offsets[i], pres_offsets[i])
         for i in range(4)
     ]
 

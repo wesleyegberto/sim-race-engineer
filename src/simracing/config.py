@@ -40,9 +40,19 @@ class AppConfig:
         self.voice_alert_engine_temp: bool = True
         self.voice_alert_tire_temp: bool = True
         self.voice_alert_tire_inner_temp: bool = True
+        self.voice_alert_oil_temp: bool = True
+        self.voice_alert_tire_pressure: bool = True
+        self.voice_alert_lap_delta: bool = True
+        self.voice_alert_pit_window: bool = True
         self.voice_engine_temp_threshold: float = 105.0
         self.voice_tire_temp_threshold: float = 100.0
         self.voice_tire_inner_temp_threshold: float = 110.0
+        self.voice_oil_temp_threshold: float = 130.0
+        self.voice_tire_pressure_low_kpa: float = 160.0
+        self.voice_tire_pressure_high_kpa: float = 250.0
+        self.voice_lap_delta_threshold_s: float = 3.0
+        self.voice_pit_window_min_laps: float = 2.0
+        self.voice_pit_window_max_laps: float = 4.0
 
         self.load()
 
@@ -76,9 +86,19 @@ class AppConfig:
             "alert_engine_temp": str(self.voice_alert_engine_temp),
             "alert_tire_temp": str(self.voice_alert_tire_temp),
             "alert_tire_inner_temp": str(self.voice_alert_tire_inner_temp),
+            "alert_oil_temp": str(self.voice_alert_oil_temp),
+            "alert_tire_pressure": str(self.voice_alert_tire_pressure),
+            "alert_lap_delta": str(self.voice_alert_lap_delta),
+            "alert_pit_window": str(self.voice_alert_pit_window),
             "engine_temp_threshold": str(self.voice_engine_temp_threshold),
             "tire_temp_threshold": str(self.voice_tire_temp_threshold),
             "tire_inner_temp_threshold": str(self.voice_tire_inner_temp_threshold),
+            "oil_temp_threshold": str(self.voice_oil_temp_threshold),
+            "tire_pressure_low_kpa": str(self.voice_tire_pressure_low_kpa),
+            "tire_pressure_high_kpa": str(self.voice_tire_pressure_high_kpa),
+            "lap_delta_threshold_s": str(self.voice_lap_delta_threshold_s),
+            "pit_window_min_laps": str(self.voice_pit_window_min_laps),
+            "pit_window_max_laps": str(self.voice_pit_window_max_laps),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -107,7 +127,17 @@ class AppConfig:
         self.voice_alert_engine_temp = cp.getboolean(self._VOICE, "alert_engine_temp", fallback=True)
         self.voice_alert_tire_temp = cp.getboolean(self._VOICE, "alert_tire_temp", fallback=True)
         self.voice_alert_tire_inner_temp = cp.getboolean(self._VOICE, "alert_tire_inner_temp", fallback=True)
+        self.voice_alert_oil_temp = cp.getboolean(self._VOICE, "alert_oil_temp", fallback=True)
+        self.voice_alert_tire_pressure = cp.getboolean(self._VOICE, "alert_tire_pressure", fallback=True)
+        self.voice_alert_lap_delta = cp.getboolean(self._VOICE, "alert_lap_delta", fallback=True)
+        self.voice_alert_pit_window = cp.getboolean(self._VOICE, "alert_pit_window", fallback=True)
         self.voice_engine_temp_threshold = cp.getfloat(self._VOICE, "engine_temp_threshold", fallback=105.0)
         self.voice_tire_temp_threshold = cp.getfloat(self._VOICE, "tire_temp_threshold", fallback=100.0)
         self.voice_tire_inner_temp_threshold = cp.getfloat(self._VOICE, "tire_inner_temp_threshold", fallback=110.0)
+        self.voice_oil_temp_threshold = cp.getfloat(self._VOICE, "oil_temp_threshold", fallback=130.0)
+        self.voice_tire_pressure_low_kpa = cp.getfloat(self._VOICE, "tire_pressure_low_kpa", fallback=160.0)
+        self.voice_tire_pressure_high_kpa = cp.getfloat(self._VOICE, "tire_pressure_high_kpa", fallback=250.0)
+        self.voice_lap_delta_threshold_s = cp.getfloat(self._VOICE, "lap_delta_threshold_s", fallback=3.0)
+        self.voice_pit_window_min_laps = cp.getfloat(self._VOICE, "pit_window_min_laps", fallback=2.0)
+        self.voice_pit_window_max_laps = cp.getfloat(self._VOICE, "pit_window_max_laps", fallback=4.0)
         return cp.get(self._SECTION, "device_ip", fallback="")

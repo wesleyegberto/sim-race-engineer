@@ -17,6 +17,7 @@ class TireData:
     middle_temp: float = 0.0     # °C
     outer_temp: float = 0.0      # °C
     wear: float = 0.0            # 0.0–1.0
+    pressure: float = 0.0        # kPa
     wheel_rpm: float = 0.0
     radius: float = 0.0          # metres
     suspension_height: float = 0.0  # metres
