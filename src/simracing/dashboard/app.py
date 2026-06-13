@@ -580,6 +580,9 @@ class DashboardApp:
             row("FUEL/LAP", f"{self._fuel_per_lap:.2f} L", C_ACCENT, icon=self._icon_fuel)
             row("LAPS LEFT", f"{laps_left:.1f}",
                 C_ORANGE if laps_left < 3 else C_TEXT, icon=self._icon_fuel)
+        else:
+            row("FUEL/LAP", "-", C_DIM, icon=self._icon_fuel)
+            row("LAPS LEFT", "-", C_DIM, icon=self._icon_fuel)
         row("OIL", f"{d.oil_temp:.0f} °C",
             C_ORANGE if d.oil_temp > 130 else C_TEXT, icon=self._icon_oil_sm)
         row("WATER", f"{d.water_temp:.0f} °C",
