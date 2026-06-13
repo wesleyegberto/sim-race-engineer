@@ -4,7 +4,7 @@
 set -euo pipefail
 
 APP_NAME="SimRaceEngineer"
-ENTRY="src/simracing/main.py"
+ENTRY="simracing_launcher.py"
 ICON="src/simracing/img/engineer.png"
 OUT_DIR="dist"
 
@@ -60,8 +60,9 @@ python -m PyInstaller \
   --onedir \
   --noconfirm \
   ${ICON_FLAG} \
+  --paths "src" \
   --add-data "src/simracing/img:simracing/img" \
-  --hidden-import "Crypto.Cipher.Salsa20" \
+  --collect-submodules "Crypto" \
   --hidden-import "pandas" \
   --hidden-import "pyarrow" \
   --hidden-import "pyarrow.vendored.version" \
