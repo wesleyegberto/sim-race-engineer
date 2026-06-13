@@ -238,16 +238,20 @@ class DashboardApp:
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
 
-        if self._recording:
-            self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
-
+        # Race end: runs BEFORE on_frame so the finish-line frame finalizes the last
+        # lap (last_lap_ms is available) without being recorded as telemetry data.
+        # Free practice (total_laps == 0) is excluded — keep recording indefinitely.
         if (d.in_race and not self._race_finished
                 and d.total_laps > 0 and d.current_lap > d.total_laps):
             log.info("Race finished — lap %d / %d total, closing session",
                      d.current_lap, d.total_laps)
             self._race_finished = True
             if self._recorder.active:
-                self._recorder.stop_session(partial_label="race_end")
+                self._recorder.close_current_lap(d, self._fuel_per_lap)
+                self._recorder.stop_session()
+
+        if self._recording and not self._race_finished:
+            self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
 
         self._data = d
 

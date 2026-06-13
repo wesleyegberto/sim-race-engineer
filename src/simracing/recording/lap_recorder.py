@@ -256,6 +256,20 @@ class LapRecorder:
         self._prev_lap = -1
         log.info("LapRecorder session started — saving to %s", self._session_dir)
 
+    def close_current_lap(self, d: TelemetryData, fuel_avg: float = 0.0) -> None:
+        """Finalize and save the current lap buffer without recording d as a frame.
+
+        Used at race end: d carries last_lap_ms for the finished lap but should
+        not be recorded as telemetry (it's the first post-finish-line frame).
+        """
+        if self._current and self._current.num_frames() > 0:
+            self._current.fuel_at_end = d.fuel_level
+            self._current.fuel_used = max(0.0, self._current.fuel_at_start - d.fuel_level)
+            self._current.fuel_avg = fuel_avg
+            self._current.lap_finish_ms = d.last_lap_ms
+            self._save(self._current)
+        self._current = None
+
     def stop_session(self, partial_label: str = "incomplete") -> None:
         if self._current and self._current.num_frames() > 0:
             self._save(self._current, label=partial_label)
