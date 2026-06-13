@@ -21,7 +21,7 @@ C_LIGHT = (190, 200, 255)
 
 # fmt: off
 _LEFT = [
-    ("section", "GAUGES", "speedometer"),
+    ("section", "GAUGES", "panel-cluster"),
     ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_ACCENT, "speedometer"),
     ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_ACCENT, "rpm"),
     ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_ACCENT, "rpm"),
