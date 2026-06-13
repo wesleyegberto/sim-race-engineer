@@ -523,12 +523,14 @@ class DashboardApp:
         pygame.draw.rect(screen, (60, 60, 70), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
 
     def _draw_info(self, screen, font_sm: pygame.font.Font, d: TelemetryData) -> None:
-        PX, PY, PW = 710, 295, 185
+        PX, PY, PW = 710, 295, 210
         PAD = 10
+        ICON_SZ = 14
+        ICON_GAP = 5
         SEP_COLOR = (50, 50, 68)
         line_h = 30
 
-        icon_x = PX + PAD
+        label_x = PX + PAD
         val_rx = PX + PW - PAD  # right edge for value alignment
 
         # pre-draw card (fixed height covers max possible rows)
@@ -541,10 +543,13 @@ class DashboardApp:
         y = PY + PAD
         font_h = font_sm.get_height()
 
-        def row(_label: str, value: str, color=C_TEXT, icon=None) -> None:
+        def row(label: str, value: str, color=C_TEXT, icon=None) -> None:
             nonlocal y
+            ix = label_x
             if icon is not None:
-                screen.blit(icon, icon.get_rect(midleft=(icon_x, y + font_h // 2)))
+                screen.blit(icon, icon.get_rect(midleft=(ix, y + font_h // 2)))
+                ix += ICON_SZ + ICON_GAP
+            screen.blit(font_sm.render(label, True, C_DIM), (ix, y))
             val_surf = font_sm.render(value, True, color)
             screen.blit(val_surf, val_surf.get_rect(midright=(val_rx, y + font_h // 2)))
             y += line_h
@@ -585,4 +590,4 @@ class DashboardApp:
             flags.append("MENU")
         if flags:
             sep()
-            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (icon_x, y))
+            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (label_x, y))
