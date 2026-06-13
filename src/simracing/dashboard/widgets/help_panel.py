@@ -90,6 +90,9 @@ _APP_RIGHT = [
     ("item",  "lap_finish_ms",    "official lap time from GT7 (milliseconds)",                    C_TEXT,   "stopwatch"),
     ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT,   "car-pedals"),
 
+    ("section", "HEADER CONTROLS", "panel-cluster"),
+    ("item",  "● REC",            "red = recording · grey = off · toggle mid-race saves immediately", C_RED),
+
     ("section", "SETTINGS  (~/simracing.conf)", "panel-cluster"),
     ("item",  "device_ip",        "PS5 / PC IP address",                                          C_TEXT),
     ("item",  "rev_flash",        "true / false — full-screen flash at rev limiter",               C_TEXT,   "rpm"),
