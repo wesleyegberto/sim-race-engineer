@@ -240,6 +240,7 @@ class DashboardApp:
         self._icon_oil = _load_icon("oil.png", 20, C_TEXT)
         self._icon_coolant = _load_icon("engine-coolant.png", 20, C_TEXT)
         self._icon_gforce = _load_icon("g-force.png", 15, C_DIM)
+        self._icon_drifting = _load_icon("drifting.png", 15, C_DIM)
 
     def run(self) -> None:
         pygame.init()
@@ -315,7 +316,7 @@ class DashboardApp:
                 self._settings.draw(screen, font_md, font_sm, dt)
             if self._help:
                 self._help.draw(screen, font_md, font_sm, self._icon_close,
-                                icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce})
+                                icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting})
             pygame.display.flip()
 
         pygame.quit()
