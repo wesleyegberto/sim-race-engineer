@@ -3,11 +3,13 @@
 import argparse
 import asyncio
 import logging
+import queue
 import threading
 
 from .config import AppConfig
 from .dashboard.app import DashboardApp
 from .telemetry.gt7 import GT7TelemetryProvider
+from .telemetry.models import TelemetryData
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +27,7 @@ STATUS_ERROR        = "error"
 class TelemetryController:
     """Manages the telemetry background thread with start/stop control."""
 
-    def __init__(self, config: AppConfig, bind_ip: str, queue: asyncio.Queue) -> None:
+    def __init__(self, config: AppConfig, bind_ip: str, queue: "queue.Queue[TelemetryData]") -> None:
         self._config = config
         self._bind_ip = bind_ip
         self._queue = queue
@@ -86,10 +88,10 @@ class TelemetryController:
                             )
                         try:
                             self._queue.put_nowait(data)
-                        except asyncio.QueueFull:
+                        except queue.Full:
                             try:
                                 self._queue.get_nowait()
-                            except asyncio.QueueEmpty:
+                            except queue.Empty:
                                 pass
                             self._queue.put_nowait(data)
             except asyncio.CancelledError:
@@ -139,14 +141,14 @@ def main() -> None:
         voice_service = VoiceService(config)
         voice_service.start()
 
-    queue: asyncio.Queue = asyncio.Queue(maxsize=4)
-    controller = TelemetryController(config=config, bind_ip=args.bind, queue=queue)
+    telemetry_queue: queue.Queue[TelemetryData] = queue.Queue(maxsize=4)
+    controller = TelemetryController(config=config, bind_ip=args.bind, queue=telemetry_queue)
 
     if config.device_ip:
         controller.start()
 
     app = DashboardApp(
-        telemetry_queue=queue,
+        telemetry_queue=telemetry_queue,
         config=config,
         connect_fn=controller.start,
         disconnect_fn=controller.stop,

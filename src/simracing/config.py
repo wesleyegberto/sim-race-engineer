@@ -57,10 +57,12 @@ class AppConfig:
         self.load()
 
     def load(self) -> None:
-        ip = self._read_file()
-        if not ip:
-            ip = os.environ.get(self.ENV_VAR, "")
-        self.device_ip = ip
+        if self.PATH.exists():
+            cp = ConfigParser()
+            cp.read(self.PATH)
+            self._load_from_file(cp)
+        if not self.device_ip:
+            self.device_ip = os.environ.get(self.ENV_VAR, "")
 
     def save(self) -> None:
         cp = ConfigParser()
@@ -104,11 +106,8 @@ class AppConfig:
         with open(self.PATH, "w") as fh:
             cp.write(fh)
 
-    def _read_file(self) -> str:
-        if not self.PATH.exists():
-            return ""
-        cp = ConfigParser()
-        cp.read(self.PATH)
+    def _load_from_file(self, cp: ConfigParser) -> None:
+        self.device_ip = cp.get(self._SECTION, "device_ip", fallback="")
         self.rpm_flash = cp.getboolean(self._SECTION, "rpm_flash", fallback=True)
         self.fuel_estimation = cp.get(self._SECTION, "fuel_estimation", fallback="average")
         self.voice_enabled = cp.getboolean(self._VOICE, "enabled", fallback=False)
@@ -140,4 +139,3 @@ class AppConfig:
         self.voice_lap_delta_threshold_s = cp.getfloat(self._VOICE, "lap_delta_threshold_s", fallback=3.0)
         self.voice_pit_window_min_laps = cp.getfloat(self._VOICE, "pit_window_min_laps", fallback=2.0)
         self.voice_pit_window_max_laps = cp.getfloat(self._VOICE, "pit_window_max_laps", fallback=4.0)
-        return cp.get(self._SECTION, "device_ip", fallback="")

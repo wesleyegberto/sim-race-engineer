@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 620
+_CARD_W, _CARD_H = 480, 680
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -77,18 +77,29 @@ class SettingsPanel:
         alerts_y = self._voice_restart_note_y + 30
         self._voice_alerts_sep_y = alerts_y
         col2_x = field_x + 220
-        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 22, 18, 18)
-        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 22, 18, 18)
-        self._voice_chk_lap_completed = pygame.Rect(field_x, alerts_y + 48, 18, 18)
-        self._voice_chk_best_lap      = pygame.Rect(col2_x,  alerts_y + 48, 18, 18)
-        self._voice_chk_final_lap     = pygame.Rect(field_x, alerts_y + 74, 18, 18)
-        self._voice_chk_engine_temp   = pygame.Rect(col2_x,  alerts_y + 74, 18, 18)
-        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 100, 18, 18)
-        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 100, 18, 18)
-        self._voice_chk_oil_temp        = pygame.Rect(field_x, alerts_y + 126, 18, 18)
-        self._voice_chk_tire_pressure   = pygame.Rect(col2_x,  alerts_y + 126, 18, 18)
-        self._voice_chk_lap_delta       = pygame.Rect(field_x, alerts_y + 152, 18, 18)
-        self._voice_chk_pit_window      = pygame.Rect(col2_x,  alerts_y + 152, 18, 18)
+
+        # ── Race group ────────────────────────────────────────────────────────
+        self._voice_grp_race_lbl_y    = alerts_y + 24
+        self._voice_chk_lap_completed = pygame.Rect(field_x, alerts_y + 40, 18, 18)
+        self._voice_chk_best_lap      = pygame.Rect(col2_x,  alerts_y + 40, 18, 18)
+        self._voice_chk_final_lap     = pygame.Rect(field_x, alerts_y + 62, 18, 18)
+        self._voice_chk_lap_delta     = pygame.Rect(col2_x,  alerts_y + 62, 18, 18)
+
+        # ── Fuel & Pit group ──────────────────────────────────────────────────
+        self._voice_grp_fuel_sep_y    = alerts_y + 84
+        self._voice_grp_fuel_lbl_y    = alerts_y + 90
+        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 106, 18, 18)
+        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 106, 18, 18)
+        self._voice_chk_pit_window    = pygame.Rect(field_x, alerts_y + 128, 18, 18)
+
+        # ── Car health group ──────────────────────────────────────────────────
+        self._voice_grp_car_sep_y     = alerts_y + 150
+        self._voice_grp_car_lbl_y     = alerts_y + 156
+        self._voice_chk_engine_temp     = pygame.Rect(field_x, alerts_y + 172, 18, 18)
+        self._voice_chk_oil_temp        = pygame.Rect(col2_x,  alerts_y + 172, 18, 18)
+        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 194, 18, 18)
+        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 194, 18, 18)
+        self._voice_chk_tire_pressure   = pygame.Rect(field_x, alerts_y + 216, 18, 18)
 
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
@@ -178,18 +189,18 @@ class SettingsPanel:
             if self._voice_btn_test.collidepoint(pos) and self._voice_enabled:
                 return "test_voice"
             for chk, attr in (
-                (self._voice_chk_fuel_low,      "_voice_alert_fuel_low"),
-                (self._voice_chk_fuel_critical, "_voice_alert_fuel_critical"),
-                (self._voice_chk_lap_completed, "_voice_alert_lap_completed"),
-                (self._voice_chk_best_lap,      "_voice_alert_best_lap"),
-                (self._voice_chk_final_lap,     "_voice_alert_final_lap"),
-                (self._voice_chk_engine_temp,   "_voice_alert_engine_temp"),
+                (self._voice_chk_lap_completed,   "_voice_alert_lap_completed"),
+                (self._voice_chk_best_lap,        "_voice_alert_best_lap"),
+                (self._voice_chk_final_lap,       "_voice_alert_final_lap"),
+                (self._voice_chk_lap_delta,       "_voice_alert_lap_delta"),
+                (self._voice_chk_fuel_low,        "_voice_alert_fuel_low"),
+                (self._voice_chk_fuel_critical,   "_voice_alert_fuel_critical"),
+                (self._voice_chk_pit_window,      "_voice_alert_pit_window"),
+                (self._voice_chk_engine_temp,     "_voice_alert_engine_temp"),
+                (self._voice_chk_oil_temp,        "_voice_alert_oil_temp"),
                 (self._voice_chk_tire_temp,       "_voice_alert_tire_temp"),
                 (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
-                (self._voice_chk_oil_temp,        "_voice_alert_oil_temp"),
                 (self._voice_chk_tire_pressure,   "_voice_alert_tire_pressure"),
-                (self._voice_chk_lap_delta,       "_voice_alert_lap_delta"),
-                (self._voice_chk_pit_window,      "_voice_alert_pit_window"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -309,26 +320,46 @@ class SettingsPanel:
         note = font_sm.render("* Language change requires app restart", True, note_color)
         screen.blit(note, (self._voice_btn_en.x, self._voice_restart_note_y))
 
-        # Alert events section
+        # Engineer communications section
         pygame.draw.line(screen, C_BORDER,
                          (self._card.x + 1, self._voice_alerts_sep_y),
                          (self._card.right - 1, self._voice_alerts_sep_y))
-        alerts_lbl = font_sm.render("Alert events", True, C_DIM if not self._voice_enabled else C_DIM)
-        screen.blit(alerts_lbl, (self._voice_chk_fuel_low.x, self._voice_alerts_sep_y + 6))
+        alerts_lbl = font_sm.render("Engineer communications", True, C_DIM)
+        screen.blit(alerts_lbl, (self._voice_chk_lap_completed.x, self._voice_alerts_sep_y + 6))
+
+        grp_color = (160, 160, 175)
+        _sep_x0 = self._card.x + 20
+        _sep_x1 = self._card.right - 20
+
+        # Race sub-group
+        screen.blit(font_sm.render("Race", True, grp_color),
+                    (self._voice_chk_lap_completed.x, self._voice_grp_race_lbl_y))
+
+        # Fuel & Pit sub-group
+        pygame.draw.line(screen, (42, 42, 55), (_sep_x0, self._voice_grp_fuel_sep_y),
+                         (_sep_x1, self._voice_grp_fuel_sep_y))
+        screen.blit(font_sm.render("Fuel & Pit", True, grp_color),
+                    (self._voice_chk_lap_completed.x, self._voice_grp_fuel_lbl_y))
+
+        # Car health sub-group
+        pygame.draw.line(screen, (42, 42, 55), (_sep_x0, self._voice_grp_car_sep_y),
+                         (_sep_x1, self._voice_grp_car_sep_y))
+        screen.blit(font_sm.render("Car health", True, grp_color),
+                    (self._voice_chk_lap_completed.x, self._voice_grp_car_lbl_y))
 
         for chk, checked, label in (
-            (self._voice_chk_fuel_low,      self._voice_alert_fuel_low,      "Fuel low"),
-            (self._voice_chk_fuel_critical, self._voice_alert_fuel_critical, "Fuel critical"),
-            (self._voice_chk_lap_completed, self._voice_alert_lap_completed, "Lap completed"),
-            (self._voice_chk_best_lap,      self._voice_alert_best_lap,      "Best lap"),
-            (self._voice_chk_final_lap,     self._voice_alert_final_lap,     "Final lap"),
-            (self._voice_chk_engine_temp,   self._voice_alert_engine_temp,   "Engine temp"),
+            (self._voice_chk_lap_completed,   self._voice_alert_lap_completed,   "Lap completed"),
+            (self._voice_chk_best_lap,        self._voice_alert_best_lap,        "Best lap"),
+            (self._voice_chk_final_lap,       self._voice_alert_final_lap,       "Final lap"),
+            (self._voice_chk_lap_delta,       self._voice_alert_lap_delta,       "Lap delta"),
+            (self._voice_chk_fuel_low,        self._voice_alert_fuel_low,        "Fuel low"),
+            (self._voice_chk_fuel_critical,   self._voice_alert_fuel_critical,   "Fuel critical"),
+            (self._voice_chk_pit_window,      self._voice_alert_pit_window,      "Pit window"),
+            (self._voice_chk_engine_temp,     self._voice_alert_engine_temp,     "Engine temp"),
+            (self._voice_chk_oil_temp,        self._voice_alert_oil_temp,        "Oil temp"),
             (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
             (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Tyre wear"),
-            (self._voice_chk_oil_temp,        self._voice_alert_oil_temp,        "Oil temp"),
             (self._voice_chk_tire_pressure,   self._voice_alert_tire_pressure,   "Tyre pres."),
-            (self._voice_chk_lap_delta,       self._voice_alert_lap_delta,       "Lap delta"),
-            (self._voice_chk_pit_window,      self._voice_alert_pit_window,      "Pit window"),
         ):
             enabled = self._voice_enabled
             pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)

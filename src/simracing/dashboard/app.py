@@ -1,8 +1,8 @@
 """Main pygame dashboard application."""
 
-import asyncio
 import logging
 import math
+import queue as _queue
 import signal
 import sys
 from collections.abc import Callable
@@ -62,7 +62,7 @@ def _fmt_lap(ms: int) -> str:
 class DashboardApp:
     def __init__(
         self,
-        telemetry_queue: asyncio.Queue,
+        telemetry_queue: _queue.Queue[TelemetryData],
         config: AppConfig,
         connect_fn: Callable[[], None] | None = None,
         disconnect_fn: Callable[[], None] | None = None,
@@ -428,7 +428,7 @@ class DashboardApp:
             while not self._queue.empty():
                 try:
                     self._update_telemetry(self._queue.get_nowait(), dt)
-                except asyncio.QueueEmpty:
+                except _queue.Empty:
                     break
 
             screen.fill(C_BG)
@@ -571,18 +571,13 @@ class DashboardApp:
             if free_surf:
                 screen.blit(free_surf, free_surf.get_rect(midleft=(lx + label_surf.get_width() + badge_gap, sy)))
 
-        # Device IP / error indicator (right of title, left of buttons)
+        # Error indicator only — IP shown in Settings panel
         status = self._get_status_fn()
         error = self._get_error_fn()
         if status == "error" and error:
-            info_text = f"[!] {error[:36]}"
-            info_color = C_RED
-        else:
-            info_text = f"device: {self._config.device_ip or 'not configured'}"
-            info_color = C_DIM if self._config.device_ip else C_ORANGE
-        info_surf = font_sm.render(info_text, True, info_color)
-        screen.blit(info_surf, info_surf.get_rect(
-            midright=(self._conn_btn.left - 12, HEADER_H // 2)))
+            info_surf = font_sm.render(f"[!] {error[:36]}", True, C_RED)
+            screen.blit(info_surf, info_surf.get_rect(
+                midright=(self._conn_btn.left - 12, HEADER_H // 2)))
 
         mouse = pygame.mouse.get_pos()
 
