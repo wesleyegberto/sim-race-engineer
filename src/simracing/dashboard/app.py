@@ -76,6 +76,8 @@ class DashboardApp:
         self._data: TelemetryData | None = None
         self._running = False
         self._icon: pygame.Surface | None = None
+        self._icon_settings: pygame.Surface | None = None
+        self._icon_info: pygame.Surface | None = None
         self._recorder = LapRecorder()
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
@@ -201,14 +203,20 @@ class DashboardApp:
         self._data = d
 
     def _load_assets(self) -> None:
-        icon_path = _IMG_DIR / "engineer.png"
-        if icon_path.exists():
-            raw = pygame.image.load(str(icon_path)).convert_alpha()
-            raw = pygame.transform.smoothscale(raw, (32, 32))
-            raw.fill(C_TEXT, special_flags=pygame.BLEND_RGB_MAX)
-            self._icon = raw
-        else:
-            log.warning("Icon not found: %s", icon_path)
+        def _load_icon(filename: str, size: int, tint: tuple | None = None) -> pygame.Surface | None:
+            path = _IMG_DIR / filename
+            if not path.exists():
+                log.warning("Icon not found: %s", path)
+                return None
+            surf = pygame.image.load(str(path)).convert_alpha()
+            surf = pygame.transform.smoothscale(surf, (size, size))
+            if tint:
+                surf.fill(tint, special_flags=pygame.BLEND_RGB_MAX)
+            return surf
+
+        self._icon = _load_icon("engineer.png", 32, C_TEXT)
+        self._icon_settings = _load_icon("settings.png", 18, C_TEXT)
+        self._icon_info = _load_icon("info.png", 18, C_TEXT)
 
     def run(self) -> None:
         pygame.init()
@@ -376,7 +384,7 @@ class DashboardApp:
         status = self._get_status_fn()
         error = self._get_error_fn()
         if status == "error" and error:
-            info_text = f"⚠ {error[:38]}"
+            info_text = f"[!] {error[:36]}"
             info_color = C_RED
         else:
             info_text = f"device: {self._config.device_ip or 'not configured'}"
@@ -414,17 +422,23 @@ class DashboardApp:
         lbl_surf = font_sm.render(conn_label, True, conn_dot)
         screen.blit(lbl_surf, lbl_surf.get_rect(midleft=(dot_x + 9, dot_y)))
 
-        # Help button ?
+        # Help button
         hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR
         pygame.draw.rect(screen, hbtn_color, self._help_btn, border_radius=5)
-        h_sym = font_md.render("?", True, C_TEXT)
-        screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
+        if self._icon_info:
+            screen.blit(self._icon_info, self._icon_info.get_rect(center=self._help_btn.center))
+        else:
+            h_sym = font_md.render("?", True, C_TEXT)
+            screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
 
-        # Settings button ⚙
+        # Settings button
         gbtn_color = C_BTN_GEAR_HOVER if self._gear_btn.collidepoint(mouse) else C_BTN_GEAR
         pygame.draw.rect(screen, gbtn_color, self._gear_btn, border_radius=5)
-        gear_sym = font_md.render("⚙", True, C_TEXT)
-        screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
+        if self._icon_settings:
+            screen.blit(self._icon_settings, self._icon_settings.get_rect(center=self._gear_btn.center))
+        else:
+            gear_sym = font_md.render("S", True, C_TEXT)
+            screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
 
     def _draw_indicators(self, screen, font: pygame.font.Font, d: TelemetryData) -> None:
         """Status chip strip between RPM bar and main gauges."""
@@ -440,7 +454,7 @@ class DashboardApp:
             ("HB",    d.handbrake_active,   (15, 15, 5),  (240, 210, 0)),
             ("LIGHT", d.lights_on,          (10, 10, 20), (190, 200, 255)),
             ("OIL!",  d.oil_temp > 130,     (255, 240, 240), (200, 30, 30)),
-            ("H₂O!",  d.water_temp > 105,  (255, 240, 240), (200, 30, 30)),
+            ("H2O!",  d.water_temp > 105,  (255, 240, 240), (200, 30, 30)),
         ]
 
         total_w = len(chips) * CHIP_W + (len(chips) - 1) * CHIP_GAP
