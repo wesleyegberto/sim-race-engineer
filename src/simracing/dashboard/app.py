@@ -91,6 +91,7 @@ class DashboardApp:
         self._prev_lap: int = -1
         self._lap_fuel_start: float = 0.0
         self._fuel_per_lap: float = 0.0
+        self._fuel_history: list[float] = []
 
         # State transition tracking (for debug logging)
         self._prev_in_race: bool = False
@@ -113,6 +114,7 @@ class DashboardApp:
         self._prev_lap = -1
         self._lap_fuel_start = 0.0
         self._fuel_per_lap = 0.0
+        self._fuel_history = []
         self._prev_speed_ms = 0.0
         self._g_lat = 0.0
         self._g_lon = 0.0
@@ -152,13 +154,18 @@ class DashboardApp:
             elif d.current_lap > self._prev_lap:
                 delta = self._lap_fuel_start - d.fuel_level
                 if 0 < delta < 200:
-                    self._fuel_per_lap = delta
+                    self._fuel_history.append(delta)
+                    if self._config.fuel_estimation == "last":
+                        self._fuel_per_lap = delta
+                    else:
+                        self._fuel_per_lap = sum(self._fuel_history) / len(self._fuel_history)
                 log.info(
-                    "Lap %d complete — time=%s  fuel_used=%.2fL  fuel_left=%.1fL",
+                    "Lap %d complete — time=%s  fuel_used=%.2fL  fuel_left=%.1fL  fuel/lap=%.2fL",
                     self._prev_lap,
                     _fmt_lap(d.last_lap_ms),
                     delta if 0 < delta < 200 else 0.0,
                     d.fuel_level,
+                    self._fuel_per_lap,
                 )
                 self._lap_fuel_start = d.fuel_level
                 self._prev_lap = d.current_lap
@@ -256,7 +263,7 @@ class DashboardApp:
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
-            self._settings.open(self._config.device_ip, self._config.rpm_flash)
+            self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -284,6 +291,7 @@ class DashboardApp:
                     if action == "saved":
                         self._config.device_ip = self._settings.ip_text
                         self._config.rpm_flash = self._settings.rpm_flash
+                        self._config.fuel_estimation = self._settings.fuel_estimation
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -302,7 +310,7 @@ class DashboardApp:
                             if self._connect_fn:
                                 self._connect_fn()
                     elif self._gear_btn.collidepoint(event.pos):
-                        self._settings.open(self._config.device_ip, self._config.rpm_flash)
+                        self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

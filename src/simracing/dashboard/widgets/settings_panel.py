@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 260
+_CARD_W, _CARD_H = 480, 310
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled"] | None
@@ -29,6 +29,7 @@ class SettingsPanel:
         self.active = False
         self._ip_text = ""
         self._rpm_flash = True
+        self._fuel_estimation = "average"
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -43,13 +44,18 @@ class SettingsPanel:
         check_y = field_y + 58
         self._check_box = pygame.Rect(field_x, check_y, 18, 18)
 
+        fuel_y = check_y + 44
+        self._fuel_btn_last = pygame.Rect(field_x, fuel_y, 130, 30)
+        self._fuel_btn_avg = pygame.Rect(field_x + 140, fuel_y, 130, 30)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
 
-    def open(self, current_ip: str, rpm_flash: bool = True) -> None:
+    def open(self, current_ip: str, rpm_flash: bool = True, fuel_estimation: str = "average") -> None:
         self._ip_text = current_ip
         self._rpm_flash = rpm_flash
+        self._fuel_estimation = fuel_estimation
         self.active = True
         self._cursor_timer = 0
         self._cursor_visible = True
@@ -78,6 +84,12 @@ class SettingsPanel:
                 return "cancelled"
             if self._check_box.collidepoint(pos):
                 self._rpm_flash = not self._rpm_flash
+                return None
+            if self._fuel_btn_last.collidepoint(pos):
+                self._fuel_estimation = "last"
+                return None
+            if self._fuel_btn_avg.collidepoint(pos):
+                self._fuel_estimation = "average"
                 return None
             if not self._card.collidepoint(pos):
                 self.active = False
@@ -134,6 +146,22 @@ class SettingsPanel:
         screen.blit(check_lbl, (self._check_box.right + 10,
                                 self._check_box.y + (self._check_box.height - check_lbl.get_height()) // 2))
 
+        # Fuel estimation mode
+        fuel_lbl = font_sm.render("Fuel/Lap estimation", True, C_DIM)
+        screen.blit(fuel_lbl, (self._fuel_btn_last.x, self._fuel_btn_last.y - 18))
+        for btn, mode, label in (
+            (self._fuel_btn_last, "last", "Last lap"),
+            (self._fuel_btn_avg, "average", "Average"),
+        ):
+            active = self._fuel_estimation == mode
+            bg = C_ACCENT if active else C_INPUT_BG
+            border = C_ACCENT if active else C_BORDER
+            pygame.draw.rect(screen, bg, btn, border_radius=6)
+            pygame.draw.rect(screen, border, btn, 1, border_radius=6)
+            txt_color = (15, 15, 22) if active else C_TEXT
+            surf = font_sm.render(label, True, txt_color)
+            screen.blit(surf, surf.get_rect(center=btn.center))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -158,3 +186,7 @@ class SettingsPanel:
     @property
     def rpm_flash(self) -> bool:
         return self._rpm_flash
+
+    @property
+    def fuel_estimation(self) -> str:
+        return self._fuel_estimation

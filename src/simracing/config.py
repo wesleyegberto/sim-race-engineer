@@ -19,6 +19,7 @@ class AppConfig:
     def __init__(self) -> None:
         self.device_ip: str = ""
         self.rpm_flash: bool = True
+        self.fuel_estimation: str = "average"  # "last" or "average"
         self.load()
 
     def load(self) -> None:
@@ -32,6 +33,7 @@ class AppConfig:
         cp[self._SECTION] = {
             "device_ip": self.device_ip,
             "rpm_flash": str(self.rpm_flash),
+            "fuel_estimation": self.fuel_estimation,
         }
         with open(self.PATH, "w") as fh:
             cp.write(fh)
@@ -42,4 +44,5 @@ class AppConfig:
         cp = ConfigParser()
         cp.read(self.PATH)
         self.rpm_flash = cp.getboolean(self._SECTION, "rpm_flash", fallback=True)
+        self.fuel_estimation = cp.get(self._SECTION, "fuel_estimation", fallback="average")
         return cp.get(self._SECTION, "device_ip", fallback="")
