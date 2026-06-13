@@ -36,7 +36,7 @@ _LEFT = [
     ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT),
     ("item",  "G dot color",    "green <0.8G · orange <1.5G · red ≥1.5G",                                       C_TEXT),
     ("item",  "SLIP bar",       "angle between velocity direction and car heading (oversteer indicator)",        C_TEXT),
-    ("item",  "SLIP color",     "green <5° (neutral) · orange <12° · red ≥12° (high oversteer)",                C_DIM),
+    ("item",  "SLIP color",     "green <5° (neutral) · orange <12° · red ≥12° (high oversteer)",                C_TEXT),
 ]
 
 _RIGHT = [
