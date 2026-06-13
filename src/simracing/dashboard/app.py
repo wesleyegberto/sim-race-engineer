@@ -250,7 +250,7 @@ class DashboardApp:
                 self._recorder.close_current_lap(d, self._fuel_per_lap)
                 self._recorder.stop_session()
 
-        if self._recording and not self._race_finished:
+        if self._recording and not self._race_finished and not d.paused:
             self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
 
         self._data = d
