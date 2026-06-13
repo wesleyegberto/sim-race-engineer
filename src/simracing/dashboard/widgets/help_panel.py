@@ -22,15 +22,15 @@ C_LIGHT = (190, 200, 255)
 # fmt: off
 _LEFT = [
     ("section", "GAUGES", "panel-cluster"),
-    ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_ACCENT, "speedometer"),
-    ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_ACCENT, "rpm"),
-    ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_ACCENT, "rpm"),
+    ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_TEXT, "speedometer"),
+    ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_TEXT, "rpm"),
+    ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_TEXT, "rpm"),
 
     ("section", "GEARS & PEDALS", "gearbox"),
     ("item",  "Gear",           "large number in center · N=neutral · R=reverse",                               C_TEXT, "gearbox"),
     ("item",  "> N (orange)",   "game suggested gear — appears when different from current",                    C_ORANGE, "gearbox"),
     ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT, "car-pedals"),
-    ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT, "fuel"),
+    ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_TEXT, "fuel"),
 
     ("section", "G-METER · SLIP (bottom left)", "g-force"),
     ("item",  "G dot",          "G force · top=braking · bottom=accel · sides=corners",                         C_TEXT, "g-force"),
@@ -56,7 +56,7 @@ _RIGHT = [
     ("section", "INFO PANEL (right)", "flags"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
     ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "stopwatch"),
-    ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_ACCENT, "fuel"),
+    ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_TEXT, "fuel"),
     ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT, "fuel"),
     ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE, "turbo"),
 ]
@@ -83,10 +83,10 @@ _APP_LEFT = [
 
 _APP_RIGHT = [
     ("section", "LAP SUMMARY (filled at lap end)", "stopwatch"),
-    ("item",  "fuel_at_start",    "fuel level when the lap began (litres)",                       C_ACCENT, "fuel"),
-    ("item",  "fuel_at_end",      "fuel level when the lap ended (litres)",                       C_ACCENT, "fuel"),
-    ("item",  "fuel_used",        "litres consumed this lap (start − end)",                       C_ACCENT, "fuel"),
-    ("item",  "fuel_avg",         "session average litres/lap at the moment lap ended",           C_ACCENT, "fuel"),
+    ("item",  "fuel_at_start",    "fuel level when the lap began (litres)",                       C_TEXT, "fuel"),
+    ("item",  "fuel_at_end",      "fuel level when the lap ended (litres)",                       C_TEXT, "fuel"),
+    ("item",  "fuel_used",        "litres consumed this lap (start − end)",                       C_TEXT, "fuel"),
+    ("item",  "fuel_avg",         "session average litres/lap at the moment lap ended",           C_TEXT, "fuel"),
     ("item",  "lap_finish_ms",    "official lap time from GT7 (milliseconds)",                    C_TEXT,   "stopwatch"),
     ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT,   "car-pedals"),
 
