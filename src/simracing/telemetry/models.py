@@ -39,7 +39,7 @@ class TelemetryData:
     rpm: float = 0.0
     rpm_max: float = 8000.0
     rpm_idle: float = 800.0
-    gear: int = 0                # 0=reverse, 1..14=gears 1..14, 15=neutral
+    gear: int = 15               # 0=reverse, 1..14=gears 1..14, 15=neutral
     suggested_gear: int = 0
     throttle: float = 0.0        # 0.0–1.0
     brake: float = 0.0           # 0.0–1.0

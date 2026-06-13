@@ -299,10 +299,7 @@ class DashboardApp:
         pygame.quit()
 
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
-        d = self._data
-        if d is None:
-            self._draw_header(screen, font_md, font_sm)
-            return
+        d = self._data if self._data is not None else TelemetryData()
 
         self._draw_header(screen, font_md, font_sm)
 
