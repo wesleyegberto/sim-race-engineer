@@ -336,7 +336,12 @@ class DashboardApp:
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
             self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
-                        self._config.voice_enabled, self._config.voice_language)
+                        self._config.voice_enabled, self._config.voice_language,
+                        self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
+                        self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
+                        self._config.voice_alert_final_lap,
+                        self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
+                        self._config.voice_alert_tire_inner_temp)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -371,6 +376,14 @@ class DashboardApp:
                         self._config.fuel_estimation = self._settings.fuel_estimation
                         self._config.voice_enabled = self._settings.voice_enabled
                         self._config.voice_language = self._settings.voice_language
+                        self._config.voice_alert_fuel_critical = self._settings.voice_alert_fuel_critical
+                        self._config.voice_alert_fuel_low = self._settings.voice_alert_fuel_low
+                        self._config.voice_alert_lap_completed = self._settings.voice_alert_lap_completed
+                        self._config.voice_alert_best_lap = self._settings.voice_alert_best_lap
+                        self._config.voice_alert_final_lap = self._settings.voice_alert_final_lap
+                        self._config.voice_alert_engine_temp = self._settings.voice_alert_engine_temp
+                        self._config.voice_alert_tire_temp = self._settings.voice_alert_tire_temp
+                        self._config.voice_alert_tire_inner_temp = self._settings.voice_alert_tire_inner_temp
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -395,7 +408,12 @@ class DashboardApp:
                                 self._recorder.start_session()
                     elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
-                        self._config.voice_enabled, self._config.voice_language)
+                        self._config.voice_enabled, self._config.voice_language,
+                        self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
+                        self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
+                        self._config.voice_alert_final_lap,
+                        self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
+                        self._config.voice_alert_tire_inner_temp)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

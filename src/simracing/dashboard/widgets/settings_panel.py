@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 420
+_CARD_W, _CARD_H = 480, 560
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -32,6 +32,14 @@ class SettingsPanel:
         self._fuel_estimation = "average"
         self._voice_enabled = False
         self._voice_language = "en"
+        self._voice_alert_fuel_critical = True
+        self._voice_alert_fuel_low = True
+        self._voice_alert_lap_completed = True
+        self._voice_alert_best_lap = True
+        self._voice_alert_final_lap = True
+        self._voice_alert_engine_temp = True
+        self._voice_alert_tire_temp = True
+        self._voice_alert_tire_inner_temp = True
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -60,6 +68,20 @@ class SettingsPanel:
         self._voice_btn_pt = pygame.Rect(field_x + 100, voice_lang_y, 90, 30)
         self._voice_btn_test = pygame.Rect(field_x + 210, voice_lang_y, 110, 30)
 
+        self._voice_restart_note_y = voice_lang_y + 38
+
+        alerts_y = self._voice_restart_note_y + 30
+        self._voice_alerts_sep_y = alerts_y
+        col2_x = field_x + 220
+        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 22, 18, 18)
+        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 22, 18, 18)
+        self._voice_chk_lap_completed = pygame.Rect(field_x, alerts_y + 48, 18, 18)
+        self._voice_chk_best_lap      = pygame.Rect(col2_x,  alerts_y + 48, 18, 18)
+        self._voice_chk_final_lap     = pygame.Rect(field_x, alerts_y + 74, 18, 18)
+        self._voice_chk_engine_temp   = pygame.Rect(col2_x,  alerts_y + 74, 18, 18)
+        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 100, 18, 18)
+        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 100, 18, 18)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
@@ -71,12 +93,28 @@ class SettingsPanel:
         fuel_estimation: str = "average",
         voice_enabled: bool = False,
         voice_language: str = "en",
+        voice_alert_fuel_critical: bool = True,
+        voice_alert_fuel_low: bool = True,
+        voice_alert_lap_completed: bool = True,
+        voice_alert_best_lap: bool = True,
+        voice_alert_final_lap: bool = True,
+        voice_alert_engine_temp: bool = True,
+        voice_alert_tire_temp: bool = True,
+        voice_alert_tire_inner_temp: bool = True,
     ) -> None:
         self._ip_text = current_ip
         self._rpm_flash = rpm_flash
         self._fuel_estimation = fuel_estimation
         self._voice_enabled = voice_enabled
         self._voice_language = voice_language
+        self._voice_alert_fuel_critical = voice_alert_fuel_critical
+        self._voice_alert_fuel_low = voice_alert_fuel_low
+        self._voice_alert_lap_completed = voice_alert_lap_completed
+        self._voice_alert_best_lap = voice_alert_best_lap
+        self._voice_alert_final_lap = voice_alert_final_lap
+        self._voice_alert_engine_temp = voice_alert_engine_temp
+        self._voice_alert_tire_temp = voice_alert_tire_temp
+        self._voice_alert_tire_inner_temp = voice_alert_tire_inner_temp
         self.active = True
         self._cursor_timer = 0
         self._cursor_visible = True
@@ -123,6 +161,19 @@ class SettingsPanel:
                 return None
             if self._voice_btn_test.collidepoint(pos) and self._voice_enabled:
                 return "test_voice"
+            for chk, attr in (
+                (self._voice_chk_fuel_low,      "_voice_alert_fuel_low"),
+                (self._voice_chk_fuel_critical, "_voice_alert_fuel_critical"),
+                (self._voice_chk_lap_completed, "_voice_alert_lap_completed"),
+                (self._voice_chk_best_lap,      "_voice_alert_best_lap"),
+                (self._voice_chk_final_lap,     "_voice_alert_final_lap"),
+                (self._voice_chk_engine_temp,   "_voice_alert_engine_temp"),
+                (self._voice_chk_tire_temp,       "_voice_alert_tire_temp"),
+                (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
+            ):
+                if chk.collidepoint(pos) and self._voice_enabled:
+                    setattr(self, attr, not getattr(self, attr))
+                    return None
             if not self._card.collidepoint(pos):
                 self.active = False
                 return "cancelled"
@@ -233,6 +284,38 @@ class SettingsPanel:
         surf = font_sm.render("Test Voice", True, test_txt)
         screen.blit(surf, surf.get_rect(center=self._voice_btn_test.center))
 
+        # Restart note
+        note_color = (180, 130, 60) if self._voice_enabled else C_DIM
+        note = font_sm.render("* Language change requires app restart", True, note_color)
+        screen.blit(note, (self._voice_btn_en.x, self._voice_restart_note_y))
+
+        # Alert events section
+        pygame.draw.line(screen, C_BORDER,
+                         (self._card.x + 1, self._voice_alerts_sep_y),
+                         (self._card.right - 1, self._voice_alerts_sep_y))
+        alerts_lbl = font_sm.render("Alert events", True, C_DIM if not self._voice_enabled else C_DIM)
+        screen.blit(alerts_lbl, (self._voice_chk_fuel_low.x, self._voice_alerts_sep_y + 6))
+
+        for chk, checked, label in (
+            (self._voice_chk_fuel_low,      self._voice_alert_fuel_low,      "Fuel low"),
+            (self._voice_chk_fuel_critical, self._voice_alert_fuel_critical, "Fuel critical"),
+            (self._voice_chk_lap_completed, self._voice_alert_lap_completed, "Lap completed"),
+            (self._voice_chk_best_lap,      self._voice_alert_best_lap,      "Best lap"),
+            (self._voice_chk_final_lap,     self._voice_alert_final_lap,     "Final lap"),
+            (self._voice_chk_engine_temp,   self._voice_alert_engine_temp,   "Engine temp"),
+            (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
+            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Inner tyre"),
+        ):
+            enabled = self._voice_enabled
+            pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
+            pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
+            if checked and enabled:
+                inner = chk.inflate(-5, -5)
+                pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+            txt_color = C_TEXT if enabled else C_DIM
+            surf = font_sm.render(label, True, txt_color)
+            screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -269,3 +352,35 @@ class SettingsPanel:
     @property
     def voice_language(self) -> str:
         return self._voice_language
+
+    @property
+    def voice_alert_fuel_critical(self) -> bool:
+        return self._voice_alert_fuel_critical
+
+    @property
+    def voice_alert_fuel_low(self) -> bool:
+        return self._voice_alert_fuel_low
+
+    @property
+    def voice_alert_lap_completed(self) -> bool:
+        return self._voice_alert_lap_completed
+
+    @property
+    def voice_alert_best_lap(self) -> bool:
+        return self._voice_alert_best_lap
+
+    @property
+    def voice_alert_final_lap(self) -> bool:
+        return self._voice_alert_final_lap
+
+    @property
+    def voice_alert_engine_temp(self) -> bool:
+        return self._voice_alert_engine_temp
+
+    @property
+    def voice_alert_tire_temp(self) -> bool:
+        return self._voice_alert_tire_temp
+
+    @property
+    def voice_alert_tire_inner_temp(self) -> bool:
+        return self._voice_alert_tire_inner_temp

@@ -32,6 +32,17 @@ class AppConfig:
         self.voice_min_interval_s: float = 15.0
         self.voice_fuel_critical_pct: float = 0.10
         self.voice_fuel_low_pct: float = 0.20
+        self.voice_alert_fuel_critical: bool = True
+        self.voice_alert_fuel_low: bool = True
+        self.voice_alert_lap_completed: bool = True
+        self.voice_alert_best_lap: bool = True
+        self.voice_alert_final_lap: bool = True
+        self.voice_alert_engine_temp: bool = True
+        self.voice_alert_tire_temp: bool = True
+        self.voice_alert_tire_inner_temp: bool = True
+        self.voice_engine_temp_threshold: float = 105.0
+        self.voice_tire_temp_threshold: float = 100.0
+        self.voice_tire_inner_temp_threshold: float = 110.0
 
         self.load()
 
@@ -57,6 +68,17 @@ class AppConfig:
             "min_interval_s": str(self.voice_min_interval_s),
             "fuel_critical_pct": str(self.voice_fuel_critical_pct),
             "fuel_low_pct": str(self.voice_fuel_low_pct),
+            "alert_fuel_critical": str(self.voice_alert_fuel_critical),
+            "alert_fuel_low": str(self.voice_alert_fuel_low),
+            "alert_lap_completed": str(self.voice_alert_lap_completed),
+            "alert_best_lap": str(self.voice_alert_best_lap),
+            "alert_final_lap": str(self.voice_alert_final_lap),
+            "alert_engine_temp": str(self.voice_alert_engine_temp),
+            "alert_tire_temp": str(self.voice_alert_tire_temp),
+            "alert_tire_inner_temp": str(self.voice_alert_tire_inner_temp),
+            "engine_temp_threshold": str(self.voice_engine_temp_threshold),
+            "tire_temp_threshold": str(self.voice_tire_temp_threshold),
+            "tire_inner_temp_threshold": str(self.voice_tire_inner_temp_threshold),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -77,4 +99,15 @@ class AppConfig:
         self.voice_min_interval_s = cp.getfloat(self._VOICE, "min_interval_s", fallback=15.0)
         self.voice_fuel_critical_pct = cp.getfloat(self._VOICE, "fuel_critical_pct", fallback=0.10)
         self.voice_fuel_low_pct = cp.getfloat(self._VOICE, "fuel_low_pct", fallback=0.20)
+        self.voice_alert_fuel_critical = cp.getboolean(self._VOICE, "alert_fuel_critical", fallback=True)
+        self.voice_alert_fuel_low = cp.getboolean(self._VOICE, "alert_fuel_low", fallback=True)
+        self.voice_alert_lap_completed = cp.getboolean(self._VOICE, "alert_lap_completed", fallback=True)
+        self.voice_alert_best_lap = cp.getboolean(self._VOICE, "alert_best_lap", fallback=True)
+        self.voice_alert_final_lap = cp.getboolean(self._VOICE, "alert_final_lap", fallback=True)
+        self.voice_alert_engine_temp = cp.getboolean(self._VOICE, "alert_engine_temp", fallback=True)
+        self.voice_alert_tire_temp = cp.getboolean(self._VOICE, "alert_tire_temp", fallback=True)
+        self.voice_alert_tire_inner_temp = cp.getboolean(self._VOICE, "alert_tire_inner_temp", fallback=True)
+        self.voice_engine_temp_threshold = cp.getfloat(self._VOICE, "engine_temp_threshold", fallback=105.0)
+        self.voice_tire_temp_threshold = cp.getfloat(self._VOICE, "tire_temp_threshold", fallback=100.0)
+        self.voice_tire_inner_temp_threshold = cp.getfloat(self._VOICE, "tire_inner_temp_threshold", fallback=110.0)
         return cp.get(self._SECTION, "device_ip", fallback="")
