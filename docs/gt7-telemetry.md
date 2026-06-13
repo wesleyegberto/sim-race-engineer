@@ -168,10 +168,10 @@ Each tire has **inner · middle · outer** zones (inner edge → outer edge).
 
 | Offset | Field | Unit | Description |
 |---|---|---|---|
-| `0x9C` | `tire_fl_rps` | rot/s | FL wheel angular velocity (negative = reversing) |
-| `0xA0` | `tire_fr_rps` | rot/s | FR wheel angular velocity |
-| `0xA4` | `tire_rl_rps` | rot/s | RL wheel angular velocity |
-| `0xA8` | `tire_rr_rps` | rot/s | RR wheel angular velocity |
+| `0x9C` | `tire_fl_rps` | rad/s | FL wheel angular velocity (negative = reversing) |
+| `0xA0` | `tire_fr_rps` | rad/s | FR wheel angular velocity |
+| `0xA4` | `tire_rl_rps` | rad/s | RL wheel angular velocity |
+| `0xA8` | `tire_rr_rps` | rad/s | RR wheel angular velocity |
 | `0xAC` | `tire_fl_radius` | metres | Effective FL tyre radius |
 | `0xB0` | `tire_fr_radius` | metres | Effective FR tyre radius |
 | `0xB4` | `tire_rl_radius` | metres | Effective RL tyre radius |
@@ -181,7 +181,9 @@ Each tire has **inner · middle · outer** zones (inner edge → outer edge).
 | `0xC4` | `tire_rl_suspension` | metres | RL suspension travel |
 | `0xC8` | `tire_rr_suspension` | metres | RR suspension travel |
 
-> **Wheel RPM conversion:** `wheel_rpm = abs(rps) × 60`
+> **Wheel RPM conversion:** O campo `tire_*_rps` é em **rad/s** (não rot/s).
+> Conversão: `wheel_rpm = abs(rps) / (2π) × 60`
+> Para slip ratio: `exp_rps = speed_ms / (2π × radius)` ; `actual_rps = wheel_rpm / 60`
 
 ---
 
@@ -244,7 +246,7 @@ Each bit represents a boolean game state.
 
 The following data is **not** transmitted by the GT7 UDP protocol:
 
-- Real-time race position (only grid position via `race_start_pos`)
+- Real-time race position (only grid/start position via `race_start_pos`)
 - Current lap time in progress (must be calculated locally)
 - Brake temperatures
 - Tyre wear level
