@@ -9,7 +9,7 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "final_lap": "Final lap. Push!",
         "engine_temp_high": "Water temp {temp:.0f} degrees. Watch the engine.",
         "tire_temp_high": "Tyre temp high. {corners}.",
-        "tire_inner_high": "Inner tyre zone overheating. {corners}.",
+        "tire_inner_high": "Excessive tyre wear. {corners}.",
     },
     "pt": {
         "fuel_critical": "Combustível crítico. {fuel:.0f} litros restantes. {laps_text}",
@@ -19,7 +19,7 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "final_lap": "Última volta. Vai!",
         "engine_temp_high": "Temperatura da água {temp:.0f} graus. Atenção ao motor.",
         "tire_temp_high": "Temperatura dos pneus alta. {corners}.",
-        "tire_inner_high": "Zona interna dos pneus superaquecida. {corners}.",
+        "tire_inner_high": "Desgaste excessivo de pneu. {corners}.",
     },
 }
 

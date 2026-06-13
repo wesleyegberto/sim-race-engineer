@@ -304,7 +304,7 @@ class SettingsPanel:
             (self._voice_chk_final_lap,     self._voice_alert_final_lap,     "Final lap"),
             (self._voice_chk_engine_temp,   self._voice_alert_engine_temp,   "Engine temp"),
             (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
-            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Inner tyre"),
+            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Tyre wear"),
         ):
             enabled = self._voice_enabled
             pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
