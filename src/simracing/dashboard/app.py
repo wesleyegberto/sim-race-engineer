@@ -134,20 +134,20 @@ class DashboardApp:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
             if d.in_race:
-                if self._recording:
+                if self._recording and not self._race_finished:
                     log.info("New session started — in_race transition")
                     self._recorder.start_session()
             else:
                 if self._recorder.active:
                     self._recorder.stop_session()
                 self._reset_derived()
-                self._race_finished = False
 
         # Race start within ongoing in_race (e.g. free practice → race without menu)
         if d.in_race and not newly_in_race and d.race_position > 0 and self._prev_race_pos == 0:
             log.info("Race start detected — grid pos %d / %d cars", d.race_position, d.cars_in_race)
             if self._recorder.active:
                 self._recorder.stop_session()
+            self._race_finished = False
             if self._recording:
                 log.info("New session started — race start (grid pos %d)", d.race_position)
                 self._recorder.start_session()
@@ -156,6 +156,17 @@ class DashboardApp:
 
         if not d.in_race:
             return
+
+        # Deferred session start: practice/TT after a race finish
+        # best_lap_ms == 0 distinguishes a fresh session from the results screen
+        # (which still has in_race=True but retains best_lap from the finished race)
+        if (self._race_finished and not self._recorder.active
+                and d.race_position == 0
+                and d.current_lap >= 1 and d.best_lap_ms == 0 and d.last_lap_ms == 0):
+            log.info("New practice session after race finish — starting session")
+            self._race_finished = False
+            if self._recording:
+                self._recorder.start_session()
         if d.paused != self._prev_paused:
             log.debug("Paused → %s", d.paused)
             self._prev_paused = d.paused
