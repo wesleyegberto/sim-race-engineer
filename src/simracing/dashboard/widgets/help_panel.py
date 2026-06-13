@@ -69,7 +69,7 @@ _APP_LEFT = [
     ("section", "LAP RECORDING", "stopwatch"),
     ("item",  "Auto-save",        "laps saved automatically — no manual action required",         C_TEXT, "stopwatch"),
     ("item",  "On lap change",    "previous lap saved when current_lap counter increments",       C_TEXT, "stopwatch"),
-    ("item",  "On session end",   "current buffer saved as lap_NN_incomplete.parquet",            C_DIM,  "stopwatch"),
+    ("item",  "On session end",   "current buffer saved as lap_NN_incomplete.parquet",            C_TEXT, "stopwatch"),
     ("item",  "Location",         "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",         C_ACCENT),
     ("item",  "Format",           "Apache Parquet · Snappy · one row per frame (~60 Hz)",        C_TEXT),
 
@@ -91,7 +91,7 @@ _APP_RIGHT = [
     ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT,   "car-pedals"),
 
     ("section", "HEADER CONTROLS", "panel-cluster"),
-    ("item",  "● REC",            "red = recording · grey = off · toggle mid-race saves immediately", C_RED),
+    ("item",  "● REC",            "red = recording · grey = paused · same session mid-race", C_RED),
 
     ("section", "SETTINGS  (~/simracing.conf)", "panel-cluster"),
     ("item",  "device_ip",        "PS5 / PC IP address",                                          C_TEXT),
