@@ -218,7 +218,7 @@ class DashboardApp:
         self._icon = _load_icon("engineer.png", 32, C_TEXT)
         self._icon_settings = _load_icon("settings.png", 18, C_TEXT)
         self._icon_info = _load_icon("info.png", 18, C_TEXT)
-        self._icon_close = _load_icon("close.png", 16, C_TEXT)
+        self._icon_close = _load_icon("close.png", 16)
 
     def run(self) -> None:
         pygame.init()
