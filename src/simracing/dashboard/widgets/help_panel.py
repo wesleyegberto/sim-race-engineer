@@ -55,7 +55,7 @@ _RIGHT = [
 
     ("section", "INFO PANEL (right)", "flags"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
-    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "wheel"),
+    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "stopwatch"),
     ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_ACCENT, "fuel"),
     ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT, "fuel"),
     ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE, "turbo"),
