@@ -21,16 +21,16 @@ C_LIGHT = (190, 200, 255)
 
 # fmt: off
 _LEFT = [
-    ("section", "GAUGES"),
-    ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_ACCENT),
-    ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_ACCENT),
-    ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_ACCENT),
+    ("section", "GAUGES", "speedometer"),
+    ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_ACCENT, "speedometer"),
+    ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_ACCENT, "rpm"),
+    ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_ACCENT, "rpm"),
 
-    ("section", "GEARS & PEDALS"),
-    ("item",  "Gear",           "large number in center · N=neutral · R=reverse",                               C_TEXT),
+    ("section", "GEARS & PEDALS", "gearbox"),
+    ("item",  "Gear",           "large number in center · N=neutral · R=reverse",                               C_TEXT, "gearbox"),
     ("item",  "> N (orange)",   "game suggested gear — appears when different from current",                    C_ORANGE),
-    ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT),
-    ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT),
+    ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT, "car-pedals"),
+    ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT, "fuel"),
 
     ("section", "G-METER · SLIP (bottom left)"),
     ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT),
@@ -40,30 +40,31 @@ _LEFT = [
 ]
 
 _RIGHT = [
-    ("section", "TIRES (bottom center)"),
-    ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT),
-    ("item",  "Orange border",     "wheelspin: wheel spinning faster than expected for current speed",           C_SPIN),
-    ("item",  "Red border",        "lockup: wheel locking under heavy braking",                                  C_LOCK),
-    ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM),
+    ("section", "TIRES (bottom center)", "tire-wheel"),
+    ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT, "tire-wheel"),
+    ("item",  "Orange border",     "wheelspin: wheel spinning faster than expected for current speed",           C_SPIN, "tire-wheel"),
+    ("item",  "Red border",        "lockup: wheel locking under heavy braking",                                  C_LOCK, "tire-wheel"),
+    ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM, "suspension"),
 
-    ("section", "STATUS STRIP (below RPM bar)"),
-    ("item",  "TCS / ASM",         "traction control (orange) or stability (yellow) intervened",                C_SPIN),
-    ("item",  "REV / HB",          "rev limiter active · handbrake applied",                                    C_RED),
-    ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT),
-    ("item",  "OIL! / H₂O!",      "critical temperature: oil >130°C or water >105°C",                          C_RED),
+    ("section", "STATUS STRIP (below RPM bar)", "panel-cluster"),
+    ("item",  "TCS / ASM",         "traction control (orange) or stability (yellow) intervened",                C_SPIN, "tcs"),
+    ("item",  "REV",                "rev limiter active — engine at max RPM",                                    C_RED),
+    ("item",  "HB",                 "handbrake applied",                                                          C_RED, "parking"),
+    ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT, "headlight"),
+    ("item",  "OIL! / H₂O!",      "critical temperature: oil >130°C or water >105°C",                          C_RED, "coolant"),
 
-    ("section", "INFO PANEL (right)"),
-    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT),
-    ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_ACCENT),
-    ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT),
-    ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE),
+    ("section", "INFO PANEL (right)", "flags"),
+    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "wheel"),
+    ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_ACCENT, "fuel"),
+    ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT, "fuel"),
+    ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE, "turbo"),
 ]
 # fmt: on
 
 _FOOTER = "Press ESC or click anywhere to close"
 
-_CARD_X, _CARD_Y = 56, 58       # card sits just below the header
-_CARD_W, _CARD_H = 1168, 632    # bottom ≈ 690, leaves margin on 720px screen
+_CARD_X, _CARD_Y = 44, 58       # card sits just below the header
+_CARD_W, _CARD_H = 1192, 730    # bottom ≈ 788, leaves margin on 800px screen
 _PAD = 24
 _COL_GAP = 28
 _TITLE_H = 44
@@ -107,6 +108,7 @@ class HelpPanel:
         font_md: pygame.font.Font,
         font_sm: pygame.font.Font,
         icon_close: pygame.Surface | None = None,
+        icons: dict | None = None,
     ) -> None:
         if not self.active:
             return
@@ -139,7 +141,7 @@ class HelpPanel:
             surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
 
         content_y = _CARD_Y + _TITLE_H + 12
-        self._draw_column(surface, font_sm, self._col_left_x, content_y, _LEFT)
+        self._draw_column(surface, font_sm, self._col_left_x, content_y, _LEFT, icons)
 
         div_x = self._col_right_x - _COL_GAP // 2
         pygame.draw.line(
@@ -147,7 +149,7 @@ class HelpPanel:
             (div_x, _CARD_Y + _TITLE_H + 8),
             (div_x, _CARD_Y + _CARD_H - 28), 1,
         )
-        self._draw_column(surface, font_sm, self._col_right_x, content_y, _RIGHT)
+        self._draw_column(surface, font_sm, self._col_right_x, content_y, _RIGHT, icons)
 
         footer = font_sm.render(_FOOTER, True, C_DIM)
         surface.blit(footer, footer.get_rect(
@@ -160,7 +162,10 @@ class HelpPanel:
         x: int,
         start_y: int,
         entries: list,
+        icons: dict | None = None,
     ) -> None:
+        _ICON_SZ = 14
+        _ICON_GAP = 5
         y = start_y
         first_section = True
 
@@ -171,8 +176,14 @@ class HelpPanel:
                 if not first_section:
                     y += _SECTION_PRE_GAP
                 first_section = False
+                icon_key = entry[2] if len(entry) > 2 else None
+                icon = icons.get(icon_key) if (icons and icon_key) else None
+                ix = x
+                if icon:
+                    surface.blit(icon, icon.get_rect(midleft=(ix, y + _ICON_SZ // 2 + 1)))
+                    ix += _ICON_SZ + _ICON_GAP
                 lbl = font.render(entry[1], True, C_SECTION)
-                surface.blit(lbl, (x, y))
+                surface.blit(lbl, (ix, y))
                 y += lbl.get_height() + 3
                 pygame.draw.line(
                     surface, C_DIVIDER, (x, y), (x + self._col_w, y), 1
@@ -180,9 +191,15 @@ class HelpPanel:
                 y += _SECTION_UNDER_H
 
             else:
-                _, name, desc, color = entry
+                _, name, desc, color = entry[:4]
+                icon_key = entry[4] if len(entry) > 4 else None
+                icon = icons.get(icon_key) if (icons and icon_key) else None
+                ix = x + 2
+                if icon:
+                    surface.blit(icon, icon.get_rect(midleft=(ix, y + _ICON_SZ // 2 + 1)))
+                    ix += _ICON_SZ + _ICON_GAP
                 name_surf = font.render(f"• {name}", True, color)
-                surface.blit(name_surf, (x + 2, y))
+                surface.blit(name_surf, (ix, y))
                 y += _ITEM_NAME_H
                 desc_surf = font.render(desc, True, C_DIM)
                 surface.blit(desc_surf, (x + 12, y))

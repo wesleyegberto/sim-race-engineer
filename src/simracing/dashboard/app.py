@@ -23,7 +23,7 @@ from .widgets.tire_widget import draw_tires
 log = logging.getLogger(__name__)
 
 # ── Layout constants ──────────────────────────────────────────────────────────
-WIN_W, WIN_H = 1280, 720
+WIN_W, WIN_H = 1280, 800
 FPS = 60
 
 HEADER_H = 52
@@ -219,6 +219,26 @@ class DashboardApp:
         self._icon_settings = _load_icon("settings.png", 18, C_TEXT)
         self._icon_info = _load_icon("info.png", 18, C_TEXT)
         self._icon_close = _load_icon("close.png", 16)
+        self._icon_flags = _load_icon("flags.png", 15, C_DIM)
+        self._icon_tire_wheel = _load_icon("wheel.png", 15, C_DIM)
+        self._icon_fuel = _load_icon("fuel.png", 15, C_DIM)
+        self._icon_wheel = _load_icon("steering-wheel.png", 15, C_DIM)
+        self._icon_suspension = _load_icon("suspension.png", 15, C_DIM)
+        self._icon_gearbox = _load_icon("gearbox.png", 16, C_DIM)
+        self._icon_gearbox_lg = _load_icon("gearbox.png", 40, C_DIM)
+        self._icon_turbo = _load_icon("turbo.png", 15, C_DIM)
+        self._icon_oil_sm = _load_icon("oil.png", 15, C_DIM)
+        self._icon_coolant_sm = _load_icon("engine-coolant.png", 15, C_DIM)
+        self._icon_speedometer = _load_icon("speedometer.png", 15, C_DIM)
+        self._icon_rpm = _load_icon("rpm.png", 15, C_DIM)
+        self._icon_panel_cluster = _load_icon("panel-cluster.png", 15, C_DIM)
+        self._icon_tcs = _load_icon("tcs.png", 20, C_TEXT)
+        self._icon_asm = _load_icon("asm.png", 20, C_TEXT)
+        self._icon_parking = _load_icon("parking.png", 20, C_TEXT)
+        self._icon_car_pedals = _load_icon("car-pedals.png", 15, C_DIM)
+        self._icon_headlight = _load_icon("headlight.png", 20, C_TEXT)
+        self._icon_oil = _load_icon("oil.png", 20, C_TEXT)
+        self._icon_coolant = _load_icon("engine-coolant.png", 20, C_TEXT)
 
     def run(self) -> None:
         pygame.init()
@@ -293,7 +313,8 @@ class DashboardApp:
             if self._settings:
                 self._settings.draw(screen, font_md, font_sm, dt)
             if self._help:
-                self._help.draw(screen, font_md, font_sm, self._icon_close)
+                self._help.draw(screen, font_md, font_sm, self._icon_close,
+                                icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant})
             pygame.display.flip()
 
         pygame.quit()
@@ -319,21 +340,36 @@ class DashboardApp:
             font_large=font_lg, font_small=font_sm,
         )
 
+        CX = 600  # visual center between left gauge and info panel
+
         gear_surf = font_xl.render(d.gear_label, True, C_TEXT)
-        screen.blit(gear_surf, gear_surf.get_rect(center=(640, 155)))
+        if self._icon_gearbox_lg:
+            gap = 10
+            combined_w = self._icon_gearbox_lg.get_width() + gap + gear_surf.get_width()
+            start_x = CX - combined_w // 2
+            screen.blit(self._icon_gearbox_lg, self._icon_gearbox_lg.get_rect(midleft=(start_x, 155)))
+            screen.blit(gear_surf, gear_surf.get_rect(midleft=(start_x + self._icon_gearbox_lg.get_width() + gap, 155)))
+        else:
+            screen.blit(gear_surf, gear_surf.get_rect(center=(CX, 155)))
 
         gear_lbl = font_sm.render("GEAR", True, C_DIM)
-        screen.blit(gear_lbl, gear_lbl.get_rect(center=(640, 222)))
+        if self._icon_gearbox:
+            combined_w = self._icon_gearbox.get_width() + 5 + gear_lbl.get_width()
+            lbl_x = CX - combined_w // 2
+            screen.blit(self._icon_gearbox, self._icon_gearbox.get_rect(midleft=(lbl_x, 222)))
+            screen.blit(gear_lbl, gear_lbl.get_rect(midleft=(lbl_x + self._icon_gearbox.get_width() + 5, 222)))
+        else:
+            screen.blit(gear_lbl, gear_lbl.get_rect(center=(CX, 222)))
 
         if 0 < d.suggested_gear < 15 and d.suggested_gear != d.gear:
             sg = font_lg.render(f"> {d.suggested_gear}", True, C_ORANGE)
-            screen.blit(sg, sg.get_rect(center=(640, 252)))
+            screen.blit(sg, sg.get_rect(center=(CX, 252)))
 
         bar_y = 300
         bar_h = 200
         bar_w = 42
         bar_gap = 22
-        bar_start = 640 - (3 * bar_w + 2 * bar_gap) // 2
+        bar_start = CX - (3 * bar_w + 2 * bar_gap) // 2
 
         draw_bar(screen, x=bar_start, y=bar_y, width=bar_w, height=bar_h,
                  value=d.clutch, color=(80, 140, 220), label="C", font=font_sm)
@@ -342,7 +378,7 @@ class DashboardApp:
         draw_bar(screen, x=bar_start + 2 * (bar_w + bar_gap), y=bar_y, width=bar_w, height=bar_h,
                  value=d.throttle, color=(60, 200, 80), label="T", font=font_sm)
 
-        draw_tires(screen, cx=640, cy=630,
+        draw_tires(screen, cx=CX, cy=630,
                    tire_data=d.tires, font=font_sm,
                    tile_w=60, tile_h=68, gap=14,
                    slip_ratios=self._slip_ratios,
@@ -441,25 +477,25 @@ class DashboardApp:
 
     def _draw_indicators(self, screen, font: pygame.font.Font, d: TelemetryData) -> None:
         """Status chip strip between RPM bar and main gauges."""
-        CHIP_W, CHIP_H = 64, 18
+        CHIP_W, CHIP_H = 88, 32
         CHIP_GAP = 8
         STRIP_Y = RPM_BAR_Y + 16 + 5   # 5px below RPM bar
 
-        # (label, active, active_fg, active_bg)
+        # (label, active, active_fg, active_bg, icon)
         chips = [
-            ("TCS",   d.tcs_active,        (15, 10, 5),  (255, 140, 0)),
-            ("ASM",   d.asm_active,         (15, 10, 5),  (255, 190, 0)),
-            ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30)),
-            ("HB",    d.handbrake_active,   (15, 15, 5),  (240, 210, 0)),
-            ("LIGHT", d.lights_on,          (10, 10, 20), (190, 200, 255)),
-            ("OIL!",  d.oil_temp > 130,     (255, 240, 240), (200, 30, 30)),
-            ("H2O!",  d.water_temp > 105,  (255, 240, 240), (200, 30, 30)),
+            ("TCS",   d.tcs_active,        (15, 10, 5),     (255, 140, 0),    self._icon_tcs),
+            ("ASM",   d.asm_active,         (15, 10, 5),     (255, 190, 0),    self._icon_asm),
+            ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30),    None),
+            ("HB",    d.handbrake_active,   (15, 15, 5),     (240, 210, 0),    self._icon_parking),
+            ("LIGHT", d.lights_on,          (10, 10, 20),    (190, 200, 255),  self._icon_headlight),
+            ("OIL!",  d.oil_temp > 130,     (255, 240, 240), (200, 30, 30),    self._icon_oil),
+            ("H2O!",  d.water_temp > 105,   (255, 240, 240), (200, 30, 30),    self._icon_coolant),
         ]
 
         total_w = len(chips) * CHIP_W + (len(chips) - 1) * CHIP_GAP
         x = (WIN_W - total_w) // 2
 
-        for label, active, fg, bg in chips:
+        for label, active, fg, bg, icon in chips:
             rect = pygame.Rect(x, STRIP_Y, CHIP_W, CHIP_H)
             if active:
                 pygame.draw.rect(screen, bg, rect, border_radius=4)
@@ -469,7 +505,13 @@ class DashboardApp:
                 pygame.draw.rect(screen, (28, 28, 36), rect, border_radius=4)
                 pygame.draw.rect(screen, (48, 48, 58), rect, 1, border_radius=4)
                 txt = font.render(label, True, (52, 52, 62))
-            screen.blit(txt, txt.get_rect(center=rect.center))
+            if icon:
+                combined_w = icon.get_width() + 3 + txt.get_width()
+                ix = rect.centerx - combined_w // 2
+                screen.blit(icon, icon.get_rect(midleft=(ix, rect.centery)))
+                screen.blit(txt, txt.get_rect(midleft=(ix + icon.get_width() + 3, rect.centery)))
+            else:
+                screen.blit(txt, txt.get_rect(center=rect.center))
             x += CHIP_W + CHIP_GAP
 
     def _draw_rpm_bar(self, screen, d: TelemetryData) -> None:
@@ -483,36 +525,58 @@ class DashboardApp:
         pygame.draw.rect(screen, (60, 60, 70), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
 
     def _draw_info(self, screen, font_sm: pygame.font.Font, d: TelemetryData) -> None:
-        x, y = 760, 305
-        line_h = 26
+        PX, PY, PW = 710, 295, 185
+        PAD = 10
+        SEP_COLOR = (50, 50, 68)
+        line_h = 30
 
-        def row(label: str, value: str, color=C_TEXT) -> None:
+        icon_x = PX + PAD
+        val_rx = PX + PW - PAD  # right edge for value alignment
+
+        # pre-draw card (fixed height covers max possible rows)
+        card_h = line_h * 12 + PAD * 2 + 14
+        card_surf = pygame.Surface((PW, card_h), pygame.SRCALPHA)
+        card_surf.fill((15, 15, 22, 190))
+        screen.blit(card_surf, (PX, PY))
+        pygame.draw.rect(screen, SEP_COLOR, pygame.Rect(PX, PY, PW, card_h), 1, border_radius=8)
+
+        y = PY + PAD
+        font_h = font_sm.get_height()
+
+        def row(_label: str, value: str, color=C_TEXT, icon=None) -> None:
             nonlocal y
-            lbl = font_sm.render(label, True, C_DIM)
-            val = font_sm.render(value, True, color)
-            screen.blit(lbl, (x, y))
-            screen.blit(val, (x + 110, y))
+            if icon is not None:
+                screen.blit(icon, icon.get_rect(midleft=(icon_x, y + font_h // 2)))
+            val_surf = font_sm.render(value, True, color)
+            screen.blit(val_surf, val_surf.get_rect(midright=(val_rx, y + font_h // 2)))
             y += line_h
 
+        def sep() -> None:
+            nonlocal y
+            pygame.draw.line(screen, SEP_COLOR, (PX + PAD, y - 4), (PX + PW - PAD, y - 4), 1)
+
         lap_str = str(d.current_lap) if d.total_laps == 0 else f"{d.current_lap} / {d.total_laps}"
-        row("LAP", lap_str)
+        row("LAP", lap_str, icon=self._icon_flags)
         if d.race_position > 0 and d.cars_in_race > 0:
-            row("POS", f"{d.race_position} / {d.cars_in_race}")
-        row("LAP TIME", _fmt_lap(d.lap_time_ms), C_ACCENT)
-        row("BEST", _fmt_lap(d.best_lap_ms), C_GREEN)
-        row("LAST", _fmt_lap(d.last_lap_ms))
+            row("POS", f"{d.race_position} / {d.cars_in_race}", icon=self._icon_flags)
+        row("LAP TIME", _fmt_lap(d.lap_time_ms), C_ACCENT, icon=self._icon_wheel)
+        row("BEST", _fmt_lap(d.best_lap_ms), C_GREEN, icon=self._icon_wheel)
+        row("LAST", _fmt_lap(d.last_lap_ms), icon=self._icon_wheel)
+
+        sep()
+
         row("WATER", f"{d.water_temp:.0f} °C",
-            C_ORANGE if d.water_temp > 105 else C_TEXT)
+            C_ORANGE if d.water_temp > 105 else C_TEXT, icon=self._icon_coolant_sm)
         row("OIL", f"{d.oil_temp:.0f} °C",
-            C_ORANGE if d.oil_temp > 130 else C_TEXT)
-        row("FUEL", f"{d.fuel_level:.1f} L")
+            C_ORANGE if d.oil_temp > 130 else C_TEXT, icon=self._icon_oil_sm)
+        row("FUEL", f"{d.fuel_level:.1f} L", icon=self._icon_fuel)
         if self._fuel_per_lap > 0:
             laps_left = d.fuel_level / self._fuel_per_lap
-            row("FUEL/LAP", f"{self._fuel_per_lap:.2f} L", C_ACCENT)
+            row("FUEL/LAP", f"{self._fuel_per_lap:.2f} L", C_ACCENT, icon=self._icon_fuel)
             row("LAPS LEFT", f"{laps_left:.1f}",
-                C_ORANGE if laps_left < 3 else C_TEXT)
+                C_ORANGE if laps_left < 3 else C_TEXT, icon=self._icon_fuel)
         row("BOOST", f"{d.turbo_boost:+.2f} bar",
-            C_ACCENT if d.turbo_boost > 0 else C_DIM)
+            C_ACCENT if d.turbo_boost > 0 else C_DIM, icon=self._icon_turbo)
 
         flags = []
         if d.paused:
@@ -522,4 +586,5 @@ class DashboardApp:
         if not d.in_race:
             flags.append("MENU")
         if flags:
-            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (x, y))
+            sep()
+            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (icon_x, y))
