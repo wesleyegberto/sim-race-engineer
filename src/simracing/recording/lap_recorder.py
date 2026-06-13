@@ -244,6 +244,10 @@ class LapRecorder:
         self._current: LapData | None = None
         self._prev_lap: int = -1
 
+    @property
+    def active(self) -> bool:
+        return self._session_dir is not None
+
     def start_session(self) -> None:
         ts = datetime.now().strftime("%Y-%m-%dT%H%M%S")
         self._session_dir = _SAVE_DIR / ts

@@ -134,7 +134,7 @@ class DashboardApp:
                 if self._recording:
                     self._recorder.start_session()
             else:
-                if self._recording:
+                if self._recorder.active:
                     self._recorder.stop_session()
                 self._reset_derived()
 
@@ -320,11 +320,9 @@ class DashboardApp:
                                 self._connect_fn()
                     elif self._rec_btn.collidepoint(event.pos):
                         self._recording = not self._recording
-                        if self._data and self._data.in_race:
-                            if self._recording:
+                        if self._recording and self._data and self._data.in_race:
+                            if not self._recorder.active:
                                 self._recorder.start_session()
-                            else:
-                                self._recorder.stop_session()
                     elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
                     elif self._help_btn.collidepoint(event.pos):
