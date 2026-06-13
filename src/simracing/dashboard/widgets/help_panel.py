@@ -51,7 +51,8 @@ _RIGHT = [
     ("item",  "REV",                "rev limiter active — engine at max RPM",                                    C_RED),
     ("item",  "HB",                 "handbrake applied",                                                          C_RED, "parking"),
     ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT, "headlight"),
-    ("item",  "OIL! / H₂O!",      "critical temperature: oil >130°C or water >105°C",                          C_RED, "coolant"),
+    ("item",  "OIL!",              "oil temperature critical — above 130°C",                                   C_RED, "oil"),
+    ("item",  "WATER!",           "water temperature critical — above 105°C",                                  C_RED, "coolant"),
 
     ("section", "INFO PANEL (right)", "flags"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
@@ -109,8 +110,8 @@ _COL_GAP = 28
 _TITLE_H = 44
 _ITEM_NAME_H = 18   # advance per name line (14pt ≈ 17-18px)
 _ITEM_DESC_H = 18   # advance per description line
-_ITEM_GAP = 3       # gap between items
-_SECTION_PRE_GAP = 8
+_ITEM_GAP = 1       # gap between items
+_SECTION_PRE_GAP = 6
 _SECTION_UNDER_H = 5
 
 
