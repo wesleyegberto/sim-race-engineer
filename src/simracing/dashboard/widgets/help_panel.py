@@ -32,9 +32,9 @@ _LEFT = [
     ("item",  "C · B · T",      "vertical bars: clutch (blue) · brake (red) · throttle (green)",                C_TEXT, "car-pedals"),
     ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT, "fuel"),
 
-    ("section", "G-METER · SLIP (bottom left)"),
-    ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT),
-    ("item",  "G dot color",    "green <0.8G · orange <1.5G · red ≥1.5G",                                       C_TEXT),
+    ("section", "G-METER · SLIP (bottom left)", "g-force"),
+    ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT, "g-force"),
+    ("item",  "G dot color",    "green <0.8G · orange <1.5G · red ≥1.5G",                                       C_TEXT, "g-force"),
     ("item",  "SLIP bar",       "angle between velocity direction and car heading (oversteer indicator)",        C_TEXT),
     ("item",  "SLIP color",     "green <5° (neutral) · orange <12° · red ≥12° (high oversteer)",                C_TEXT),
 ]
