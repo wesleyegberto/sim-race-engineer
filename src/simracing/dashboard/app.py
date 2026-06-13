@@ -134,6 +134,7 @@ class DashboardApp:
             self._prev_in_race = d.in_race
             if d.in_race:
                 if self._recording:
+                    log.info("New session started — in_race transition")
                     self._recorder.start_session()
             else:
                 if self._recorder.active:
@@ -146,6 +147,7 @@ class DashboardApp:
             if self._recorder.active:
                 self._recorder.stop_session()
             if self._recording:
+                log.info("New session started — race start (grid pos %d)", d.race_position)
                 self._recorder.start_session()
             self._reset_derived()
         self._prev_race_pos = d.race_position if d.in_race else 0
