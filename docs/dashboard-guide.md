@@ -327,6 +327,9 @@ Race Engineer automatically records every lap to disk — no manual action requi
 |-------|-------------|
 | **Lap transition** (`current_lap` increments) | `lap_NN.parquet` for the lap that just ended |
 | **Session end** (app closed or race stopped) | `lap_NN_incomplete.parquet` for the current unfinished lap |
+| **Free session restart** (without leaving the session) | no new folder — laps continue numbering within the same session |
+
+> **Free session restart:** If you restart a free practice session without going through the main menu (i.e., the game stays `in_race=True`), the recorder detects the lap counter reset as a normal lap transition and keeps writing to the **same session folder**. Laps before and after the restart will be in the same `session.parquet`. If you exit to menu first, a new timestamped folder is created on re-entry.
 
 ### Where files are saved
 

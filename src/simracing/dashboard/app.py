@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+import signal
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -135,8 +136,20 @@ class DashboardApp:
             self._prev_in_race = d.in_race
             if d.in_race:
                 if self._recording and not self._race_finished:
-                    log.info("New session started — in_race transition")
-                    self._recorder.start_session()
+                    # Races (race_position > 0): grid pos confirms it's a real race start.
+                    # Practice/TT (race_position == 0): require lap 0 or fresh lap 1 to avoid
+                    # spurious sessions from brief in_race flickers after a practice session ends.
+                    is_fresh = (d.race_position > 0
+                                or d.current_lap == 0
+                                or (d.current_lap == 1
+                                    and d.best_lap_ms == 0 and d.last_lap_ms == 0))
+                    if is_fresh:
+                        log.info("New session started — in_race transition "
+                                 "(race_pos=%d, lap=%d)", d.race_position, d.current_lap)
+                        self._recorder.start_session()
+                    else:
+                        log.info("Skipping session start — practice flicker "
+                                 "(lap=%d, best_ms=%d)", d.current_lap, d.best_lap_ms)
             else:
                 if self._recorder.active:
                     self._recorder.stop_session()
@@ -157,13 +170,13 @@ class DashboardApp:
         if not d.in_race:
             return
 
-        # Deferred session start: practice/TT after a race finish
-        # best_lap_ms == 0 distinguishes a fresh session from the results screen
-        # (which still has in_race=True but retains best_lap from the finished race)
+        # Deferred session start after a race finish: covers race restart ("Try Again"),
+        # practice, and time trial. best_lap_ms == 0 AND last_lap_ms == 0 distinguishes
+        # a genuinely fresh session from the results screen, which retains best_lap > 0.
         if (self._race_finished and not self._recorder.active
-                and d.race_position == 0
                 and d.current_lap >= 1 and d.best_lap_ms == 0 and d.last_lap_ms == 0):
-            log.info("New practice session after race finish — starting session")
+            log.info("New session after race finish (race_pos=%d) — starting session",
+                     d.race_position)
             self._race_finished = False
             if self._recording:
                 self._recorder.start_session()
@@ -322,6 +335,7 @@ class DashboardApp:
         font_sm  = pygame.font.SysFont("monospace", 14)
 
         self._running = True
+        signal.signal(signal.SIGINT, lambda *_: setattr(self, "_running", False))
         while self._running:
             dt = clock.tick(FPS)
 
@@ -384,12 +398,16 @@ class DashboardApp:
                                 icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting, "race-pos": self._icon_race_pos, "stopwatch": self._icon_stopwatch, "rec-button": self._icon_rec})
             pygame.display.flip()
 
+        if self._recorder.active:
+            log.info("App closing — saving session in progress")
+            self._recorder.stop_session()
         pygame.quit()
 
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
         d = self._data if self._data is not None else TelemetryData()
 
-        self._draw_header(screen, font_md, font_sm, d.in_race, self._race_finished)
+        self._draw_header(screen, font_md, font_sm, d.in_race, self._race_finished,
+                          is_free=d.race_position == 0)
 
         draw_gauge(
             screen, cx=220, cy=380, radius=155,
@@ -472,7 +490,7 @@ class DashboardApp:
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
                      font_sm: pygame.font.Font, in_race: bool = False,
-                     race_finished: bool = False) -> None:
+                     race_finished: bool = False, is_free: bool = False) -> None:
         pygame.draw.rect(screen, C_HEADER, (0, 0, WIN_W, HEADER_H))
         pygame.draw.line(screen, C_SEPARATOR, (0, HEADER_H), (WIN_W, HEADER_H), 1)
 
@@ -498,12 +516,18 @@ class DashboardApp:
             status_color = C_DIM
         if status_icon:
             label_surf = font_sm.render(status_label, True, status_color)
+            free_surf = font_sm.render("FREE SESSION", True, C_DIM) if (in_race and is_free and not race_finished) else None
             gap = 8
-            combined_w = status_icon.get_width() + gap + label_surf.get_width()
+            badge_gap = 10
+            combined_w = (status_icon.get_width() + gap + label_surf.get_width()
+                          + (badge_gap + free_surf.get_width() if free_surf else 0))
             sx = WIN_W // 2 - combined_w // 2
             sy = HEADER_H // 2
             screen.blit(status_icon, status_icon.get_rect(midleft=(sx, sy)))
-            screen.blit(label_surf, label_surf.get_rect(midleft=(sx + status_icon.get_width() + gap, sy)))
+            lx = sx + status_icon.get_width() + gap
+            screen.blit(label_surf, label_surf.get_rect(midleft=(lx, sy)))
+            if free_surf:
+                screen.blit(free_surf, free_surf.get_rect(midleft=(lx + label_surf.get_width() + badge_gap, sy)))
 
         # Device IP / error indicator (right of title, left of buttons)
         status = self._get_status_fn()

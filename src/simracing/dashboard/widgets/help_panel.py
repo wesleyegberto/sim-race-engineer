@@ -71,6 +71,7 @@ _APP_LEFT = [
     ("item",  "Auto-save",        "laps saved automatically — no manual action required",         C_TEXT, "stopwatch"),
     ("item",  "On lap change",    "previous lap saved when current_lap counter increments",       C_TEXT, "stopwatch"),
     ("item",  "On session end",   "current buffer saved as lap_NN_incomplete.parquet",            C_TEXT, "stopwatch"),
+    ("item",  "Free Session Restart", "restarting in free session keeps same folder — laps continue", C_TEXT, "stopwatch"),
     ("item",  "Location",         "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",         C_TEXT),
     ("item",  "Format",           "Apache Parquet · Snappy · one row per frame (~60 Hz)",        C_TEXT),
 
