@@ -257,7 +257,7 @@ class DashboardApp:
         self._icon_stopwatch = _load_icon("stopwatch.png", 15, C_DIM)
         self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
         self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
-        self._icon_rec_on  = _load_icon("rec-button.png", 18)
+        self._icon_rec_on  = _load_icon("rec-stop-button.png", 18)
         self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
 
     def run(self) -> None:
