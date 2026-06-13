@@ -78,6 +78,7 @@ class DashboardApp:
         self._icon: pygame.Surface | None = None
         self._icon_settings: pygame.Surface | None = None
         self._icon_info: pygame.Surface | None = None
+        self._icon_close: pygame.Surface | None = None
         self._recorder = LapRecorder()
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
@@ -217,6 +218,7 @@ class DashboardApp:
         self._icon = _load_icon("engineer.png", 32, C_TEXT)
         self._icon_settings = _load_icon("settings.png", 18, C_TEXT)
         self._icon_info = _load_icon("info.png", 18, C_TEXT)
+        self._icon_close = _load_icon("close.png", 16, C_TEXT)
 
     def run(self) -> None:
         pygame.init()
@@ -291,7 +293,7 @@ class DashboardApp:
             if self._settings:
                 self._settings.draw(screen, font_md, font_sm, dt)
             if self._help:
-                self._help.draw(screen, font_md, font_sm)
+                self._help.draw(screen, font_md, font_sm, self._icon_close)
             pygame.display.flip()
 
         pygame.quit()

@@ -106,6 +106,7 @@ class HelpPanel:
         surface: pygame.Surface,
         font_md: pygame.font.Font,
         font_sm: pygame.font.Font,
+        icon_close: pygame.Surface | None = None,
     ) -> None:
         if not self.active:
             return
@@ -131,8 +132,11 @@ class HelpPanel:
         mouse = pygame.mouse.get_pos()
         close_bg = (70, 40, 40) if self._close_btn.collidepoint(mouse) else (42, 42, 58)
         pygame.draw.rect(surface, close_bg, self._close_btn, border_radius=4)
-        x_surf = font_sm.render("✕", True, C_TITLE)
-        surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
+        if icon_close:
+            surface.blit(icon_close, icon_close.get_rect(center=self._close_btn.center))
+        else:
+            x_surf = font_sm.render("X", True, C_TITLE)
+            surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
 
         content_y = _CARD_Y + _TITLE_H + 12
         self._draw_column(surface, font_sm, self._col_left_x, content_y, _LEFT)
