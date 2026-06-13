@@ -335,7 +335,8 @@ Race Engineer automatically records every lap to disk — no manual action requi
 └── <YYYY-MM-DDTHHMMSS>/        ← session folder, created when recording starts
     ├── lap_01.parquet
     ├── lap_02.parquet
-    └── lap_03_incomplete.parquet
+    ├── lap_03_incomplete.parquet
+    └── session.parquet          ← all laps merged, written when session ends
 ```
 
 The session directory name is the ISO timestamp of when the recording session started (e.g. `2026-06-13T143022`).

@@ -1,7 +1,11 @@
 """Lap telemetry recorder — buffers per-frame data and saves each lap as Parquet.
 
-Files are written to ~/simracing_laps/<session>/lap_<N:02d>.parquet
+Files are written to ~/simracing_laps/<session>/
 where <session> is the ISO timestamp of race start (e.g. 2026-06-11T183000).
+
+  lap_<N:02d>.parquet           — saved on each lap transition
+  lap_<N:02d>_incomplete.parquet — current lap at session end (if any frames)
+  session.parquet               — all laps concatenated, written at session end
 
 Schema (one row per telemetry frame, ~60 Hz):
     tick              int    — frame index within the lap (0-based)
@@ -246,8 +250,27 @@ class LapRecorder:
         if self._current and self._current.num_frames() > 0:
             self._save(self._current, label="incomplete")
         self._current = None
+        self._merge_session()
         self._session_dir = None
         log.info("LapRecorder session stopped")
+
+    def _merge_session(self) -> None:
+        if self._session_dir is None:
+            return
+        lap_files = sorted(self._session_dir.glob("lap_*.parquet"))
+        if not lap_files:
+            return
+        try:
+            import pandas as pd
+            df = pd.concat((pd.read_parquet(f) for f in lap_files), ignore_index=True)
+            out = self._session_dir / "session.parquet"
+            df.to_parquet(out, index=False, engine="pyarrow", compression="snappy")
+            log.info(
+                "Session saved → %s  (%d rows, %d laps)",
+                out, len(df), len(lap_files),
+            )
+        except Exception:
+            log.exception("Failed to write session.parquet")
 
     def on_frame(
         self,
