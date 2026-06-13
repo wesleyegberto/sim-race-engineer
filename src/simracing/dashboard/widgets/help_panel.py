@@ -42,7 +42,7 @@ _LEFT = [
 _RIGHT = [
     ("section", "TIRES (bottom center)", "tire-wheel"),
     ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT, "tire-wheel"),
-    ("item",  "Orange border",     "wheelspin: wheel spinning faster than expected for current speed",           C_SPIN, "tire-wheel"),
+    ("item",  "Orange border",     "wheelspin: wheel faster than expected · TCS chip lights up when it intervenes", C_SPIN, "tire-wheel"),
     ("item",  "Red border",        "lockup: wheel locking under heavy braking",                                  C_LOCK, "tire-wheel"),
     ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM, "suspension"),
 
