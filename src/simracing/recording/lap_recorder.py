@@ -256,9 +256,9 @@ class LapRecorder:
         self._prev_lap = -1
         log.info("LapRecorder session started — saving to %s", self._session_dir)
 
-    def stop_session(self) -> None:
+    def stop_session(self, partial_label: str = "incomplete") -> None:
         if self._current and self._current.num_frames() > 0:
-            self._save(self._current, label="incomplete")
+            self._save(self._current, label=partial_label)
         self._current = None
         self._merge_session()
         self._session_dir = None

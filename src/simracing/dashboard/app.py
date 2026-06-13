@@ -98,6 +98,7 @@ class DashboardApp:
         # State transition tracking (for debug logging)
         self._prev_in_race: bool = False
         self._prev_race_pos: int = 0
+        self._race_finished: bool = False
         self._prev_paused: bool = False
         self._prev_tcs: bool = False
         self._prev_asm: bool = False
@@ -140,6 +141,7 @@ class DashboardApp:
                 if self._recorder.active:
                     self._recorder.stop_session()
                 self._reset_derived()
+                self._race_finished = False
 
         # Race start within ongoing in_race (e.g. free practice → race without menu)
         if d.in_race and not newly_in_race and d.race_position > 0 and self._prev_race_pos == 0:
@@ -227,6 +229,15 @@ class DashboardApp:
 
         if self._recording:
             self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
+
+        if (d.in_race and not self._race_finished
+                and d.total_laps > 0 and d.current_lap > d.total_laps):
+            log.info("Race finished — lap %d / %d total, closing session",
+                     d.current_lap, d.total_laps)
+            self._race_finished = True
+            if self._recorder.active:
+                self._recorder.stop_session(partial_label="race_end")
+
         self._data = d
 
     def _load_assets(self) -> None:
