@@ -40,6 +40,8 @@ Schema (one row per telemetry frame, ~60 Hz):
     lap_finish_ms     int    — 0 while lap is live, final time after crossing line
     fuel_at_start     float
     fuel_at_end       float
+    fuel_used         float  — litres consumed this lap (fuel_at_start − fuel_at_end)
+    fuel_avg          float  — session average litres/lap at the moment the lap ended
     full_throttle_ticks   int
     full_brake_ticks      int
     throttle_and_brake_ticks int
@@ -70,6 +72,8 @@ class LapData:
     lap_number: int = 0
     fuel_at_start: float = 0.0
     fuel_at_end: float = -1.0
+    fuel_used: float = 0.0
+    fuel_avg: float = 0.0
 
     # Per-frame lists (one entry per telemetry packet)
     tick:             list[int]   = field(default_factory=list)
@@ -213,6 +217,8 @@ class LapData:
             "rev_limiter":            self.rev_limiter,
             "fuel_at_start":          [self.fuel_at_start] * n,
             "fuel_at_end":            [self.fuel_at_end] * n,
+            "fuel_used":              [self.fuel_used] * n,
+            "fuel_avg":               [self.fuel_avg] * n,
             "full_throttle_ticks":    [self.full_throttle_ticks] * n,
             "full_brake_ticks":       [self.full_brake_ticks] * n,
             "throttle_and_brake_ticks": [self.throttle_and_brake_ticks] * n,
@@ -243,7 +249,14 @@ class LapRecorder:
         self._session_dir = None
         log.info("LapRecorder session stopped")
 
-    def on_frame(self, d: TelemetryData, g_lat: float, g_lon: float, slip_angle: float) -> None:
+    def on_frame(
+        self,
+        d: TelemetryData,
+        g_lat: float,
+        g_lon: float,
+        slip_angle: float,
+        fuel_avg: float = 0.0,
+    ) -> None:
         if self._session_dir is None:
             return
 
@@ -254,6 +267,8 @@ class LapRecorder:
             if self._current is not None and self._current.num_frames() > 0:
                 # Finalize the lap that just ended
                 self._current.fuel_at_end = d.fuel_level
+                self._current.fuel_used = max(0.0, self._current.fuel_at_start - d.fuel_level)
+                self._current.fuel_avg = fuel_avg
                 self._current.lap_finish_ms = d.last_lap_ms
                 self._save(self._current)
             # Start new lap buffer

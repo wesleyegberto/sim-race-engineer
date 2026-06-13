@@ -207,7 +207,7 @@ class DashboardApp:
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
 
-        self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle)
+        self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
         self._data = d
 
     def _load_assets(self) -> None:
