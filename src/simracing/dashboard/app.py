@@ -572,18 +572,18 @@ class DashboardApp:
 
         sep()
 
-        row("WATER", f"{d.water_temp:.0f} °C",
-            C_ORANGE if d.water_temp > 105 else C_TEXT, icon=self._icon_coolant_sm)
-        row("OIL", f"{d.oil_temp:.0f} °C",
-            C_ORANGE if d.oil_temp > 130 else C_TEXT, icon=self._icon_oil_sm)
+        row("BOOST", f"{d.turbo_boost:+.2f} bar",
+            C_ACCENT if d.turbo_boost > 0 else C_DIM, icon=self._icon_turbo)
         row("FUEL", f"{d.fuel_level:.1f} L", icon=self._icon_fuel)
         if self._fuel_per_lap > 0:
             laps_left = d.fuel_level / self._fuel_per_lap
             row("FUEL/LAP", f"{self._fuel_per_lap:.2f} L", C_ACCENT, icon=self._icon_fuel)
             row("LAPS LEFT", f"{laps_left:.1f}",
                 C_ORANGE if laps_left < 3 else C_TEXT, icon=self._icon_fuel)
-        row("BOOST", f"{d.turbo_boost:+.2f} bar",
-            C_ACCENT if d.turbo_boost > 0 else C_DIM, icon=self._icon_turbo)
+        row("OIL", f"{d.oil_temp:.0f} °C",
+            C_ORANGE if d.oil_temp > 130 else C_TEXT, icon=self._icon_oil_sm)
+        row("WATER", f"{d.water_temp:.0f} °C",
+            C_ORANGE if d.water_temp > 105 else C_TEXT, icon=self._icon_coolant_sm)
 
         flags = []
         if d.paused:
