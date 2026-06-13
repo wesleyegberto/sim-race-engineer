@@ -16,6 +16,7 @@ C_ORANGE = (255, 165, 0)
 C_SPIN = (255, 140, 0)
 C_LOCK = (220, 40, 40)
 C_RED = (210, 55, 55)
+C_GREEN = (60, 200, 80)
 C_YELLOW = (240, 210, 0)
 C_LIGHT = (190, 200, 255)
 
@@ -63,7 +64,71 @@ _RIGHT = [
 ]
 # fmt: on
 
-_TAB_LABELS = ["DASHBOARD", "APP GUIDE"]
+_TAB_LABELS = ["DASHBOARD", "APP GUIDE", "VOICE ALERTS"]
+
+# fmt: off
+_VOICE_LEFT = [
+    ("section", "LAP & PACE", "stopwatch"),
+    ("item", "Lap completed",
+     "fires on lap change when no new best lap was set",
+     C_TEXT, "stopwatch"),
+    ("item", "Best lap",
+     "new personal best — fires instead of 'Lap completed'",
+     C_GREEN, "stopwatch"),
+    ("item", "Final lap",
+     "fires entering the last lap of a timed/lapped race",
+     C_ORANGE, "flags"),
+    ("item", "Lap delta",
+     ">3s off best — fires once after the halfway point of the lap",
+     C_ORANGE, "stopwatch"),
+
+    ("section", "FUEL & PIT", "fuel"),
+    ("item", "Fuel low",
+     "fuel <20% · includes estimated laps remaining",
+     C_ORANGE, "fuel"),
+    ("item", "Fuel critical",
+     "fuel <10% · repeats every min-interval while below threshold",
+     C_RED, "fuel"),
+    ("item", "Pit window",
+     "2–4 laps of fuel remain in a race · 'Box box box'",
+     C_ACCENT, "fuel"),
+]
+
+_VOICE_RIGHT = [
+    ("section", "ENGINE", "coolant"),
+    ("item", "Water temp",
+     "coolant >105°C · repeats every 20s while above threshold",
+     C_RED, "coolant"),
+    ("item", "Oil temp",
+     "oil >130°C · repeats every 20s while above threshold",
+     C_RED, "oil"),
+
+    ("section", "TYRES", "tire-wheel"),
+    ("item", "Tyre temp",
+     "any surface >100°C · hot corners named · 30s cooldown",
+     C_ORANGE, "tire-wheel"),
+    ("item", "Tyre wear",
+     "any inner zone >110°C · high inner temp signals wear · 30s",
+     C_ORANGE, "tire-wheel"),
+    ("item", "Pressure low",
+     "any tyre <160 kPa · grip loss / puncture risk · 30s",
+     C_RED, "tire-wheel"),
+    ("item", "Pressure high",
+     "any tyre >250 kPa · blowout risk in heat · 30s cooldown",
+     C_RED, "tire-wheel"),
+
+    ("section", "HOW TO READ", "panel-cluster"),
+    ("item", "Corner names",
+     "front/rear + left/right · only affected corners are named",
+     C_DIM),
+    ("item", "Cooldowns",
+     "same alert won't repeat until its cooldown expires",
+     C_DIM),
+    ("item", "Thresholds",
+     "all values configurable in ~/simracing/simracing.conf",
+     C_DIM),
+]
+# fmt: on
 
 # fmt: off
 _APP_LEFT = [
@@ -130,12 +195,15 @@ class HelpPanel:
             _CARD_Y + (_TITLE_H - close_sz) // 2,
             close_sz, close_sz,
         )
-        tab_w, tab_h = 114, 26
+        tab_w, tab_h, tab_gap = 114, 26, 3
         tab_y = _CARD_Y + (_TITLE_H - tab_h) // 2
         cx = _CARD_X + _CARD_W // 2
+        n_tabs = len(_TAB_LABELS)
+        total_tab_w = n_tabs * tab_w + (n_tabs - 1) * tab_gap
+        tab_start_x = cx - total_tab_w // 2
         self._tab_rects = [
-            pygame.Rect(cx - tab_w - 3, tab_y, tab_w, tab_h),
-            pygame.Rect(cx + 3,         tab_y, tab_w, tab_h),
+            pygame.Rect(tab_start_x + i * (tab_w + tab_gap), tab_y, tab_w, tab_h)
+            for i in range(n_tabs)
         ]
         self._active_tab = 0
 
@@ -203,8 +271,10 @@ class HelpPanel:
             x_surf = font_sm.render("X", True, C_TITLE)
             surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
 
-        left_entries  = _LEFT      if self._active_tab == 0 else _APP_LEFT
-        right_entries = _RIGHT     if self._active_tab == 0 else _APP_RIGHT
+        _left_by_tab  = [_LEFT, _APP_LEFT,  _VOICE_LEFT]
+        _right_by_tab = [_RIGHT, _APP_RIGHT, _VOICE_RIGHT]
+        left_entries  = _left_by_tab[self._active_tab]
+        right_entries = _right_by_tab[self._active_tab]
         content_y = _CARD_Y + _TITLE_H + 12
         self._draw_column(surface, font_sm, self._col_left_x, content_y, left_entries, icons)
 
