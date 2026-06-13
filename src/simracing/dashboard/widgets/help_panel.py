@@ -158,7 +158,12 @@ _APP_RIGHT = [
     ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT,   "car-pedals"),
 
     ("section", "HEADER CONTROLS", "panel-cluster"),
-    ("item",  "● REC",            "red = recording · grey = paused · same session mid-race", C_RED, "rec-button"),
+    ("item",  "REC",               "red = recording · grey = paused · same session mid-race", C_RED, "rec-button"),
+    ("item",  "LIVE  (green)",    "connected to GT7 telemetry and receiving data",            C_GREEN),
+    ("item",  "WAIT  (yellow)",   "connecting or connected but awaiting first packet",        C_YELLOW),
+    ("item",  "ERR   (orange)",   "connection error — check PS5 IP and network",              C_ORANGE),
+    ("item",  "DISC  (grey)",     "disconnected — device IP is set but not active",           C_DIM),
+    ("item",  "OFF   (red)",      "no device IP configured — open Settings to set one",      C_RED),
 
     ("section", "SETTINGS  (~/simracing.conf)", "panel-cluster"),
     ("item",  "device_ip",        "PS5 / PC IP address",                                          C_TEXT),

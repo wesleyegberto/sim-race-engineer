@@ -8,7 +8,7 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  RACE ENGINEER          device: 192.168.x.x          [?]  [⚙]   │  ← Header
+│  RACE ENGINEER        [IN RACE]       [LIVE] [◉] [?] [⚙]        │  ← Header
 ├─────────────────────────────────────────────────────────────────┤
 │  ████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   │  ← RPM bar
 │  [ TCS ][ ASM ][ REV ][ HB ][ LIGHT ][ OIL! ][ H₂O! ]           │  ← Status strip
@@ -29,9 +29,23 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 | Element | Description |
 |---------|-------------|
 | **RACE ENGINEER** | App title and icon |
-| **device: x.x.x.x** | PS5 IP address currently in use. Orange if not configured. |
+| **Race status** (center) | `IN RACE` · `PIT / MENU` · `FINISHED` — reflects the current game state |
+| **Connection button** | Shows the telemetry link state (see below) |
+| **◉** | Start / stop the telemetry connection |
 | **?** | Opens the in-app help overlay |
 | **⚙** | Opens the Settings panel |
+
+### Connection button states
+
+| Label | Color | Meaning |
+|-------|-------|---------|
+| **LIVE** | Green | Connected to GT7 telemetry and receiving data |
+| **WAIT** | Yellow | Connecting, or connected but awaiting first packet from GT7 |
+| **ERR** | Orange/Red | Connection error — check PS5 IP and network |
+| **DISC** | Grey | Disconnected after a previous attempt (device IP is set) |
+| **OFF** | Dark red | No device IP configured — open **⚙ Settings** to set one |
+
+> The device IP is shown only in the **Settings** panel, not in the header.
 
 ---
 

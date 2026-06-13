@@ -581,14 +581,19 @@ class DashboardApp:
 
         mouse = pygame.mouse.get_pos()
 
-        # Connect/disconnect button — 4 states
+        # Connect/disconnect button — 5 states
+        # LIVE   = connected + receiving data
+        # WAIT   = connecting or connected but no data yet
+        # ERR    = connection error
+        # DISC   = disconnected after attempt (has device IP)
+        # OFF    = no device IP configured, never tried
         conn_hover = self._conn_btn.collidepoint(mouse)
         _h = 15 if conn_hover else 0
-        if status == "connected":
+        if status == "connected" and self._data is not None:
             conn_bg = (30 + _h, 80 + _h, 35 + _h)
             conn_dot = (60, 220, 80)
             conn_label = "LIVE"
-        elif status == "connecting":
+        elif status in ("connecting", "connected"):
             conn_bg = (55 + _h, 50 + _h, 15 + _h)
             conn_dot = (220, 180, 60)
             conn_label = "WAIT"
@@ -596,6 +601,10 @@ class DashboardApp:
             conn_bg = (80 + _h, 30 + _h, 10 + _h)
             conn_dot = (220, 110, 40)
             conn_label = "ERR"
+        elif self._config.device_ip:
+            conn_bg = (45 + _h, 45 + _h, 55 + _h)
+            conn_dot = (140, 140, 160)
+            conn_label = "DISC"
         else:
             conn_bg = (70 + _h, 20 + _h, 20 + _h)
             conn_dot = (200, 50, 50)
