@@ -85,7 +85,9 @@ class DashboardApp:
         _btn_y = (HEADER_H - 28) // 2
         self._gear_btn = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
         self._help_btn = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
-        self._conn_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
+        self._rec_btn  = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._conn_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
+        self._recording: bool = True
 
         # Fuel rate tracking
         self._prev_lap: int = -1
@@ -129,9 +131,11 @@ class DashboardApp:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
             if d.in_race:
-                self._recorder.start_session()
+                if self._recording:
+                    self._recorder.start_session()
             else:
-                self._recorder.stop_session()
+                if self._recording:
+                    self._recorder.stop_session()
                 self._reset_derived()
 
         if not d.in_race:
@@ -207,7 +211,8 @@ class DashboardApp:
         else:
             self._slip_angle *= 0.9  # decay to zero at low speed
 
-        self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
+        if self._recording:
+            self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
         self._data = d
 
     def _load_assets(self) -> None:
@@ -311,6 +316,13 @@ class DashboardApp:
                         else:
                             if self._connect_fn:
                                 self._connect_fn()
+                    elif self._rec_btn.collidepoint(event.pos):
+                        self._recording = not self._recording
+                        if self._data and self._data.in_race:
+                            if self._recording:
+                                self._recorder.start_session()
+                            else:
+                                self._recorder.stop_session()
                     elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
                     elif self._help_btn.collidepoint(event.pos):
@@ -483,6 +495,15 @@ class DashboardApp:
         pygame.draw.circle(screen, conn_dot, (dot_x, dot_y), 4)
         lbl_surf = font_sm.render(conn_label, True, conn_dot)
         screen.blit(lbl_surf, lbl_surf.get_rect(midleft=(dot_x + 9, dot_y)))
+
+        # Record button
+        rec_hover = self._rec_btn.collidepoint(mouse)
+        rec_bg = C_BTN_GEAR_HOVER if rec_hover else C_BTN_GEAR
+        pygame.draw.rect(screen, rec_bg, self._rec_btn, border_radius=5)
+        dot_color = (220, 50, 50) if self._recording else (65, 65, 78)
+        border_color = (160, 35, 35) if self._recording else C_BTN_GEAR
+        pygame.draw.rect(screen, border_color, self._rec_btn, 1, border_radius=5)
+        pygame.draw.circle(screen, dot_color, self._rec_btn.center, 7)
 
         # Help button
         hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR

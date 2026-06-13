@@ -78,6 +78,9 @@ class LapData:
     fuel_at_end: float = -1.0
     fuel_used: float = 0.0
     fuel_avg: float = 0.0
+    session_type: str = "practice"      # "race" or "practice"
+    total_laps_in_race: int = 0         # 0 = unlimited / time-based / practice
+    cars_in_race: int = 0
 
     # Per-frame lists (one entry per telemetry packet)
     tick:             list[int]   = field(default_factory=list)
@@ -219,6 +222,9 @@ class LapData:
             "tcs_active":             self.tcs_active,
             "asm_active":             self.asm_active,
             "rev_limiter":            self.rev_limiter,
+            "session_type":           [self.session_type] * n,
+            "total_laps_in_race":     [self.total_laps_in_race] * n,
+            "cars_in_race":           [self.cars_in_race] * n,
             "fuel_at_start":          [self.fuel_at_start] * n,
             "fuel_at_end":            [self.fuel_at_end] * n,
             "fuel_used":              [self.fuel_used] * n,
@@ -295,7 +301,14 @@ class LapRecorder:
                 self._current.lap_finish_ms = d.last_lap_ms
                 self._save(self._current)
             # Start new lap buffer
-            self._current = LapData(lap_number=lap_num, fuel_at_start=d.fuel_level)
+            session_type = "race" if d.total_laps > 0 or d.cars_in_race > 1 else "practice"
+            self._current = LapData(
+                lap_number=lap_num,
+                fuel_at_start=d.fuel_level,
+                session_type=session_type,
+                total_laps_in_race=d.total_laps,
+                cars_in_race=d.cars_in_race,
+            )
             self._prev_lap = lap_num
             log.info("LapRecorder — lap %d started", lap_num)
 
