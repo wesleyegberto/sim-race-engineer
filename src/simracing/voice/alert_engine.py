@@ -110,8 +110,8 @@ class AlertEngine:
             if any(t > inner_threshold for t in inner_temps):
                 corners = hot_corners_text(inner_temps, inner_threshold, lang)
                 text = self._maybe_fire_interval(
-                    "tire_inner", now, _TIRE_COOLDOWN_S,
-                    format_alert("tire_inner_high", lang, corners=corners),
+                    "tire_wear", now, _TIRE_COOLDOWN_S,
+                    format_alert("tire_wear_excessive", lang, corners=corners),
                 )
                 if text:
                     alerts.append(text)
