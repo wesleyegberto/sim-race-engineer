@@ -67,12 +67,26 @@ python -m PyInstaller \
   --hidden-import "pyarrow" \
   --hidden-import "pyarrow.vendored.version" \
   --collect-all "pygame" \
+  --exclude-module "pyarrow.tests" \
+  --exclude-module "pygame.tests" \
+  --exclude-module "pygame.examples" \
+  --exclude-module "setuptools" \
+  --exclude-module "distutils" \
   --distpath "${OUT_DIR}" \
   --workpath "build" \
   "${ENTRY}"
 
 # ── Cleanup temp icon files ───────────────────────────────────────────────────
 rm -rf build_tmp
+
+# ── Strip unnecessary data files from bundle ──────────────────────────────────
+RSRC="${OUT_DIR}/${APP_NAME}.app/Contents/Resources"
+for BLOAT in \
+  pyarrow/tests pyarrow/src pyarrow/include pyarrow/includes \
+  pygame/tests pygame/examples pygame/docs \
+  pandas/tests pandas/io/tests; do
+  rm -rf "${RSRC}/${BLOAT}"
+done
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 APP_PATH="${OUT_DIR}/${APP_NAME}.app"
