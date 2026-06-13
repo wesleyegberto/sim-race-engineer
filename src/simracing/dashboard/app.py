@@ -257,6 +257,8 @@ class DashboardApp:
         self._icon_stopwatch = _load_icon("stopwatch.png", 15, C_DIM)
         self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
         self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
+        self._icon_rec_on  = _load_icon("rec-button.png", 18)
+        self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
 
     def run(self) -> None:
         pygame.init()
@@ -500,10 +502,9 @@ class DashboardApp:
         rec_hover = self._rec_btn.collidepoint(mouse)
         rec_bg = C_BTN_GEAR_HOVER if rec_hover else C_BTN_GEAR
         pygame.draw.rect(screen, rec_bg, self._rec_btn, border_radius=5)
-        dot_color = (220, 50, 50) if self._recording else (65, 65, 78)
-        border_color = (160, 35, 35) if self._recording else C_BTN_GEAR
-        pygame.draw.rect(screen, border_color, self._rec_btn, 1, border_radius=5)
-        pygame.draw.circle(screen, dot_color, self._rec_btn.center, 7)
+        rec_icon = self._icon_rec_on if self._recording else self._icon_rec_off
+        if rec_icon:
+            screen.blit(rec_icon, rec_icon.get_rect(center=self._rec_btn.center))
 
         # Help button
         hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR
