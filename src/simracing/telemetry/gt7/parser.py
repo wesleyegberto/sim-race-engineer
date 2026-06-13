@@ -110,7 +110,7 @@ def _tire(buf: bytes, rps_off: int, rad_off: int, sus_off: int,
     rad = struct.unpack_from("<f", buf, rad_off)[0]
     sus = struct.unpack_from("<f", buf, sus_off)[0]
     t_inner, t_mid, t_outer = struct.unpack_from("<fff", buf, inner_off)
-    wheel_rpm = abs(rps) * 60.0
+    wheel_rpm = abs(rps) / (2.0 * 3.141592653589793) * 60.0
     return TireData(
         surface_temp=surface_temp,
         inner_temp=t_inner,
