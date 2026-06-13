@@ -97,6 +97,7 @@ class DashboardApp:
 
         # State transition tracking (for debug logging)
         self._prev_in_race: bool = False
+        self._prev_race_pos: int = 0
         self._prev_paused: bool = False
         self._prev_tcs: bool = False
         self._prev_asm: bool = False
@@ -126,7 +127,8 @@ class DashboardApp:
 
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
-        # State transition logging
+        newly_in_race = d.in_race and not self._prev_in_race
+
         if d.in_race != self._prev_in_race:
             log.info("Race state → %s", "IN RACE" if d.in_race else "OUT OF RACE")
             self._prev_in_race = d.in_race
@@ -137,6 +139,16 @@ class DashboardApp:
                 if self._recorder.active:
                     self._recorder.stop_session()
                 self._reset_derived()
+
+        # Race start within ongoing in_race (e.g. free practice → race without menu)
+        if d.in_race and not newly_in_race and d.race_position > 0 and self._prev_race_pos == 0:
+            log.info("Race start detected — grid pos %d / %d cars", d.race_position, d.cars_in_race)
+            if self._recorder.active:
+                self._recorder.stop_session()
+            if self._recording:
+                self._recorder.start_session()
+            self._reset_derived()
+        self._prev_race_pos = d.race_position if d.in_race else 0
 
         if not d.in_race:
             return
