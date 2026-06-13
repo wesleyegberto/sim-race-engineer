@@ -20,6 +20,9 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+voice = [
+    "piper-tts>=1.2.0",
+]
 
 [project.scripts]
 simracing-engineer = "simracing.main:main"

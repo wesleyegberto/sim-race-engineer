@@ -7,6 +7,7 @@ import signal
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pygame
 
@@ -67,6 +68,7 @@ class DashboardApp:
         disconnect_fn: Callable[[], None] | None = None,
         get_status_fn: Callable[[], str] | None = None,
         get_error_fn: Callable[[], str] | None = None,
+        voice_service: Any | None = None,
     ) -> None:
         self._queue = telemetry_queue
         self._config = config
@@ -74,6 +76,7 @@ class DashboardApp:
         self._disconnect_fn = disconnect_fn
         self._get_status_fn = get_status_fn or (lambda: "disconnected")
         self._get_error_fn = get_error_fn or (lambda: "")
+        self._voice_service: Any | None = voice_service
         self._data: TelemetryData | None = None
         self._running = False
         self._icon: pygame.Surface | None = None
@@ -126,6 +129,8 @@ class DashboardApp:
         self._slip_ratios = [0.0, 0.0, 0.0, 0.0]
         self._slip_angle = 0.0
         self._data = None
+        if self._voice_service is not None:
+            self._voice_service.reset()
 
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
@@ -266,6 +271,9 @@ class DashboardApp:
         if self._recording and not self._race_finished and not d.paused:
             self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
 
+        if self._voice_service is not None:
+            self._voice_service.on_frame(d, self._fuel_per_lap)
+
         self._data = d
 
     def _load_assets(self) -> None:
@@ -324,9 +332,13 @@ class DashboardApp:
         self._settings = SettingsPanel(WIN_W, WIN_H)
         self._help = HelpPanel(WIN_W, WIN_H)
 
+        if self._voice_service:
+            self._voice_service.speak_test()
+
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
-            self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
+            self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+                        self._config.voice_enabled, self._config.voice_language)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -352,10 +364,15 @@ class DashboardApp:
                 # Settings panel absorbs all events when open
                 if self._settings and self._settings.active:
                     action = self._settings.handle_event(event)
-                    if action == "saved":
+                    if action == "test_voice":
+                        if self._voice_service:
+                            self._voice_service.speak_test(self._settings.voice_language)
+                    elif action == "saved":
                         self._config.device_ip = self._settings.ip_text
                         self._config.rpm_flash = self._settings.rpm_flash
                         self._config.fuel_estimation = self._settings.fuel_estimation
+                        self._config.voice_enabled = self._settings.voice_enabled
+                        self._config.voice_language = self._settings.voice_language
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -379,7 +396,8 @@ class DashboardApp:
                             if not self._recorder.active:
                                 self._recorder.start_session()
                     elif self._gear_btn.collidepoint(event.pos):
-                        self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation)
+                        self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+                        self._config.voice_enabled, self._config.voice_language)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

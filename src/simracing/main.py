@@ -120,6 +120,7 @@ def main() -> None:
     parser.add_argument("--ps5-ip", default=None,
                         help="IP of the telemetry device (overrides config file and env var)")
     parser.add_argument("--bind", default="0.0.0.0", help="Local IP to bind UDP socket")
+    parser.add_argument("--voice", action="store_true", help="Enable voice alerts")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -129,6 +130,14 @@ def main() -> None:
     config = AppConfig()
     if args.ps5_ip:
         config.device_ip = args.ps5_ip
+    if args.voice:
+        config.voice_enabled = True
+
+    voice_service = None
+    if config.voice_enabled:
+        from .voice import VoiceService
+        voice_service = VoiceService(config)
+        voice_service.start()
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=4)
     controller = TelemetryController(config=config, bind_ip=args.bind, queue=queue)
@@ -143,8 +152,12 @@ def main() -> None:
         disconnect_fn=controller.stop,
         get_status_fn=lambda: controller.status,
         get_error_fn=lambda: controller.error_msg,
+        voice_service=voice_service,
     )
     app.run()
+
+    if voice_service:
+        voice_service.stop()
 
     log.info("Dashboard closed")
 

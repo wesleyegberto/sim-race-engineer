@@ -1,4 +1,4 @@
-.PHONY: install install-sys-deps run run-debug lint test build clean
+.PHONY: install install-sys-deps run run-voice run-debug lint test build clean
 
 VENV    := .venv
 PYTHON  := $(VENV)/bin/python
@@ -15,10 +15,10 @@ install: install-sys-deps
 	$(UV) venv $(VENV)
 	CFLAGS="-I$(SDL2_PREFIX)/include -I$(SDL2_PREFIX)/include/SDL2" \
 	LDFLAGS="-L$(SDL2_PREFIX)/lib" \
-	$(UV) pip install -e ".[dev]"
+	$(UV) pip install -e ".[dev,voice]"
 
 run:
-	SIMRACING_DEVICE_IP=$(PS5_IP) $(PYTHON) -m simracing.main
+	SIMRACING_DEVICE_IP=$(PS5_IP) $(PYTHON) -m simracing.main --voice
 
 run-debug:
 	SIMRACING_DEVICE_IP=$(PS5_IP) $(PYTHON) -m simracing.main --debug

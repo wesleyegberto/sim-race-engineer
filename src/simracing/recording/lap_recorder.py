@@ -1,6 +1,6 @@
 """Lap telemetry recorder — buffers per-frame data and saves each lap as Parquet.
 
-Files are written to ~/simracing_laps/<session>/
+Files are written to ~/simracing/laps/<session>/
 where <session> is the ISO timestamp of race start (e.g. 2026-06-11T183000).
 
   lap_<N:02d>.parquet           — saved on each lap transition
@@ -63,7 +63,7 @@ from ..telemetry.models import TelemetryData
 
 log = logging.getLogger(__name__)
 
-_SAVE_DIR = Path.home() / "simracing_laps"
+_SAVE_DIR = Path.home() / "simracing" / "laps"
 
 _FULL_THROTTLE = 0.98
 _FULL_BRAKE    = 0.98
