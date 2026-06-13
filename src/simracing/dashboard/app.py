@@ -250,6 +250,8 @@ class DashboardApp:
         self._icon_drifting = _load_icon("drifting.png", 15, C_DIM)
         self._icon_race_pos = _load_icon("race-pos.png", 15, C_DIM)
         self._icon_stopwatch = _load_icon("stopwatch.png", 15, C_DIM)
+        self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
+        self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
 
     def run(self) -> None:
         pygame.init()
@@ -334,7 +336,7 @@ class DashboardApp:
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
         d = self._data if self._data is not None else TelemetryData()
 
-        self._draw_header(screen, font_md, font_sm)
+        self._draw_header(screen, font_md, font_sm, d.in_race)
 
         draw_gauge(
             screen, cx=220, cy=380, radius=155,
@@ -416,7 +418,7 @@ class DashboardApp:
             screen.blit(overlay, (0, 0))
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
-                     font_sm: pygame.font.Font) -> None:
+                     font_sm: pygame.font.Font, in_race: bool = False) -> None:
         pygame.draw.rect(screen, C_HEADER, (0, 0, WIN_W, HEADER_H))
         pygame.draw.line(screen, C_SEPARATOR, (0, HEADER_H), (WIN_W, HEADER_H), 1)
 
@@ -426,6 +428,19 @@ class DashboardApp:
 
         title = font_md.render("RACE ENGINEER", True, C_TEXT)
         screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
+
+        # Race status indicator (centered in header)
+        status_icon = self._icon_racing if in_race else self._icon_pit_stop
+        status_label = "IN RACE" if in_race else "PIT / MENU"
+        status_color = C_GREEN if in_race else C_DIM
+        if status_icon:
+            label_surf = font_sm.render(status_label, True, status_color)
+            gap = 8
+            combined_w = status_icon.get_width() + gap + label_surf.get_width()
+            sx = WIN_W // 2 - combined_w // 2
+            sy = HEADER_H // 2
+            screen.blit(status_icon, status_icon.get_rect(midleft=(sx, sy)))
+            screen.blit(label_surf, label_surf.get_rect(midleft=(sx + status_icon.get_width() + gap, sy)))
 
         # Device IP / error indicator (right of title, left of buttons)
         status = self._get_status_fn()
