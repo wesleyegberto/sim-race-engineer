@@ -62,6 +62,41 @@ _RIGHT = [
 ]
 # fmt: on
 
+_TAB_LABELS = ["DASHBOARD", "APP GUIDE"]
+
+# fmt: off
+_APP_LEFT = [
+    ("section", "LAP RECORDING", "stopwatch"),
+    ("item",  "Auto-save",        "laps saved automatically — no manual action required",         C_TEXT, "stopwatch"),
+    ("item",  "On lap change",    "previous lap saved when current_lap counter increments",       C_TEXT, "stopwatch"),
+    ("item",  "On session end",   "current buffer saved as lap_NN_incomplete.parquet",            C_DIM,  "stopwatch"),
+    ("item",  "Location",         "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",         C_ACCENT),
+    ("item",  "Format",           "Apache Parquet · Snappy · one row per frame (~60 Hz)",        C_TEXT),
+
+    ("section", "RECORDED PER FRAME", "panel-cluster"),
+    ("item",  "Driving inputs",   "speed · rpm · gear · throttle · brake · clutch · handbrake",  C_TEXT, "car-pedals"),
+    ("item",  "Position",         "pos_x/y/z · vel_x/y/z — world coordinates (metres)",          C_TEXT, "speedometer"),
+    ("item",  "G-force & slip",   "g_lat · g_lon · slip_angle_deg (EMA-smoothed, computed)",     C_TEXT, "g-force"),
+    ("item",  "Tires",            "surface temp FL/FR/RL/RR · suspension travel",                C_TEXT, "tire-wheel"),
+    ("item",  "Engine & fluids",  "turbo_boost · water_temp · oil_temp · fuel_level",             C_TEXT, "fuel"),
+]
+
+_APP_RIGHT = [
+    ("section", "LAP SUMMARY (filled at lap end)", "stopwatch"),
+    ("item",  "fuel_at_start",    "fuel level when the lap began (litres)",                       C_ACCENT, "fuel"),
+    ("item",  "fuel_at_end",      "fuel level when the lap ended (litres)",                       C_ACCENT, "fuel"),
+    ("item",  "fuel_used",        "litres consumed this lap (start − end)",                       C_ACCENT, "fuel"),
+    ("item",  "fuel_avg",         "session average litres/lap at the moment lap ended",           C_ACCENT, "fuel"),
+    ("item",  "lap_finish_ms",    "official lap time from GT7 (milliseconds)",                    C_TEXT,   "stopwatch"),
+    ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT,   "car-pedals"),
+
+    ("section", "SETTINGS  (~/simracing.conf)", "panel-cluster"),
+    ("item",  "device_ip",        "PS5 / PC IP address",                                          C_TEXT),
+    ("item",  "rev_flash",        "true / false — full-screen flash at rev limiter",               C_TEXT,   "rpm"),
+    ("item",  "fuel_estimation",  "\"last\" or \"average\" — how FUEL/LAP is calculated",          C_TEXT,   "fuel"),
+]
+# fmt: on
+
 _FOOTER = "Press ESC or click anywhere to close"
 
 _CARD_X, _CARD_Y = 44, 58       # card sits just below the header
@@ -90,6 +125,14 @@ class HelpPanel:
             _CARD_Y + (_TITLE_H - close_sz) // 2,
             close_sz, close_sz,
         )
+        tab_w, tab_h = 114, 26
+        tab_y = _CARD_Y + (_TITLE_H - tab_h) // 2
+        cx = _CARD_X + _CARD_W // 2
+        self._tab_rects = [
+            pygame.Rect(cx - tab_w - 3, tab_y, tab_w, tab_h),
+            pygame.Rect(cx + 3,         tab_y, tab_w, tab_h),
+        ]
+        self._active_tab = 0
 
     def open(self) -> None:
         self.active = True
@@ -99,6 +142,10 @@ class HelpPanel:
             self.active = False
             return "closed"
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for i, tab_rect in enumerate(self._tab_rects):
+                if tab_rect.collidepoint(event.pos):
+                    self._active_tab = i
+                    return None
             self.active = False
             return "closed"
         return None
@@ -133,6 +180,16 @@ class HelpPanel:
         surface.blit(title, title.get_rect(midleft=(_CARD_X + _PAD, _CARD_Y + _TITLE_H // 2)))
 
         mouse = pygame.mouse.get_pos()
+        for i, (label, tab_rect) in enumerate(zip(_TAB_LABELS, self._tab_rects)):
+            active = (i == self._active_tab)
+            bg = (45, 72, 140) if active else (38, 38, 58)
+            pygame.draw.rect(surface, bg, tab_rect, border_radius=4)
+            if active:
+                pygame.draw.rect(surface, C_ACCENT, tab_rect, 1, border_radius=4)
+            tc = C_TITLE if active else C_DIM
+            t = font_sm.render(label, True, tc)
+            surface.blit(t, t.get_rect(center=tab_rect.center))
+
         close_bg = (70, 40, 40) if self._close_btn.collidepoint(mouse) else (42, 42, 58)
         pygame.draw.rect(surface, close_bg, self._close_btn, border_radius=4)
         if icon_close:
@@ -141,8 +198,10 @@ class HelpPanel:
             x_surf = font_sm.render("X", True, C_TITLE)
             surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
 
+        left_entries  = _LEFT      if self._active_tab == 0 else _APP_LEFT
+        right_entries = _RIGHT     if self._active_tab == 0 else _APP_RIGHT
         content_y = _CARD_Y + _TITLE_H + 12
-        self._draw_column(surface, font_sm, self._col_left_x, content_y, _LEFT, icons)
+        self._draw_column(surface, font_sm, self._col_left_x, content_y, left_entries, icons)
 
         div_x = self._col_right_x - _COL_GAP // 2
         pygame.draw.line(
@@ -150,7 +209,7 @@ class HelpPanel:
             (div_x, _CARD_Y + _TITLE_H + 8),
             (div_x, _CARD_Y + _CARD_H - 28), 1,
         )
-        self._draw_column(surface, font_sm, self._col_right_x, content_y, _RIGHT, icons)
+        self._draw_column(surface, font_sm, self._col_right_x, content_y, right_entries, icons)
 
         footer = font_sm.render(_FOOTER, True, C_DIM)
         surface.blit(footer, footer.get_rect(

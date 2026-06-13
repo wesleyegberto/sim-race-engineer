@@ -315,3 +315,72 @@ The analytical information (G-meter, slip angle, suspension, tire temps) is mean
 
 The app listens on UDP port **33740** by default.
 
+---
+
+## Lap Recording
+
+Race Engineer automatically records every lap to disk — no manual action required.
+
+### When laps are saved
+
+| Event | File written |
+|-------|-------------|
+| **Lap transition** (`current_lap` increments) | `lap_NN.parquet` for the lap that just ended |
+| **Session end** (app closed or race stopped) | `lap_NN_incomplete.parquet` for the current unfinished lap |
+
+### Where files are saved
+
+```
+~/simracing_laps/
+└── <YYYY-MM-DDTHHMMSS>/        ← session folder, created when recording starts
+    ├── lap_01.parquet
+    ├── lap_02.parquet
+    └── lap_03_incomplete.parquet
+```
+
+The session directory name is the ISO timestamp of when the recording session started (e.g. `2026-06-13T143022`).
+
+### File format
+
+Files use **Apache Parquet** with **Snappy** compression. Each file contains one row per telemetry frame (~60 Hz). Columns:
+
+| Column(s) | Description |
+|-----------|-------------|
+| `tick`, `packet_id`, `lap_time_ms` | Frame index, GT7 packet counter, elapsed lap time (ms) |
+| `speed_kmh`, `rpm`, `gear` | Speed, engine revs, current gear |
+| `throttle`, `brake`, `clutch`, `handbrake` | Input channels, 0.0–1.0 |
+| `turbo_boost` | Turbo pressure above atmospheric (bar) |
+| `pos_x/y/z`, `vel_x/y/z` | World position and velocity (metres, m/s) |
+| `g_lat`, `g_lon` | Lateral and longitudinal G-force (EMA-smoothed, computed by app) |
+| `slip_angle_deg` | Yaw slip angle (computed by app) |
+| `tire_fl/fr/rl/rr_temp` | Tyre surface temperatures (°C) |
+| `sus_fl/fr/rl/rr` | Suspension travel (metres) |
+| `fuel_level`, `water_temp`, `oil_temp` | Fluids |
+| `tcs_active`, `asm_active`, `rev_limiter` | Boolean state flags |
+
+**Lap-summary columns** (same value on every row, filled when the lap ends):
+
+| Column | Description |
+|--------|-------------|
+| `lap_number` | Lap counter from GT7 |
+| `lap_finish_ms` | Official lap time from GT7 (ms); `0` while lap is live |
+| `fuel_at_start` | Fuel level at the start of the lap (litres) |
+| `fuel_at_end` | Fuel level at the end of the lap (litres) |
+| `fuel_used` | Litres consumed this lap (`fuel_at_start − fuel_at_end`) |
+| `fuel_avg` | Session-average litres/lap at the moment this lap ended |
+| `full_throttle_ticks` | Frames with throttle ≥ 98% |
+| `full_brake_ticks` | Frames with brake ≥ 98% |
+| `throttle_and_brake_ticks` | Frames with both inputs ≥ 5% (trail braking) |
+| `coasting_ticks` | Frames with both inputs below 5% |
+
+### Reading lap files
+
+```python
+import pandas as pd
+
+df = pd.read_parquet("~/simracing_laps/2026-06-13T143022/lap_01.parquet")
+print(df.columns.tolist())
+print(f"Lap time: {df['lap_finish_ms'].iloc[-1] / 1000:.3f}s")
+print(f"Fuel used: {df['fuel_used'].iloc[-1]:.2f} L")
+```
+
