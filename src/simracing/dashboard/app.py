@@ -374,7 +374,7 @@ class DashboardApp:
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
         d = self._data if self._data is not None else TelemetryData()
 
-        self._draw_header(screen, font_md, font_sm, d.in_race)
+        self._draw_header(screen, font_md, font_sm, d.in_race, self._race_finished)
 
         draw_gauge(
             screen, cx=220, cy=380, radius=155,
@@ -456,7 +456,8 @@ class DashboardApp:
             screen.blit(overlay, (0, 0))
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
-                     font_sm: pygame.font.Font, in_race: bool = False) -> None:
+                     font_sm: pygame.font.Font, in_race: bool = False,
+                     race_finished: bool = False) -> None:
         pygame.draw.rect(screen, C_HEADER, (0, 0, WIN_W, HEADER_H))
         pygame.draw.line(screen, C_SEPARATOR, (0, HEADER_H), (WIN_W, HEADER_H), 1)
 
@@ -468,9 +469,18 @@ class DashboardApp:
         screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
 
         # Race status indicator (centered in header)
-        status_icon = self._icon_racing if in_race else self._icon_pit_stop
-        status_label = "IN RACE" if in_race else "PIT / MENU"
-        status_color = C_GREEN if in_race else C_DIM
+        if race_finished:
+            status_icon  = self._icon_pit_stop
+            status_label = "FINISHED"
+            status_color = C_ORANGE
+        elif in_race:
+            status_icon  = self._icon_racing
+            status_label = "IN RACE"
+            status_color = C_GREEN
+        else:
+            status_icon  = self._icon_pit_stop
+            status_label = "PIT / MENU"
+            status_color = C_DIM
         if status_icon:
             label_surf = font_sm.render(status_label, True, status_color)
             gap = 8
