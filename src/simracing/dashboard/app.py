@@ -500,17 +500,15 @@ class DashboardApp:
             if active:
                 pygame.draw.rect(screen, bg, rect, border_radius=4)
                 pygame.draw.rect(screen, fg, rect, 1, border_radius=4)
-                txt = font.render(label, True, fg)
+                color = fg
             else:
                 pygame.draw.rect(screen, (28, 28, 36), rect, border_radius=4)
                 pygame.draw.rect(screen, (48, 48, 58), rect, 1, border_radius=4)
-                txt = font.render(label, True, (52, 52, 62))
+                color = (52, 52, 62)
             if icon:
-                combined_w = icon.get_width() + 3 + txt.get_width()
-                ix = rect.centerx - combined_w // 2
-                screen.blit(icon, icon.get_rect(midleft=(ix, rect.centery)))
-                screen.blit(txt, txt.get_rect(midleft=(ix + icon.get_width() + 3, rect.centery)))
+                screen.blit(icon, icon.get_rect(center=rect.center))
             else:
+                txt = font.render(label, True, color)
                 screen.blit(txt, txt.get_rect(center=rect.center))
             x += CHIP_W + CHIP_GAP
 
