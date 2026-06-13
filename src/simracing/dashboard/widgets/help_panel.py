@@ -33,7 +33,7 @@ _LEFT = [
     ("item",  "FUEL (bar)",     "fuel percentage remaining in tank",                                             C_ACCENT, "fuel"),
 
     ("section", "G-METER · SLIP (bottom left)", "g-force"),
-    ("item",  "G dot",          "position = current G force · top=braking · bottom=accel · sides=corners",      C_TEXT, "g-force"),
+    ("item",  "G dot",          "G force · top=braking · bottom=accel · sides=corners",                         C_TEXT, "g-force"),
     ("item",  "G dot color",    "green <0.8G · orange <1.5G · red ≥1.5G",                                       C_TEXT, "g-force"),
     ("item",  "SLIP bar",       "angle between velocity direction and car heading (oversteer indicator)",        C_TEXT, "drifting"),
     ("item",  "SLIP color",     "green <5° (neutral) · orange <12° · red ≥12° (high oversteer)",                C_TEXT, "drifting"),
@@ -42,9 +42,9 @@ _LEFT = [
 _RIGHT = [
     ("section", "TIRES (bottom center)", "tire-wheel"),
     ("item",  "Tile color",        "blue=cold (<60°C) · green=ideal (60-130°C) · red=hot (>130°C)",             C_TEXT, "tire-wheel"),
-    ("item",  "Orange border",     "wheelspin: wheel faster than expected · TCS chip lights up when it intervenes", C_SPIN, "tire-wheel"),
+    ("item",  "Orange border",     "wheelspin · wheel spins faster than expected · TCS may intervene",            C_SPIN, "tire-wheel"),
     ("item",  "Red border",        "lockup: wheel locking under heavy braking",                                  C_LOCK, "tire-wheel"),
-    ("item",  "Side bar",          "suspension travel: fill from bottom · blue=light · green=nominal · red=max", C_DIM, "suspension"),
+    ("item",  "Side bar",          "suspension travel · blue=light · green=nominal · red=max",                   C_DIM, "suspension"),
 
     ("section", "STATUS STRIP (below RPM bar)", "panel-cluster"),
     ("item",  "TCS / ASM",         "traction control (orange) or stability (yellow) intervened",                C_SPIN, "tcs"),
