@@ -332,8 +332,6 @@ class DashboardApp:
         self._settings = SettingsPanel(WIN_W, WIN_H)
         self._help = HelpPanel(WIN_W, WIN_H)
 
-        if self._voice_service:
-            self._voice_service.speak_test()
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
