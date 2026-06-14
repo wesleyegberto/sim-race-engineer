@@ -133,28 +133,15 @@ Press **?** (info button in the header) to open the UI Guide — a 3-tab referen
 ## Setup
 
 ```bash
-uv venv && source .venv/bin/activate
-
-# Dashboard only
-uv pip install -e ".[dev]"
-
-# With voice alerts (requires Piper TTS models in ~/simracing/piper/)
-uv pip install -e ".[dev,voice]"
+make install
 ```
+
+Installs all dependencies: dashboard, voice communication, and lap analysis viewer.
 
 ### Piper TTS models
 
-Download models into `~/simracing/piper/`:
-
-```bash
-# English (default)
-# en_US-lessac-medium.onnx + .json
-
-# Portuguese
-# pt_BR-faber-medium.onnx + .json
-```
-
-Models are available at [rhasspy/piper](https://github.com/rhasspy/piper/blob/master/VOICES.md).
+Downloaded automatically from HuggingFace on first launch (~200 MB per voice) into `~/simracing/piper/`.
+No manual step required.
 
 ---
 
