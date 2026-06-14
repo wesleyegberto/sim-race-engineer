@@ -110,10 +110,10 @@ class DashboardApp:
         _btn_y = (HEADER_H - 28) // 2
         self._gear_btn     = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
         self._help_btn     = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
-        self._strategy_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._rec_btn      = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._suffix_btn   = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
-        self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._strategy_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
         self._recording: bool = self._config.recording_on_start
         self._analysis_proc: Any | None = None
