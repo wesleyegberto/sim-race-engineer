@@ -910,7 +910,7 @@ class DashboardApp:
         pygame.draw.rect(screen, abtn_color, self._analysis_btn, border_radius=5)
         running_analysis = self._analysis_proc and self._analysis_proc.poll() is None
         if self._icon_lap_analysis:
-            icon = self._icon_lap_analysis_active if running_analysis else self._icon_lap_analysis
+            icon = (self._icon_lap_analysis_active or self._icon_lap_analysis) if running_analysis else self._icon_lap_analysis
             screen.blit(icon, icon.get_rect(center=self._analysis_btn.center))
         else:
             bar_c = C_GREEN if running_analysis else C_TEXT
