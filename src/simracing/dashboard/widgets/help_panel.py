@@ -52,8 +52,8 @@ _RIGHT = [
     ("item",  "REV",               "rev limiter active — engine at max RPM",                                    C_RED),
     ("item",  "HB",                "handbrake applied",                                                         C_RED, "parking"),
     ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT, "headlight"),
-    ("item",  "OIL!",              "oil temperature critical — above 130°C",                                    C_RED, "oil"),
-    ("item",  "WATER!",            "water temperature critical — above 105°C",                                  C_RED, "coolant"),
+    ("item",  "OIL",               "oil temperature critical — above 130°C",                                    C_RED, "oil"),
+    ("item",  "H2O",               "water temperature critical — above 105°C",                                  C_RED, "coolant"),
 
     ("section", "INFO PANEL (right)", "race-pos"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),

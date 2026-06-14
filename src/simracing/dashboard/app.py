@@ -995,8 +995,8 @@ class DashboardApp:
             ("ASM",   d.asm_active,         (15, 10, 5),     (255, 190, 0),    self._icon_asm),
             ("HB",    d.handbrake_active,   (15, 15, 5),     (240, 210, 0),    self._icon_parking),
             ("LIGHT", d.lights_on,          (10, 10, 20),    (190, 200, 255),  self._icon_headlight),
-            ("OIL!",  d.oil_temp > 130,     (255, 240, 240), (200, 30, 30),    self._icon_oil),
-            ("H2O!",  d.water_temp > 105,   (255, 240, 240), (200, 30, 30),    self._icon_coolant),
+            ("OIL",   d.oil_temp > 130,     (255, 240, 240), (200, 30, 30),    self._icon_oil),
+            ("H2O",   d.water_temp > 105,   (255, 240, 240), (200, 30, 30),    self._icon_coolant),
             ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30),    None),
         ]
 
