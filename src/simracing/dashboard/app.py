@@ -470,7 +470,6 @@ class DashboardApp:
         self._icon_race_pos = _load_icon("race-pos.png", 15, C_DIM)
         self._icon_stopwatch = _load_icon("stopwatch.png", 15, C_DIM)
         self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
-        self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
         self._icon_strategy = _load_icon("strategy.png", 18, C_TEXT)
         self._icon_lap_analysis        = _load_icon("lap-analysis.png", 18, C_TEXT)
         self._icon_lap_analysis_active = _load_icon("lap-analysis.png", 18, C_GREEN)
