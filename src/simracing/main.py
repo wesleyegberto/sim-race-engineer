@@ -103,7 +103,7 @@ class TelemetryController:
                                 self._queue.put_nowait(data)
                         elif deadline is not None and loop.time() > deadline:
                             self.status = STATUS_ERROR
-                            self.error_msg = "No data — check PS5 is running GT7 and IP is correct"
+                            self.error_msg = "Could not connect to device"
                             log.warning("No telemetry data after %.0fs — marking ERR", _NO_DATA_TIMEOUT_S)
                             break
             except asyncio.CancelledError:
