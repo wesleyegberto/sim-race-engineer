@@ -61,7 +61,7 @@ class TelemetryController:
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         provider = GT7TelemetryProvider(
-            ps5_ip=self._config.device_ip, bind_ip=self._bind_ip
+            device_ip=self._config.device_ip, bind_ip=self._bind_ip
         )
 
         async def _main() -> None:
@@ -119,7 +119,7 @@ class TelemetryController:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sim Racing Cockpit Dashboard")
-    parser.add_argument("--ps5-ip", default=None,
+    parser.add_argument("--device-ip", default=None,
                         help="IP of the telemetry device (overrides config file and env var)")
     parser.add_argument("--bind", default="0.0.0.0", help="Local IP to bind UDP socket")
     parser.add_argument("--voice", action="store_true", help="Enable voice alerts")
@@ -130,8 +130,8 @@ def main() -> None:
         logging.getLogger().setLevel(logging.DEBUG)
 
     config = AppConfig()
-    if args.ps5_ip:
-        config.device_ip = args.ps5_ip
+    if args.device_ip:
+        config.device_ip = args.device_ip
     if args.voice:
         config.voice_enabled = True
 

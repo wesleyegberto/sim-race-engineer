@@ -4,7 +4,7 @@ VENV    := .venv
 PYTHON  := $(VENV)/bin/python
 UV      := uv
 
-PS5_IP ?= 192.168.1.3
+DEVICE_IP ?= 192.168.1.3
 
 SDL2_PREFIX := $(shell brew --prefix sdl2 2>/dev/null)
 
@@ -18,10 +18,10 @@ install: install-sys-deps
 	$(UV) pip install -e ".[dev,voice]"
 
 run:
-	SIMRACING_DEVICE_IP=$(PS5_IP) $(PYTHON) -m simracing.main --voice
+	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simracing.main --voice
 
 run-debug:
-	SIMRACING_DEVICE_IP=$(PS5_IP) $(PYTHON) -m simracing.main --debug
+	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simracing.main --debug
 
 lint:
 	$(VENV)/bin/ruff check src/

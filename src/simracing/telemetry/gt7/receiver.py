@@ -1,7 +1,7 @@
 """GT7 UDP telemetry receiver.
 
 GT7 only streams data while an active heartbeat is received.
-Send the ASCII byte 'A' to <ps5_ip>:33739 every ~100 ms to keep the stream alive.
+Send the ASCII byte 'A' to <device_ip>:33739 every ~100 ms to keep the stream alive.
 GT7 broadcasts on port 33740.
 """
 
@@ -25,8 +25,8 @@ _RECV_TIMEOUT = 0.02         # non-blocking read window
 class GT7TelemetryProvider(TelemetryProvider):
     """Connects to a PS5 running GT7 and decodes telemetry packets."""
 
-    def __init__(self, ps5_ip: str, bind_ip: str = "0.0.0.0") -> None:
-        self.ps5_ip = ps5_ip
+    def __init__(self, device_ip: str, bind_ip: str = "0.0.0.0") -> None:
+        self.device_ip = device_ip
         self.bind_ip = bind_ip
         self._sock: Optional[socket.socket] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
@@ -38,7 +38,7 @@ class GT7TelemetryProvider(TelemetryProvider):
         self._sock.setblocking(False)
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         log.info("GT7 receiver bound to %s:%d, sending heartbeats to %s:%d",
-                 self.bind_ip, _RECV_PORT, self.ps5_ip, _SEND_PORT)
+                 self.bind_ip, _RECV_PORT, self.device_ip, _SEND_PORT)
 
     async def disconnect(self) -> None:
         if self._heartbeat_task:
@@ -80,7 +80,7 @@ class GT7TelemetryProvider(TelemetryProvider):
         try:
             while True:
                 try:
-                    sock.sendto(b"A", (self.ps5_ip, _SEND_PORT))
+                    sock.sendto(b"A", (self.device_ip, _SEND_PORT))
                 except OSError as exc:
                     log.debug("Heartbeat send failed: %s", exc)
                 await asyncio.sleep(_HEARTBEAT_INTERVAL)
