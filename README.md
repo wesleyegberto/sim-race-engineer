@@ -86,6 +86,32 @@ Each alert has an independent cooldown to avoid repetition.
 All thresholds are configurable in `~/simracing/simracing.conf`.
 Each alert can be individually enabled or disabled in the in-app Settings panel.
 
+### Race Strategy
+
+Real-time strategy engine that computes pit stop recommendations from live fuel consumption and tyre wear data.
+
+**Auto Strategy** — recalculated every lap:
+
+| Field | Description |
+|-------|-------------|
+| Laps to fuel out | Fuel remaining ÷ average fuel per lap |
+| Laps to tyre limit | Laps until wear reaches the configured threshold (default 80%) |
+| Recommended pit lap | Earliest safe stop lap, accounting for pit buffer (default 1 lap) |
+| Pit reason | `FUEL` · `TYRES` · `FUEL+TYRES` (when both converge within 2 laps) |
+| Can finish direct | Whether fuel and tyres last to the end without stopping |
+
+**Planned Strategy** — up to 3 user-defined pit stops, configured via the Strategy panel (**S** key):
+
+| Alert | Trigger |
+|-------|---------|
+| Approaching | 2 laps before the planned stop lap |
+| Box now | On the planned stop lap |
+| Tyre warning | Tyres projected to degrade before reaching the planned stop |
+| Missed | Stop lap passed without pitting — auto-reschedules to earliest safe lap if fuel allows |
+
+Pit entry is detected automatically and marks the corresponding stop as done.
+Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/simracing/simracing.conf`.
+
 ### Lap Recording
 
 Sessions and laps are saved automatically as **Apache Parquet** (Snappy) at ~60 Hz.
