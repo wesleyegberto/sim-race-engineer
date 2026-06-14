@@ -29,6 +29,7 @@ from .widgets.help_panel import HelpPanel
 from .widgets.settings_panel import SettingsPanel
 from .widgets.slip_angle import draw_slip_angle
 from .widgets.strategy_panel import StrategyPanel
+from .widgets.suffix_panel import SuffixInputPanel
 from .widgets.tire_widget import draw_tires
 
 log = logging.getLogger(__name__)
@@ -100,17 +101,20 @@ class DashboardApp:
         self._icon_settings: pygame.Surface | None = None
         self._icon_info: pygame.Surface | None = None
         self._icon_close: pygame.Surface | None = None
-        self._recorder = LapRecorder()
+        self._icon_pencil: pygame.Surface | None = None
+        self._recorder = LapRecorder(suffix=self._config.recording_suffix)
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
         self._strategy_panel: StrategyPanel | None = None
+        self._suffix_panel: SuffixInputPanel | None = None
         _btn_y = (HEADER_H - 28) // 2
         self._gear_btn     = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
         self._help_btn     = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
         self._strategy_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._rec_btn      = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
-        self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
-        self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
+        self._suffix_btn   = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
         self._recording: bool = True
         self._analysis_proc: Any | None = None
 
@@ -468,6 +472,7 @@ class DashboardApp:
         self._icon_rec_on  = _load_icon("rec-stop-button.png", 18)
         self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
         self._icon_rec     = _load_icon("rec-button.png", 15)
+        self._icon_pencil  = _load_icon("pencil.png", 18, C_DIM)
 
     def run(self) -> None:
         pygame.init()
@@ -479,6 +484,7 @@ class DashboardApp:
         self._settings = SettingsPanel(WIN_W, WIN_H)
         self._help = HelpPanel()
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
+        self._suffix_panel = SuffixInputPanel(WIN_W, WIN_H)
 
         self._rev_overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
         self._rev_overlay.fill((220, 40, 40, 40))
@@ -512,6 +518,17 @@ class DashboardApp:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._running = False
+                    continue
+
+                # Suffix panel absorbs all events when open
+                if self._suffix_panel and self._suffix_panel.active:
+                    self._suffix_panel.update()
+                    result = self._suffix_panel.handle_event(event)
+                    if result is not None:
+                        self._config.recording_suffix = result
+                        self._recorder.suffix = result
+                        self._config.save()
+                        log.info("Recording suffix set to %r", result)
                     continue
 
                 # Help panel absorbs all events when open
@@ -584,6 +601,9 @@ class DashboardApp:
                         if self._recording and self._data and self._data.in_race:
                             if not self._recorder.active:
                                 self._recorder.start_session()
+                    elif self._suffix_btn.collidepoint(event.pos):
+                        if self._suffix_panel and not self._recorder.active:
+                            self._suffix_panel.open(self._config.recording_suffix)
                     elif self._analysis_btn.collidepoint(event.pos):
                         self._launch_analysis()
                     elif self._strategy_btn.collidepoint(event.pos):
@@ -624,6 +644,8 @@ class DashboardApp:
                     self._settings.draw(screen, font_md, font_sm, dt)
                 if self._strategy_panel:
                     self._strategy_panel.draw(screen, font_md, font_sm, dt)
+                if self._suffix_panel and self._suffix_panel.active:
+                    self._suffix_panel.draw(screen, font_md, font_sm)
                 if self._help:
                     self._help.draw(screen, font_md, font_sm, self._icon_close,
                                     icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting, "race-pos": self._icon_race_pos, "stopwatch": self._icon_stopwatch, "rec-button": self._icon_rec})
@@ -849,6 +871,23 @@ class DashboardApp:
         rec_icon = self._icon_rec_on if self._recording else self._icon_rec_off
         if rec_icon:
             screen.blit(rec_icon, rec_icon.get_rect(center=self._rec_btn.center))
+
+        # Session suffix edit button (pencil icon — disabled while recording is active)
+        suffix_active = bool(self._config.recording_suffix)
+        if self._recorder.active:
+            suffix_btn_bg = (28, 28, 36)  # dimmed when session is running
+        elif self._suffix_btn.collidepoint(mouse):
+            suffix_btn_bg = C_BTN_GEAR_HOVER
+        elif suffix_active:
+            suffix_btn_bg = (40, 70, 40)  # green tint when suffix is set
+        else:
+            suffix_btn_bg = C_BTN_GEAR
+        pygame.draw.rect(screen, suffix_btn_bg, self._suffix_btn, border_radius=4)
+        if self._icon_pencil:
+            pencil_tinted = self._icon_pencil.copy()
+            if self._recorder.active:
+                pencil_tinted.set_alpha(60)
+            screen.blit(pencil_tinted, pencil_tinted.get_rect(center=self._suffix_btn.center))
 
         # Help button
         hbtn_color = C_BTN_GEAR_HOVER if self._help_btn.collidepoint(mouse) else C_BTN_GEAR

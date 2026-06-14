@@ -123,6 +123,8 @@ def main() -> None:
                         help="IP of the telemetry device (overrides config file and env var)")
     parser.add_argument("--bind", default="0.0.0.0", help="Local IP to bind UDP socket")
     parser.add_argument("--voice", action="store_true", help="Enable voice alerts")
+    parser.add_argument("--session-suffix", default=None,
+                        help="Suffix appended to session folder and session.parquet (overrides config)")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -134,6 +136,8 @@ def main() -> None:
         config.device_ip = args.device_ip
     if args.voice:
         config.voice_enabled = True
+    if args.session_suffix is not None:
+        config.recording_suffix = args.session_suffix
 
     voice_service = None
     if config.voice_enabled:

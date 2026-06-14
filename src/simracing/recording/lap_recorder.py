@@ -239,18 +239,28 @@ class LapData:
 class LapRecorder:
     """Detects lap transitions and saves each completed lap to a Parquet file."""
 
-    def __init__(self) -> None:
+    def __init__(self, suffix: str = "") -> None:
         self._session_dir: Path | None = None
         self._current: LapData | None = None
         self._prev_lap: int = -1
+        self._suffix: str = suffix
 
     @property
     def active(self) -> bool:
         return self._session_dir is not None
 
+    @property
+    def suffix(self) -> str:
+        return self._suffix
+
+    @suffix.setter
+    def suffix(self, value: str) -> None:
+        self._suffix = value
+
     def start_session(self) -> None:
         ts = datetime.now().strftime("%Y-%m-%dT%H%M%S")
-        self._session_dir = _SAVE_DIR / ts
+        folder = f"{ts}_{self._suffix}" if self._suffix else ts
+        self._session_dir = _SAVE_DIR / folder
         self._session_dir.mkdir(parents=True, exist_ok=True)
         self._current = None
         self._prev_lap = -1
@@ -287,7 +297,8 @@ class LapRecorder:
         try:
             import pandas as pd
             df = pd.concat((pd.read_parquet(f) for f in lap_files), ignore_index=True)
-            out = self._session_dir / "session.parquet"
+            filename = f"session_{self._suffix}.parquet" if self._suffix else "session.parquet"
+            out = self._session_dir / filename
             df.to_parquet(out, index=False, engine="pyarrow", compression="snappy")
             log.info(
                 "Session saved → %s  (%d rows, %d laps)",
