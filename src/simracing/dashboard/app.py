@@ -470,6 +470,8 @@ class DashboardApp:
         self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
         self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
         self._icon_strategy = _load_icon("strategy.png", 18, C_DIM)
+        self._icon_lap_analysis        = _load_icon("lap-analysis.png", 18, C_DIM)
+        self._icon_lap_analysis_active = _load_icon("lap-analysis.png", 18, C_GREEN)
         self._icon_rec_on  = _load_icon("rec-stop-button.png", 18)
         self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
         self._icon_rec     = _load_icon("rec-button.png", 15)
@@ -903,15 +905,19 @@ class DashboardApp:
             h_sym = font_md.render("?", True, C_TEXT)
             screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
 
-        # Analysis button — bar-chart glyph, green when viewer is running
+        # Analysis button — green when viewer is running
         abtn_color = C_BTN_GEAR_HOVER if self._analysis_btn.collidepoint(mouse) else C_BTN_GEAR
         pygame.draw.rect(screen, abtn_color, self._analysis_btn, border_radius=5)
         running_analysis = self._analysis_proc and self._analysis_proc.poll() is None
-        bar_c = C_GREEN if running_analysis else C_TEXT
-        bx, by = self._analysis_btn.centerx, self._analysis_btn.centery
-        pygame.draw.rect(screen, bar_c, (bx - 8, by + 1,  4,  5))
-        pygame.draw.rect(screen, bar_c, (bx - 2, by - 2,  4,  8))
-        pygame.draw.rect(screen, bar_c, (bx + 4, by - 5,  4, 11))
+        if self._icon_lap_analysis:
+            icon = self._icon_lap_analysis_active if running_analysis else self._icon_lap_analysis
+            screen.blit(icon, icon.get_rect(center=self._analysis_btn.center))
+        else:
+            bar_c = C_GREEN if running_analysis else C_TEXT
+            bx, by = self._analysis_btn.centerx, self._analysis_btn.centery
+            pygame.draw.rect(screen, bar_c, (bx - 8, by + 1,  4,  5))
+            pygame.draw.rect(screen, bar_c, (bx - 2, by - 2,  4,  8))
+            pygame.draw.rect(screen, bar_c, (bx + 4, by - 5,  4, 11))
 
         # Strategy button
         has_strategy = self._config.planned_stops > 0
