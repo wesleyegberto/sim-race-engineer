@@ -469,6 +469,7 @@ class DashboardApp:
         self._icon_stopwatch = _load_icon("stopwatch.png", 15, C_DIM)
         self._icon_racing = _load_icon("racing.png", 22, C_TEXT)
         self._icon_pit_stop = _load_icon("pit-stop.png", 22, C_DIM)
+        self._icon_strategy = _load_icon("strategy.png", 18, C_DIM)
         self._icon_rec_on  = _load_icon("rec-stop-button.png", 18)
         self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
         self._icon_rec     = _load_icon("rec-button.png", 15)
@@ -918,9 +919,8 @@ class DashboardApp:
         str_hover = (40, 75, 40) if has_strategy else C_BTN_GEAR_HOVER
         sbtn_color = str_hover if self._strategy_btn.collidepoint(mouse) else str_bg
         pygame.draw.rect(screen, sbtn_color, self._strategy_btn, border_radius=5)
-        if self._icon_pit_stop:
-            tint_icon = self._icon_pit_stop
-            screen.blit(tint_icon, tint_icon.get_rect(center=self._strategy_btn.center))
+        if self._icon_strategy:
+            screen.blit(self._icon_strategy, self._icon_strategy.get_rect(center=self._strategy_btn.center))
         else:
             s_sym = font_sm.render("S", True, C_GREEN if has_strategy else C_TEXT)
             screen.blit(s_sym, s_sym.get_rect(center=self._strategy_btn.center))
