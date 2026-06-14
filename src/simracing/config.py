@@ -17,6 +17,7 @@ class AppConfig:
     _SECTION = "simracing"
 
     _VOICE = "voice"
+    _STRATEGY = "strategy"
 
     def __init__(self) -> None:
         self.device_ip: str = ""
@@ -40,6 +41,8 @@ class AppConfig:
         self.voice_alert_engine_temp: bool = True
         self.voice_alert_tire_temp: bool = True
         self.voice_alert_tire_inner_temp: bool = True
+        self.voice_alert_tyre_wear: bool = True
+        self.voice_tyre_wear_threshold_pct: float = 0.10
         self.voice_alert_oil_temp: bool = True
         self.voice_alert_tire_pressure: bool = True
         self.voice_alert_lap_delta: bool = True
@@ -53,6 +56,16 @@ class AppConfig:
         self.voice_lap_delta_threshold_s: float = 3.0
         self.voice_pit_window_min_laps: float = 2.0
         self.voice_pit_window_max_laps: float = 4.0
+
+        # Race strategy (auto)
+        self.tyre_wear_limit_pct: float = 0.80
+        self.pit_buffer_laps: int = 1
+        self.voice_alert_strategy: bool = True
+        self.voice_strategy_interval_s: float = 30.0
+
+        # Race strategy (user-defined)
+        self.planned_stops: int = 0
+        self.planned_stop_laps: list[int] = []
 
         self.load()
 
@@ -88,6 +101,8 @@ class AppConfig:
             "alert_engine_temp": str(self.voice_alert_engine_temp),
             "alert_tire_temp": str(self.voice_alert_tire_temp),
             "alert_tire_inner_temp": str(self.voice_alert_tire_inner_temp),
+            "alert_tyre_wear": str(self.voice_alert_tyre_wear),
+            "tyre_wear_threshold_pct": str(self.voice_tyre_wear_threshold_pct),
             "alert_oil_temp": str(self.voice_alert_oil_temp),
             "alert_tire_pressure": str(self.voice_alert_tire_pressure),
             "alert_lap_delta": str(self.voice_alert_lap_delta),
@@ -101,6 +116,14 @@ class AppConfig:
             "lap_delta_threshold_s": str(self.voice_lap_delta_threshold_s),
             "pit_window_min_laps": str(self.voice_pit_window_min_laps),
             "pit_window_max_laps": str(self.voice_pit_window_max_laps),
+        }
+        cp[self._STRATEGY] = {
+            "tyre_wear_limit_pct": str(self.tyre_wear_limit_pct),
+            "pit_buffer_laps": str(self.pit_buffer_laps),
+            "voice_alert_strategy": str(self.voice_alert_strategy),
+            "voice_strategy_interval_s": str(self.voice_strategy_interval_s),
+            "planned_stops": str(self.planned_stops),
+            "planned_stop_laps": ",".join(str(x) for x in self.planned_stop_laps),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -126,6 +149,8 @@ class AppConfig:
         self.voice_alert_engine_temp = cp.getboolean(self._VOICE, "alert_engine_temp", fallback=True)
         self.voice_alert_tire_temp = cp.getboolean(self._VOICE, "alert_tire_temp", fallback=True)
         self.voice_alert_tire_inner_temp = cp.getboolean(self._VOICE, "alert_tire_inner_temp", fallback=True)
+        self.voice_alert_tyre_wear = cp.getboolean(self._VOICE, "alert_tyre_wear", fallback=True)
+        self.voice_tyre_wear_threshold_pct = cp.getfloat(self._VOICE, "tyre_wear_threshold_pct", fallback=0.10)
         self.voice_alert_oil_temp = cp.getboolean(self._VOICE, "alert_oil_temp", fallback=True)
         self.voice_alert_tire_pressure = cp.getboolean(self._VOICE, "alert_tire_pressure", fallback=True)
         self.voice_alert_lap_delta = cp.getboolean(self._VOICE, "alert_lap_delta", fallback=True)
@@ -139,3 +164,10 @@ class AppConfig:
         self.voice_lap_delta_threshold_s = cp.getfloat(self._VOICE, "lap_delta_threshold_s", fallback=3.0)
         self.voice_pit_window_min_laps = cp.getfloat(self._VOICE, "pit_window_min_laps", fallback=2.0)
         self.voice_pit_window_max_laps = cp.getfloat(self._VOICE, "pit_window_max_laps", fallback=4.0)
+        self.tyre_wear_limit_pct = cp.getfloat(self._STRATEGY, "tyre_wear_limit_pct", fallback=0.80)
+        self.pit_buffer_laps = cp.getint(self._STRATEGY, "pit_buffer_laps", fallback=1)
+        self.voice_alert_strategy = cp.getboolean(self._STRATEGY, "voice_alert_strategy", fallback=True)
+        self.voice_strategy_interval_s = cp.getfloat(self._STRATEGY, "voice_strategy_interval_s", fallback=30.0)
+        self.planned_stops = cp.getint(self._STRATEGY, "planned_stops", fallback=0)
+        raw_laps = cp.get(self._STRATEGY, "planned_stop_laps", fallback="")
+        self.planned_stop_laps = [int(x) for x in raw_laps.split(",") if x.strip().isdigit()]

@@ -3,6 +3,9 @@
 import logging
 
 from ..config import AppConfig
+from ..strategy.planned_strategy import PlannedStrategyStatus
+from ..strategy.race_strategy import StrategyResult
+from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
 from .alert_engine import AlertEngine
 from .tts_service import TTSService
@@ -35,6 +38,21 @@ class VoiceService:
     def speak_test(self, language: str | None = None) -> None:
         lang = language or self._config.voice_language
         self._tts.speak(self._TEST_PHRASES.get(lang, self._TEST_PHRASES["en"]))
+
+    def update_planned_strategy(self, config: AppConfig) -> None:
+        self._alert_engine.update_planned_strategy(config)
+
+    @property
+    def strategy_result(self) -> StrategyResult | None:
+        return self._alert_engine.strategy_result
+
+    @property
+    def planned_status(self) -> PlannedStrategyStatus | None:
+        return self._alert_engine.planned_status
+
+    @property
+    def stint(self) -> StintTracker:
+        return self._alert_engine.stint
 
     def reset(self) -> None:
         self._alert_engine.reset()

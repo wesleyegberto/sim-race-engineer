@@ -3,12 +3,18 @@
 import time
 
 from ..config import AppConfig
+from ..strategy.planned_strategy import (
+    PlannedStop,
+    PlannedStrategy,
+    PlannedStrategyMonitor,
+    PlannedStrategyStatus,
+)
+from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
+from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
 from .templates import _lap_time_text, _laps_text, format_alert, hot_corners_text
 
-_TIRE_COOLDOWN_S = 30.0
 _ENGINE_COOLDOWN_S = 20.0
-_PRESSURE_COOLDOWN_S = 30.0
 _OIL_COOLDOWN_S = 20.0
 
 
@@ -18,6 +24,12 @@ class AlertEngine:
         self._last_fired: dict[str, float] = {}
         self._prev_lap: int = -1
         self._prev_best_lap_ms: int = 0
+        self._stint = StintTracker()
+        self._strategy_engine = RaceStrategyEngine()
+        self._planned_monitor = PlannedStrategyMonitor()
+        self._strategy_result: StrategyResult | None = None
+        self._planned_status: PlannedStrategyStatus | None = None
+        self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
         """Return list of alert texts to speak (empty when nothing to say)."""
@@ -65,17 +77,25 @@ class AlertEngine:
             critical_pct: float = cfg.voice_fuel_critical_pct
             low_pct: float = cfg.voice_fuel_low_pct
 
-            if cfg.voice_alert_fuel_critical and pct < critical_pct:
-                text = self._maybe_fire(
-                    "fuel_critical", now,
+            lap_key = data.current_lap
+            if 0 < laps_left < 1.0:
+                text = self._maybe_fire_interval(
+                    f"fuel_last_lap_{lap_key}", now, 9999.0,
+                    format_alert("fuel_last_lap", lang),
+                )
+                if text:
+                    alerts.append(text)
+            elif cfg.voice_alert_fuel_critical and pct < critical_pct:
+                text = self._maybe_fire_interval(
+                    f"fuel_critical_{lap_key}", now, 9999.0,
                     format_alert("fuel_critical", lang,
                                  fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
                 )
                 if text:
                     alerts.append(text)
             elif cfg.voice_alert_fuel_low and pct < low_pct:
-                text = self._maybe_fire(
-                    "fuel_low", now,
+                text = self._maybe_fire_interval(
+                    f"fuel_low_{lap_key}", now, 9999.0,
                     format_alert("fuel_low", lang,
                                  fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
                 )
@@ -100,20 +120,20 @@ class AlertEngine:
             if any(t > tire_threshold for t in temps):
                 corners = hot_corners_text(temps, tire_threshold, lang)
                 text = self._maybe_fire_interval(
-                    "tire_temp", now, _TIRE_COOLDOWN_S,
+                    f"tire_temp_{data.current_lap}", now, 9999.0,
                     format_alert("tire_temp_high", lang, corners=corners),
                 )
                 if text:
                     alerts.append(text)
 
         # ── Tire inner zone temp (proxy for wear) ─────────────────────────────
-        if cfg.voice_alert_tire_inner_temp and data.tires:
+        if cfg.voice_alert_tire_inner_temp and data.tires and self._stint.stint_laps > 0:
             inner_threshold: float = cfg.voice_tire_inner_temp_threshold
             inner_temps = [t.inner_temp for t in data.tires]
             if any(t > inner_threshold for t in inner_temps):
                 corners = hot_corners_text(inner_temps, inner_threshold, lang)
                 text = self._maybe_fire_interval(
-                    "tire_wear", now, _TIRE_COOLDOWN_S,
+                    f"tire_wear_{data.current_lap}", now, 9999.0,
                     format_alert("tire_wear_excessive", lang, corners=corners),
                 )
                 if text:
@@ -145,7 +165,7 @@ class AlertEngine:
                         invert=True,
                     )
                     text = self._maybe_fire_interval(
-                        "tire_pres_low", now, _PRESSURE_COOLDOWN_S,
+                        f"tire_pres_low_{data.current_lap}", now, 9999.0,
                         format_alert("tire_pressure_low", lang, corners=corners),
                     )
                     if text:
@@ -153,7 +173,7 @@ class AlertEngine:
                 elif high_temps:
                     corners = hot_corners_text(pressures, pres_high, lang)
                     text = self._maybe_fire_interval(
-                        "tire_pres_high", now, _PRESSURE_COOLDOWN_S,
+                        f"tire_pres_high_{data.current_lap}", now, 9999.0,
                         format_alert("tire_pressure_high", lang, corners=corners),
                     )
                     if text:
@@ -173,26 +193,161 @@ class AlertEngine:
                 if text:
                     alerts.append(text)
 
-        # ── Pit window ────────────────────────────────────────────────────────
-        if cfg.voice_alert_pit_window and fuel_per_lap > 0 and data.total_laps > 0:
+        # ── Stint tracker + auto strategy ─────────────────────────────────────
+        pit_detected = self._stint.update(data)
+        if pit_detected:
+            self._planned_monitor.on_pit_detected(data.current_lap)
+            # Clear wear milestone keys so new stint fires alerts from scratch
+            for k in list(self._last_fired):
+                if k.startswith("tyre_wear_ms_"):
+                    del self._last_fired[k]
+
+        # ── Tyre wear milestone alerts ─────────────────────────────────────────
+        if cfg.voice_alert_tyre_wear and self._stint.stint_laps > 0:
+            avg_wear = self._stint.current_avg_wear
+            threshold = cfg.voice_tyre_wear_threshold_pct
+            if avg_wear >= threshold:
+                bucket = int(avg_wear * 10)  # 0–10 → each 10% block
+                text = self._maybe_fire_interval(
+                    f"tyre_wear_ms_{bucket}", now, 9999.0,
+                    format_alert("tyre_wear_milestone", lang, wear=bucket * 10),
+                )
+                if text:
+                    alerts.append(text)
+
+        self._strategy_result = self._strategy_engine.compute(
+            current_lap=data.current_lap,
+            total_laps=data.total_laps,
+            fuel_level=data.fuel_level,
+            fuel_per_lap=fuel_per_lap,
+            avg_wear=self._stint.current_avg_wear,
+            wear_per_lap=self._stint.wear_per_lap,
+            tyre_wear_limit=cfg.tyre_wear_limit_pct,
+            pit_buffer_laps=cfg.pit_buffer_laps,
+        )
+
+        self._planned_status = self._planned_monitor.evaluate(
+            current_lap=data.current_lap,
+            avg_wear=self._stint.current_avg_wear,
+            wear_per_lap=self._stint.wear_per_lap,
+            tyre_wear_limit=cfg.tyre_wear_limit_pct,
+        )
+
+        result = self._strategy_result
+        clap = data.current_lap
+
+        if cfg.voice_alert_strategy and result is not None:
+            if result.is_in_pit_window and not result.can_finish_direct:
+                laps_label = max(0, result.laps_to_pit)
+                text = self._maybe_fire_interval(
+                    f"strategy_pit_{clap}", now, 9999.0,
+                    format_alert("strategy_pit_window", lang,
+                                 reason=result.pit_reason, laps=laps_label),
+                )
+                if text:
+                    alerts.append(text)
+            elif 2 <= result.laps_to_pit <= 5 and result.pit_reason in ("TYRES", "FUEL+TYRES"):
+                text = self._maybe_fire_interval(
+                    f"strategy_warn_{clap}", now, 9999.0,
+                    format_alert("strategy_tyres_warn", lang,
+                                 wear=int(self._stint.current_avg_wear * 100),
+                                 laps=result.laps_to_pit),
+                )
+                if text:
+                    alerts.append(text)
+        elif cfg.voice_alert_pit_window and fuel_per_lap > 0 and data.total_laps > 0:
+            # Fall back to basic pit window alert when auto strategy is disabled
             laps_of_fuel = data.fuel_level / fuel_per_lap
             laps_remaining = max(0, data.total_laps - data.current_lap + 1)
             pit_min: float = cfg.voice_pit_window_min_laps
             pit_max: float = cfg.voice_pit_window_max_laps
             if pit_min <= laps_of_fuel <= pit_max and laps_remaining > 1:
-                text = self._maybe_fire(
-                    "pit_window", now,
+                text = self._maybe_fire_interval(
+                    f"pit_window_{clap}", now, 9999.0,
                     format_alert("pit_window", lang, laps=laps_of_fuel),
+                )
+                if text:
+                    alerts.append(text)
+
+        # ── Planned strategy alerts ───────────────────────────────────────────
+        ps = self._planned_status
+        if cfg.voice_alert_strategy and ps is not None:
+            if ps.strategy_alert == "NOW":
+                text = self._maybe_fire_interval(
+                    f"plan_now_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
+                    format_alert("planned_pit_now", lang),
+                )
+                if text:
+                    alerts.append(text)
+            elif ps.strategy_alert == "APPROACHING":
+                text = self._maybe_fire_interval(
+                    f"plan_soon_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
+                    format_alert("planned_pit_soon", lang, laps=ps.laps_to_planned_stop),
+                )
+                if text:
+                    alerts.append(text)
+            elif ps.strategy_alert == "MISSED":
+                result = self._strategy_result
+                if result is not None and result.laps_to_fuel_out > 1.0:
+                    new_lap = result.recommended_pit_lap
+                    self._planned_monitor.reschedule_missed_stop(ps.next_stop.stop_number, new_lap)
+                    text = self._maybe_fire_interval(
+                        f"plan_rescheduled_{ps.next_stop.stop_number}", now, 9999.0,
+                        format_alert("planned_pit_rescheduled", lang, lap=new_lap),
+                    )
+                else:
+                    text = self._maybe_fire_interval(
+                        f"plan_missed_{ps.next_stop.stop_number}", now, 9999.0,
+                        format_alert("planned_pit_missed", lang, lap=ps.next_stop.planned_lap),
+                    )
+                if text:
+                    alerts.append(text)
+            elif ps.strategy_alert == "TYRE_WARNING":
+                life_lap = int(data.current_lap + ps.tyre_life_remaining_laps)
+                text = self._maybe_fire_interval(
+                    f"plan_tyre_warn_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
+                    format_alert("tyre_wont_reach", lang,
+                                 life_lap=life_lap,
+                                 plan_lap=ps.next_stop.planned_lap),
                 )
                 if text:
                     alerts.append(text)
 
         return alerts
 
+    @property
+    def strategy_result(self) -> StrategyResult | None:
+        return self._strategy_result
+
+    @property
+    def planned_status(self) -> PlannedStrategyStatus | None:
+        return self._planned_status
+
+    @property
+    def stint(self) -> StintTracker:
+        return self._stint
+
+    def update_planned_strategy(self, config: AppConfig) -> None:
+        self._apply_planned_strategy(config)
+
+    def _apply_planned_strategy(self, config: AppConfig) -> None:
+        if config.planned_stops <= 0 or not config.planned_stop_laps:
+            self._planned_monitor.set_strategy(None)
+            return
+        stops = [
+            PlannedStop(stop_number=i + 1, planned_lap=lap)
+            for i, lap in enumerate(config.planned_stop_laps[:config.planned_stops])
+        ]
+        self._planned_monitor.set_strategy(PlannedStrategy(stops=stops))
+
     def reset(self) -> None:
         self._last_fired.clear()
         self._prev_lap = -1
         self._prev_best_lap_ms = 0
+        self._stint.reset()
+        self._planned_monitor.reset()
+        self._strategy_result = None
+        self._planned_status = None
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s

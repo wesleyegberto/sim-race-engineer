@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 680
+_CARD_W, _CARD_H = 480, 740
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -44,6 +44,9 @@ class SettingsPanel:
         self._voice_alert_tire_pressure = True
         self._voice_alert_lap_delta = True
         self._voice_alert_pit_window = True
+        self._voice_alert_tyre_wear = True
+        self._voice_wear_thr_text = "10"
+        self._active_field: str | None = None  # "ip" | "wear_thr"
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -101,6 +104,12 @@ class SettingsPanel:
         self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 194, 18, 18)
         self._voice_chk_tire_pressure   = pygame.Rect(field_x, alerts_y + 216, 18, 18)
 
+        # ── Tyre wear (real field) ─────────────────────────────────────────────
+        self._voice_grp_wear_sep_y    = alerts_y + 238
+        self._voice_grp_wear_lbl_y    = alerts_y + 244
+        self._voice_chk_tyre_wear     = pygame.Rect(field_x, alerts_y + 260, 18, 18)
+        self._voice_wear_thr_field    = pygame.Rect(col2_x + 20, alerts_y + 258, 50, 22)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
@@ -124,6 +133,8 @@ class SettingsPanel:
         voice_alert_tire_pressure: bool = True,
         voice_alert_lap_delta: bool = True,
         voice_alert_pit_window: bool = True,
+        voice_alert_tyre_wear: bool = True,
+        voice_tyre_wear_threshold_pct: float = 0.10,
     ) -> None:
         self._ip_text = current_ip
         self._rpm_flash = rpm_flash
@@ -142,7 +153,10 @@ class SettingsPanel:
         self._voice_alert_tire_pressure = voice_alert_tire_pressure
         self._voice_alert_lap_delta = voice_alert_lap_delta
         self._voice_alert_pit_window = voice_alert_pit_window
+        self._voice_alert_tyre_wear = voice_alert_tyre_wear
+        self._voice_wear_thr_text = str(int(voice_tyre_wear_threshold_pct * 100))
         self.active = True
+        self._active_field = None
         self._cursor_timer = 0
         self._cursor_visible = True
 
@@ -157,9 +171,15 @@ class SettingsPanel:
                 self.active = False
                 return "cancelled"
             if event.key == pygame.K_BACKSPACE:
-                self._ip_text = self._ip_text[:-1]
-            elif event.unicode in _ALLOWED_CHARS and len(self._ip_text) < 15:
-                self._ip_text += event.unicode
+                if self._active_field == "wear_thr":
+                    self._voice_wear_thr_text = self._voice_wear_thr_text[:-1]
+                else:
+                    self._ip_text = self._ip_text[:-1]
+            elif event.unicode in _ALLOWED_CHARS:
+                if self._active_field == "wear_thr" and event.unicode.isdigit() and len(self._voice_wear_thr_text) < 3:
+                    self._voice_wear_thr_text += event.unicode
+                elif self._active_field != "wear_thr" and len(self._ip_text) < 15:
+                    self._ip_text += event.unicode
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
@@ -188,6 +208,12 @@ class SettingsPanel:
                 return None
             if self._voice_btn_test.collidepoint(pos) and self._voice_enabled:
                 return "test_voice"
+            if self._voice_wear_thr_field.collidepoint(pos) and self._voice_enabled:
+                self._active_field = "wear_thr"
+                return None
+            if self._field.collidepoint(pos):
+                self._active_field = "ip"
+                return None
             for chk, attr in (
                 (self._voice_chk_lap_completed,   "_voice_alert_lap_completed"),
                 (self._voice_chk_best_lap,        "_voice_alert_best_lap"),
@@ -201,6 +227,7 @@ class SettingsPanel:
                 (self._voice_chk_tire_temp,       "_voice_alert_tire_temp"),
                 (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
                 (self._voice_chk_tire_pressure,   "_voice_alert_tire_pressure"),
+                (self._voice_chk_tyre_wear,       "_voice_alert_tyre_wear"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -243,7 +270,7 @@ class SettingsPanel:
         screen.blit(lbl, (self._field.x, self._field.y - 20))
         pygame.draw.rect(screen, C_INPUT_ACTIVE, self._field, border_radius=6)
         pygame.draw.rect(screen, C_ACCENT, self._field, 1, border_radius=6)
-        display = self._ip_text + ("|" if self._cursor_visible else " ")
+        display = self._ip_text + ("|" if (self._cursor_visible and self._active_field != "wear_thr") else " ")
         ip_surf = font_md.render(display, True, C_TEXT)
         screen.blit(ip_surf, (self._field.x + 10, self._field.y + 8))
 
@@ -371,6 +398,41 @@ class SettingsPanel:
             surf = font_sm.render(label, True, txt_color)
             screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
 
+        # ── Tyre wear (real field) section ───────────────────────────────────
+        pygame.draw.line(screen, C_BORDER,
+                         (self._card.x + 20, self._voice_grp_wear_sep_y),
+                         (self._card.right - 20, self._voice_grp_wear_sep_y))
+        grp_wear = font_sm.render("Tyre Wear", True, C_DIM)
+        screen.blit(grp_wear, (self._card.x + 20, self._voice_grp_wear_lbl_y))
+
+        enabled = self._voice_enabled
+        chk = self._voice_chk_tyre_wear
+        pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
+        pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
+        if self._voice_alert_tyre_wear and enabled:
+            inner = chk.inflate(-5, -5)
+            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+        txt_color = C_TEXT if enabled else C_DIM
+        surf = font_sm.render("Wear alert", True, txt_color)
+        screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
+
+        # Threshold input
+        thr_active = self._active_field == "wear_thr" and enabled
+        thr_bg = C_INPUT_ACTIVE if thr_active else C_INPUT_BG
+        thr_border = C_ACCENT if thr_active else C_BORDER
+        pygame.draw.rect(screen, thr_bg, self._voice_wear_thr_field, border_radius=4)
+        pygame.draw.rect(screen, thr_border, self._voice_wear_thr_field, 1, border_radius=4)
+        thr_cursor = "|" if (thr_active and self._cursor_visible) else ""
+        thr_surf = font_sm.render(self._voice_wear_thr_text + thr_cursor, True, txt_color)
+        screen.blit(thr_surf, (self._voice_wear_thr_field.x + 4,
+                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - thr_surf.get_height()) // 2))
+        pct_surf = font_sm.render("%", True, C_DIM)
+        screen.blit(pct_surf, (self._voice_wear_thr_field.right + 4,
+                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - pct_surf.get_height()) // 2))
+        thr_lbl = font_sm.render("Threshold:", True, C_DIM)
+        screen.blit(thr_lbl, (self._voice_wear_thr_field.x - font_sm.size("Threshold: ")[0] - 4,
+                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - thr_lbl.get_height()) // 2))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -455,3 +517,15 @@ class SettingsPanel:
     @property
     def voice_alert_pit_window(self) -> bool:
         return self._voice_alert_pit_window
+
+    @property
+    def voice_alert_tyre_wear(self) -> bool:
+        return self._voice_alert_tyre_wear
+
+    @property
+    def voice_tyre_wear_threshold_pct(self) -> float:
+        try:
+            v = int(self._voice_wear_thr_text)
+            return max(1, min(99, v)) / 100.0
+        except ValueError:
+            return 0.10

@@ -13,6 +13,14 @@ import pygame
 
 from ..config import AppConfig
 from ..recording.lap_recorder import LapRecorder
+from ..strategy.planned_strategy import (
+    PlannedStop,
+    PlannedStrategy,
+    PlannedStrategyMonitor,
+    PlannedStrategyStatus,
+)
+from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
+from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
@@ -20,6 +28,7 @@ from .widgets.gauge import draw_gauge
 from .widgets.help_panel import HelpPanel
 from .widgets.settings_panel import SettingsPanel
 from .widgets.slip_angle import draw_slip_angle
+from .widgets.strategy_panel import StrategyPanel
 from .widgets.tire_widget import draw_tires
 
 log = logging.getLogger(__name__)
@@ -86,11 +95,13 @@ class DashboardApp:
         self._recorder = LapRecorder()
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
+        self._strategy_panel: StrategyPanel | None = None
         _btn_y = (HEADER_H - 28) // 2
-        self._gear_btn = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
-        self._help_btn = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
-        self._rec_btn  = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
-        self._conn_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
+        self._gear_btn     = pygame.Rect(WIN_W - 44, _btn_y, 28, 28)
+        self._help_btn     = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
+        self._strategy_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._rec_btn      = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
         self._recording: bool = True
 
         # Fuel rate tracking
@@ -98,6 +109,14 @@ class DashboardApp:
         self._lap_fuel_start: float = 0.0
         self._fuel_per_lap: float = 0.0
         self._fuel_history: list[float] = []
+
+        # Race strategy (display)
+        self._stint = StintTracker()
+        self._strategy_engine = RaceStrategyEngine()
+        self._planned_monitor = PlannedStrategyMonitor()
+        self._strategy_result: StrategyResult | None = None
+        self._planned_status: PlannedStrategyStatus | None = None
+        self._apply_planned_strategy(config)
 
         # State transition tracking (for debug logging)
         self._prev_in_race: bool = False
@@ -129,8 +148,22 @@ class DashboardApp:
         self._slip_ratios = [0.0, 0.0, 0.0, 0.0]
         self._slip_angle = 0.0
         self._data = None
+        self._stint.reset()
+        self._planned_monitor.reset()
+        self._strategy_result = None
+        self._planned_status = None
         if self._voice_service is not None:
             self._voice_service.reset()
+
+    def _apply_planned_strategy(self, config: AppConfig) -> None:
+        if config.planned_stops <= 0 or not config.planned_stop_laps:
+            self._planned_monitor.set_strategy(None)
+            return
+        stops = [
+            PlannedStop(stop_number=i + 1, planned_lap=lap)
+            for i, lap in enumerate(config.planned_stop_laps[:config.planned_stops])
+        ]
+        self._planned_monitor.set_strategy(PlannedStrategy(stops=stops))
 
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
@@ -219,6 +252,27 @@ class DashboardApp:
                 self._lap_fuel_start = d.fuel_level
                 self._prev_lap = d.current_lap
 
+        # Strategy tracking (for display — AlertEngine tracks separately for voice)
+        pit_detected = self._stint.update(d)
+        if pit_detected:
+            self._planned_monitor.on_pit_detected(d.current_lap)
+        self._strategy_result = self._strategy_engine.compute(
+            current_lap=d.current_lap,
+            total_laps=d.total_laps,
+            fuel_level=d.fuel_level,
+            fuel_per_lap=self._fuel_per_lap,
+            avg_wear=self._stint.current_avg_wear,
+            wear_per_lap=self._stint.wear_per_lap,
+            tyre_wear_limit=self._config.tyre_wear_limit_pct,
+            pit_buffer_laps=self._config.pit_buffer_laps,
+        )
+        self._planned_status = self._planned_monitor.evaluate(
+            current_lap=d.current_lap,
+            avg_wear=self._stint.current_avg_wear,
+            wear_per_lap=self._stint.wear_per_lap,
+            tyre_wear_limit=self._config.tyre_wear_limit_pct,
+        )
+
         # G-forces
         dt_s = max(dt_ms / 1000.0, 1e-4)
         raw_lat = d.speed_ms * d.angular_velocity.y / 9.81
@@ -271,7 +325,7 @@ class DashboardApp:
         if self._recording and not self._race_finished and not d.paused:
             self._recorder.on_frame(d, self._g_lat, self._g_lon, self._slip_angle, self._fuel_per_lap)
 
-        if self._voice_service is not None:
+        if self._voice_service is not None and not self._race_finished:
             self._voice_service.on_frame(d, self._fuel_per_lap)
 
         self._data = d
@@ -331,6 +385,7 @@ class DashboardApp:
         self._load_assets()
         self._settings = SettingsPanel(WIN_W, WIN_H)
         self._help = HelpPanel(WIN_W, WIN_H)
+        self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
 
 
         # Open settings automatically if no IP configured
@@ -343,7 +398,8 @@ class DashboardApp:
                         self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
                         self._config.voice_alert_tire_inner_temp,
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
-                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window)
+                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
+                        self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -364,6 +420,23 @@ class DashboardApp:
                 # Help panel absorbs all events when open
                 if self._help and self._help.active:
                     self._help.handle_event(event)
+                    continue
+
+                # Strategy panel absorbs all events when open
+                if self._strategy_panel and self._strategy_panel.active:
+                    action = self._strategy_panel.handle_event(event)
+                    if action in ("saved", "cleared"):
+                        self._config.planned_stops = self._strategy_panel.planned_stops
+                        self._config.planned_stop_laps = self._strategy_panel.planned_stop_laps
+                        self._config.tyre_wear_limit_pct = self._strategy_panel.tyre_wear_limit_pct
+                        self._config.pit_buffer_laps = self._strategy_panel.pit_buffer_laps
+                        self._config.voice_alert_strategy = self._strategy_panel.voice_alert_strategy
+                        self._config.save()
+                        self._apply_planned_strategy(self._config)
+                        if self._voice_service is not None:
+                            self._voice_service.update_planned_strategy(self._config)
+                        log.info("Strategy saved: stops=%d laps=%s",
+                                 self._config.planned_stops, self._config.planned_stop_laps)
                     continue
 
                 # Settings panel absorbs all events when open
@@ -390,6 +463,8 @@ class DashboardApp:
                         self._config.voice_alert_tire_pressure = self._settings.voice_alert_tire_pressure
                         self._config.voice_alert_lap_delta = self._settings.voice_alert_lap_delta
                         self._config.voice_alert_pit_window = self._settings.voice_alert_pit_window
+                        self._config.voice_alert_tyre_wear = self._settings.voice_alert_tyre_wear
+                        self._config.voice_tyre_wear_threshold_pct = self._settings.voice_tyre_wear_threshold_pct
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -412,6 +487,15 @@ class DashboardApp:
                         if self._recording and self._data and self._data.in_race:
                             if not self._recorder.active:
                                 self._recorder.start_session()
+                    elif self._strategy_btn.collidepoint(event.pos):
+                        if self._strategy_panel:
+                            self._strategy_panel.open(
+                                self._config.planned_stops,
+                                self._config.planned_stop_laps,
+                                self._config.tyre_wear_limit_pct,
+                                self._config.pit_buffer_laps,
+                                self._config.voice_alert_strategy,
+                            )
                     elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
                         self._config.voice_enabled, self._config.voice_language,
@@ -421,7 +505,8 @@ class DashboardApp:
                         self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
                         self._config.voice_alert_tire_inner_temp,
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
-                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window)
+                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
+                        self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 
@@ -435,6 +520,8 @@ class DashboardApp:
             self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
             if self._settings:
                 self._settings.draw(screen, font_md, font_sm, dt)
+            if self._strategy_panel:
+                self._strategy_panel.draw(screen, font_md, font_sm, dt)
             if self._help:
                 self._help.draw(screen, font_md, font_sm, self._icon_close,
                                 icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting, "race-pos": self._icon_race_pos, "stopwatch": self._icon_stopwatch, "rec-button": self._icon_rec})
@@ -449,7 +536,8 @@ class DashboardApp:
         d = self._data if self._data is not None else TelemetryData()
 
         self._draw_header(screen, font_md, font_sm, d.in_race, self._race_finished,
-                          is_free=d.race_position == 0)
+                          is_free=d.race_position == 0,
+                          paused=d.paused, loading=d.loading)
 
         draw_gauge(
             screen, cx=220, cy=380, radius=155,
@@ -532,7 +620,8 @@ class DashboardApp:
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
                      font_sm: pygame.font.Font, in_race: bool = False,
-                     race_finished: bool = False, is_free: bool = False) -> None:
+                     race_finished: bool = False, is_free: bool = False,
+                     paused: bool = False, loading: bool = False) -> None:
         pygame.draw.rect(screen, C_HEADER, (0, 0, WIN_W, HEADER_H))
         pygame.draw.line(screen, C_SEPARATOR, (0, HEADER_H), (WIN_W, HEADER_H), 1)
 
@@ -570,6 +659,15 @@ class DashboardApp:
             screen.blit(label_surf, label_surf.get_rect(midleft=(lx, sy)))
             if free_surf:
                 screen.blit(free_surf, free_surf.get_rect(midleft=(lx + label_surf.get_width() + badge_gap, sy)))
+
+            # Pause / Loading badge
+            badge_text = "PAUSE" if paused else ("LOAD" if loading else None)
+            if badge_text:
+                offset_x = lx + label_surf.get_width() + badge_gap
+                if free_surf:
+                    offset_x += free_surf.get_width() + badge_gap
+                badge_surf = font_sm.render(badge_text, True, C_ORANGE)
+                screen.blit(badge_surf, badge_surf.get_rect(midleft=(offset_x, sy)))
 
         # Error indicator only — IP shown in Settings panel
         status = self._get_status_fn()
@@ -633,6 +731,19 @@ class DashboardApp:
         else:
             h_sym = font_md.render("?", True, C_TEXT)
             screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
+
+        # Strategy button
+        has_strategy = self._config.planned_stops > 0
+        str_bg = (30, 55, 30) if has_strategy else C_BTN_GEAR
+        str_hover = (40, 75, 40) if has_strategy else C_BTN_GEAR_HOVER
+        sbtn_color = str_hover if self._strategy_btn.collidepoint(mouse) else str_bg
+        pygame.draw.rect(screen, sbtn_color, self._strategy_btn, border_radius=5)
+        if self._icon_pit_stop:
+            tint_icon = self._icon_pit_stop
+            screen.blit(tint_icon, tint_icon.get_rect(center=self._strategy_btn.center))
+        else:
+            s_sym = font_sm.render("S", True, C_GREEN if has_strategy else C_TEXT)
+            screen.blit(s_sym, s_sym.get_rect(center=self._strategy_btn.center))
 
         # Settings button
         gbtn_color = C_BTN_GEAR_HOVER if self._gear_btn.collidepoint(mouse) else C_BTN_GEAR
@@ -701,8 +812,8 @@ class DashboardApp:
         label_x = PX + PAD
         val_rx = PX + PW - PAD  # right edge for value alignment
 
-        # pre-draw card (fixed height covers max possible rows)
-        card_h = line_h * 12 + PAD * 2 + 14
+        # pre-draw card (fixed height covers max possible rows, including strategy rows)
+        card_h = line_h * 18 + PAD * 2 + 14
         card_surf = pygame.Surface((PW, card_h), pygame.SRCALPHA)
         card_surf.fill((15, 15, 22, 190))
         screen.blit(card_surf, (PX, PY))
@@ -752,13 +863,45 @@ class DashboardApp:
         row("WATER", f"{d.water_temp:.0f} °C",
             C_ORANGE if d.water_temp > 105 else C_TEXT, icon=self._icon_coolant_sm)
 
-        flags = []
-        if d.paused:
-            flags.append("PAUSE")
-        if d.loading:
-            flags.append("LOAD")
-        if not d.in_race:
-            flags.append("MENU")
-        if flags:
+        # ── Strategy ──────────────────────────────────────────────────────────
+        sr = self._strategy_result
+        ps = self._planned_status
+        stint = self._stint
+        if stint.stint_laps > 0 or sr is not None:
             sep()
-            screen.blit(font_sm.render(" | ".join(flags), True, C_ORANGE), (label_x, y))
+            wear_pct = int(stint.current_avg_wear * 100)
+            wear_color = C_RED if wear_pct >= 85 else (C_ORANGE if wear_pct >= 70 else C_TEXT)
+            row("STINT", f"{stint.stint_laps} laps", icon=self._icon_pit_stop)
+            row("TYRES", f"{wear_pct}%", wear_color, icon=self._icon_pit_stop)
+
+            if sr is not None:
+                auto_color = C_GREEN
+                if sr.is_in_pit_window and not sr.can_finish_direct:
+                    auto_color = C_RED
+                elif sr.laps_to_pit <= 3:
+                    auto_color = C_ORANGE
+                auto_val = "OK" if sr.can_finish_direct else f"lap {sr.recommended_pit_lap}"
+                row("EST PIT", auto_val, auto_color, icon=self._icon_pit_stop)
+
+            if ps is not None and ps.next_stop is not None:
+                sa = ps.strategy_alert
+                user_color = C_GREEN
+                if sa == "MISSED":
+                    user_color = C_RED
+                elif sa in ("TYRE_WARNING", "APPROACHING"):
+                    user_color = C_ORANGE
+                elif sa == "NOW":
+                    user_color = C_RED
+                row("STRATEGY", f"lap {ps.next_stop.planned_lap}", user_color, icon=self._icon_pit_stop)
+                life_laps = ps.tyre_life_remaining_laps
+                laps_remaining = max(0, d.total_laps - d.current_lap + 1) if d.total_laps > 0 else 0
+                if laps_remaining > 0 and life_laps >= laps_remaining:
+                    life_val = "full race"
+                    life_color = C_GREEN
+                else:
+                    life_val = f"{life_laps:.1f} laps"
+                    life_color = C_RED if life_laps < 2 else (C_ORANGE if life_laps < 5 else C_GREEN)
+                row("TYRE LIFE", life_val, life_color, icon=self._icon_pit_stop)
+            elif self._config.planned_stops > 0:
+                row("STRATEGY", "no data", C_DIM, icon=self._icon_pit_stop)
+
