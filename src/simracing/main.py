@@ -64,6 +64,8 @@ class TelemetryController:
             device_ip=self._config.device_ip, bind_ip=self._bind_ip
         )
 
+        _NO_DATA_TIMEOUT_S = 10.0
+
         async def _main() -> None:
             self._task = asyncio.current_task()
             try:
@@ -71,29 +73,39 @@ class TelemetryController:
                     self.status = STATUS_CONNECTED
                     log.info("Telemetry stream started")
                     pkt_count = 0
-                    async for data in provider.stream():
-                        pkt_count += 1
-                        if pkt_count == 1:
-                            log.info(
-                                "First packet received — pkt_id=%d  car_code=%s",
-                                data.packet_id, getattr(data, "car_code", "?"),
-                            )
-                        elif pkt_count % 300 == 0:
-                            log.debug(
-                                "pkt=%d  %.0f km/h  %.0f RPM  gear=%s"
-                                "  lap=%d/%d  fuel=%.1fL  oil=%.0f°C  H2O=%.0f°C",
-                                data.packet_id, data.speed_kmh, data.rpm,
-                                data.gear_label, data.current_lap, data.total_laps,
-                                data.fuel_level, data.oil_temp, data.water_temp,
-                            )
-                        try:
-                            self._queue.put_nowait(data)
-                        except queue.Full:
+                    loop = asyncio.get_event_loop()
+                    deadline: float | None = loop.time() + _NO_DATA_TIMEOUT_S
+                    while True:
+                        data = await provider.read()
+                        if data is not None:
+                            pkt_count += 1
+                            deadline = None  # disarm timeout after first packet
+                            if pkt_count == 1:
+                                log.info(
+                                    "First packet received — pkt_id=%d  car_code=%s",
+                                    data.packet_id, getattr(data, "car_code", "?"),
+                                )
+                            elif pkt_count % 300 == 0:
+                                log.debug(
+                                    "pkt=%d  %.0f km/h  %.0f RPM  gear=%s"
+                                    "  lap=%d/%d  fuel=%.1fL  oil=%.0f°C  H2O=%.0f°C",
+                                    data.packet_id, data.speed_kmh, data.rpm,
+                                    data.gear_label, data.current_lap, data.total_laps,
+                                    data.fuel_level, data.oil_temp, data.water_temp,
+                                )
                             try:
-                                self._queue.get_nowait()
-                            except queue.Empty:
-                                pass
-                            self._queue.put_nowait(data)
+                                self._queue.put_nowait(data)
+                            except queue.Full:
+                                try:
+                                    self._queue.get_nowait()
+                                except queue.Empty:
+                                    pass
+                                self._queue.put_nowait(data)
+                        elif deadline is not None and loop.time() > deadline:
+                            self.status = STATUS_ERROR
+                            self.error_msg = "No data — check PS5 is running GT7 and IP is correct"
+                            log.warning("No telemetry data after %.0fs — marking ERR", _NO_DATA_TIMEOUT_S)
+                            break
             except asyncio.CancelledError:
                 raise
             except OSError as exc:
