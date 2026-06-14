@@ -475,7 +475,7 @@ class DashboardApp:
         self._icon_rec_on  = _load_icon("rec-stop-button.png", 18)
         self._icon_rec_off = _load_icon("rec-button.png", 18, (55, 55, 68))
         self._icon_rec     = _load_icon("rec-button.png", 15)
-        self._icon_pencil  = _load_icon("pencil.png", 18, C_DIM)
+        self._icon_pencil  = _load_icon("pencil.png", 18, C_TEXT)
 
     def run(self) -> None:
         pygame.init()
