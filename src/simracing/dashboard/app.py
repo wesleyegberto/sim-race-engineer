@@ -89,7 +89,6 @@ class DashboardApp:
         self._voice_service: Any | None = voice_service
         self._data: TelemetryData | None = None
         self._running = False
-        self._rev_overlay: pygame.Surface | None = None
         self._info_card_surf: pygame.Surface | None = None
         self._surf_title: pygame.Surface | None = None
         self._surf_gear_lbl: pygame.Surface | None = None
@@ -489,14 +488,12 @@ class DashboardApp:
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
         self._suffix_panel = SuffixInputPanel(WIN_W, WIN_H)
 
-        self._rev_overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
-        self._rev_overlay.fill((220, 40, 40, 40))
         self._info_card_surf = pygame.Surface((210, 574), pygame.SRCALPHA)  # PW=210, 30*18+10*2+14
         self._info_card_surf.fill((15, 15, 22, 190))
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
-            self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+            self._settings.open(self._config.device_ip, self._config.fuel_estimation,
                         self._config.recording_on_start,
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
@@ -565,7 +562,6 @@ class DashboardApp:
                             self._voice_service.speak_test(self._settings.voice_language)
                     elif action == "saved":
                         self._config.device_ip = self._settings.ip_text
-                        self._config.rpm_flash = self._settings.rpm_flash
                         self._config.fuel_estimation = self._settings.fuel_estimation
                         self._config.recording_on_start = self._settings.recording_on_start
                         self._recording = self._settings.recording_on_start
@@ -622,7 +618,7 @@ class DashboardApp:
                                 self._config.voice_alert_strategy,
                             )
                     elif self._gear_btn.collidepoint(event.pos):
-                        self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+                        self._settings.open(self._config.device_ip, self._config.fuel_estimation,
                         self._config.recording_on_start,
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
@@ -751,9 +747,6 @@ class DashboardApp:
 
         self._draw_rpm_bar(screen, d)
         self._draw_indicators(screen, font_sm, d)
-
-        if d.rev_limiter and self._config.rpm_flash:
-            screen.blit(self._rev_overlay, (0, 0))
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
                      font_sm: pygame.font.Font, in_race: bool = False,

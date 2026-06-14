@@ -28,7 +28,6 @@ class SettingsPanel:
         self._win_h = win_h
         self.active = False
         self._ip_text = ""
-        self._rpm_flash = True
         self._fuel_estimation = "average"
         self._voice_enabled = False
         self._voice_language = "en"
@@ -62,10 +61,7 @@ class SettingsPanel:
         # Recording on start checkbox (right below IP field)
         self._rec_on_start_check = pygame.Rect(field_x, field_y + 46, 18, 18)
 
-        check_y = field_y + 84
-        self._check_box = pygame.Rect(field_x, check_y, 18, 18)
-
-        fuel_y = check_y + 44
+        fuel_y = field_y + 84
         self._fuel_btn_last = pygame.Rect(field_x, fuel_y, 130, 30)
         self._fuel_btn_avg = pygame.Rect(field_x + 140, fuel_y, 130, 30)
 
@@ -125,7 +121,6 @@ class SettingsPanel:
     def open(
         self,
         current_ip: str,
-        rpm_flash: bool = True,
         fuel_estimation: str = "average",
         recording_on_start: bool = True,
         voice_enabled: bool = False,
@@ -146,7 +141,6 @@ class SettingsPanel:
         voice_tyre_wear_threshold_pct: float = 0.10,
     ) -> None:
         self._ip_text = current_ip
-        self._rpm_flash = rpm_flash
         self._fuel_estimation = fuel_estimation
         self._recording_on_start = recording_on_start
         self._voice_enabled = voice_enabled
@@ -198,9 +192,6 @@ class SettingsPanel:
             if self._btn_cancel.collidepoint(pos):
                 self.active = False
                 return "cancelled"
-            if self._check_box.collidepoint(pos):
-                self._rpm_flash = not self._rpm_flash
-                return None
             if self._rec_on_start_check.collidepoint(pos):
                 self._recording_on_start = not self._recording_on_start
                 return None
@@ -293,16 +284,6 @@ class SettingsPanel:
         rec_lbl = font_sm.render("Record automatically on start", True, C_TEXT)
         screen.blit(rec_lbl, (self._rec_on_start_check.right + 10,
                               self._rec_on_start_check.y + (self._rec_on_start_check.height - rec_lbl.get_height()) // 2))
-
-        # RPM flash checkbox
-        pygame.draw.rect(screen, C_INPUT_BG, self._check_box, border_radius=3)
-        pygame.draw.rect(screen, C_ACCENT, self._check_box, 1, border_radius=3)
-        if self._rpm_flash:
-            inner = self._check_box.inflate(-5, -5)
-            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-        check_lbl = font_sm.render("Flash screen at rev limiter", True, C_TEXT)
-        screen.blit(check_lbl, (self._check_box.right + 10,
-                                self._check_box.y + (self._check_box.height - check_lbl.get_height()) // 2))
 
         # Fuel estimation mode
         fuel_lbl = font_sm.render("Fuel/Lap estimation", True, C_DIM)
@@ -477,10 +458,6 @@ class SettingsPanel:
     @property
     def ip_text(self) -> str:
         return self._ip_text
-
-    @property
-    def rpm_flash(self) -> bool:
-        return self._rpm_flash
 
     @property
     def fuel_estimation(self) -> str:

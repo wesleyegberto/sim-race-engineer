@@ -56,7 +56,7 @@ Opened via the **⚙** button in the header.
 | Option | Description |
 |--------|-------------|
 | **Device IP** | IP address of the PS5 (or PC running GT7). Persisted to `~/simracing.conf`. |
-| **Flash screen at rev limiter** | When enabled, the entire screen flashes red each time the rev limiter is hit. Disable if the effect is distracting. Default: on. |
+| **Record automatically on start** | When enabled, lap recording begins as soon as a session starts, without requiring manual action. Default: on. |
 
 Settings are saved on **Save** and take effect immediately.
 

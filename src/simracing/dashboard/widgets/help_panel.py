@@ -222,7 +222,7 @@ _APP_RIGHT = [
 _SETTINGS_LEFT = [
     ("section", "FILE  (~/simracing/simracing.conf)", "panel-cluster"),
     ("item",  "device_ip",        "PS5 / PC IP address — required to receive telemetry",          C_TEXT),
-    ("item",  "rev_flash",        "true / false — full-screen flash at rev limiter",               C_TEXT, "rpm"),
+    ("item",  "record_on_start",  "true / false — start lap recording automatically on session start", C_TEXT, "rec"),
     ("item",  "fuel_estimation",  "\"last\" or \"average\" — how FUEL/LAP is calculated",          C_TEXT, "fuel"),
 ]
 

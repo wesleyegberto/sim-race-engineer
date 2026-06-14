@@ -24,7 +24,6 @@ class AppConfig:
 
     def __init__(self) -> None:
         self.device_ip: str = ""
-        self.rpm_flash: bool = True
         self.fuel_estimation: str = "average"  # "last" or "average"
 
         # Voice alerts
@@ -91,7 +90,6 @@ class AppConfig:
         cp = ConfigParser()
         cp[self._SECTION] = {
             "device_ip": self.device_ip,
-            "rpm_flash": str(self.rpm_flash),
             "fuel_estimation": self.fuel_estimation,
             "recording_on_start": str(self.recording_on_start),
             "recording_suffix": self.recording_suffix,
@@ -143,7 +141,6 @@ class AppConfig:
 
     def _load_from_file(self, cp: ConfigParser) -> None:
         self.device_ip = cp.get(self._SECTION, "device_ip", fallback="")
-        self.rpm_flash = cp.getboolean(self._SECTION, "rpm_flash", fallback=True)
         self.fuel_estimation = cp.get(self._SECTION, "fuel_estimation", fallback="average")
         self.voice_enabled = cp.getboolean(self._VOICE, "enabled", fallback=False)
         self.voice_language = cp.get(self._VOICE, "language", fallback="en")
