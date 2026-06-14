@@ -71,7 +71,6 @@ python -m PyInstaller \
   --exclude-module "pygame.tests" \
   --exclude-module "pygame.examples" \
   --exclude-module "setuptools" \
-  --exclude-module "distutils" \
   --distpath "${OUT_DIR}" \
   --workpath "build" \
   "${ENTRY}"

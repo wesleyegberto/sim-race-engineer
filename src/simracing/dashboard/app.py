@@ -598,17 +598,22 @@ class DashboardApp:
                     self._update_telemetry(self._queue.get_nowait(), dt)
                 except _queue.Empty:
                     break
+                except Exception:
+                    log.exception("Error processing telemetry frame")
 
-            screen.fill(C_BG)
-            self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
-            if self._settings:
-                self._settings.draw(screen, font_md, font_sm, dt)
-            if self._strategy_panel:
-                self._strategy_panel.draw(screen, font_md, font_sm, dt)
-            if self._help:
-                self._help.draw(screen, font_md, font_sm, self._icon_close,
-                                icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting, "race-pos": self._icon_race_pos, "stopwatch": self._icon_stopwatch, "rec-button": self._icon_rec})
-            pygame.display.flip()
+            try:
+                screen.fill(C_BG)
+                self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
+                if self._settings:
+                    self._settings.draw(screen, font_md, font_sm, dt)
+                if self._strategy_panel:
+                    self._strategy_panel.draw(screen, font_md, font_sm, dt)
+                if self._help:
+                    self._help.draw(screen, font_md, font_sm, self._icon_close,
+                                    icons={"wheel": self._icon_wheel, "fuel": self._icon_fuel, "flags": self._icon_flags, "suspension": self._icon_suspension, "gearbox": self._icon_gearbox, "turbo": self._icon_turbo, "speedometer": self._icon_speedometer, "rpm": self._icon_rpm, "panel-cluster": self._icon_panel_cluster, "tcs": self._icon_tcs, "asm": self._icon_asm, "parking": self._icon_parking, "car-pedals": self._icon_car_pedals, "headlight": self._icon_headlight, "oil": self._icon_oil, "tire-wheel": self._icon_tire_wheel, "coolant": self._icon_coolant, "g-force": self._icon_gforce, "drifting": self._icon_drifting, "race-pos": self._icon_race_pos, "stopwatch": self._icon_stopwatch, "rec-button": self._icon_rec})
+                pygame.display.flip()
+            except Exception:
+                log.exception("Draw error — skipping frame")
 
         if self._recorder.active:
             log.info("App closing — saving session in progress")

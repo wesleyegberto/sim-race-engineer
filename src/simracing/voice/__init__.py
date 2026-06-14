@@ -27,8 +27,11 @@ class VoiceService:
         self._tts.stop()
 
     def on_frame(self, data: TelemetryData, fuel_per_lap: float) -> None:
-        for text in self._alert_engine.process(data, fuel_per_lap):
-            self._tts.speak(text)
+        try:
+            for text in self._alert_engine.process(data, fuel_per_lap):
+                self._tts.speak(text)
+        except Exception:
+            log.exception("Voice alert error")
 
     _TEST_PHRASES = {
         "en": "This is an engineer voice test.",

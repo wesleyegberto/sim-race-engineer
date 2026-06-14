@@ -6,9 +6,12 @@ Priority for device_ip:
   3. Empty string (triggers settings dialog on startup)
 """
 
+import logging
 import os
 from configparser import ConfigParser
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 class AppConfig:
@@ -73,7 +76,10 @@ class AppConfig:
         if self.PATH.exists():
             cp = ConfigParser()
             cp.read(self.PATH)
-            self._load_from_file(cp)
+            try:
+                self._load_from_file(cp)
+            except Exception:
+                log.warning("Config corrupted, using defaults: %s", self.PATH)
         if not self.device_ip:
             self.device_ip = os.environ.get(self.ENV_VAR, "")
 
