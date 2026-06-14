@@ -101,8 +101,10 @@ class DashboardApp:
         self._help_btn     = pygame.Rect(WIN_W - 44 - 8 - 28, _btn_y, 28, 28)
         self._strategy_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._rec_btn      = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
-        self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
+        self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
+        self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
         self._recording: bool = True
+        self._analysis_proc: Any | None = None
 
         # Fuel rate tracking
         self._prev_lap: int = -1
@@ -164,6 +166,85 @@ class DashboardApp:
             for i, lap in enumerate(config.planned_stop_laps[:config.planned_stops])
         ]
         self._planned_monitor.set_strategy(PlannedStrategy(stops=stops))
+
+    def _launch_analysis(self) -> None:
+        """Open a file picker, then launch the web analysis viewer for the chosen parquet."""
+        import shutil
+        import subprocess
+        import threading
+        import webbrowser
+
+        if self._analysis_proc and self._analysis_proc.poll() is None:
+            webbrowser.open("http://127.0.0.1:8050")
+            return
+
+        laps_dir = Path.home() / "simracing" / "laps"
+
+        def _pick_and_launch() -> None:
+            if sys.platform == "darwin":
+                # osascript always surfaces on top of the pygame window.
+                applescript = (
+                    f'set f to POSIX path of '
+                    f'(choose file default location POSIX file "{laps_dir}" '
+                    f'with prompt "Select a parquet file for analysis")\n'
+                    f'return f'
+                )
+                result = subprocess.run(
+                    ["osascript", "-e", applescript],
+                    capture_output=True, text=True, timeout=300,
+                )
+                path = result.stdout.strip()
+            else:
+                result = subprocess.run(
+                    [
+                        sys.executable, "-c",
+                        "import tkinter, tkinter.filedialog as fd;"
+                        "root = tkinter.Tk(); root.withdraw();"
+                        f"p = fd.askopenfilename(initialdir={str(laps_dir)!r},"
+                        "title='Select parquet file',"
+                        "filetypes=[('Parquet files','*.parquet'),('All files','*.*')]);"
+                        "print(p)",
+                    ],
+                    capture_output=True, text=True, timeout=300,
+                )
+                path = result.stdout.strip()
+
+            if not path:
+                return
+
+            log_path = Path.home() / "simracing" / "analysis.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+
+            script = shutil.which("simracing-analyze")
+            cmd = (
+                [script, path, "--no-browser"]
+                if script
+                else [sys.executable, "-m", "simracing.analysis.cli", path, "--no-browser"]
+            )
+            log_file = open(log_path, "w")  # noqa: SIM115
+            self._analysis_proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
+            log.info("Analysis viewer launching for %s (pid=%d, log=%s)",
+                     path, self._analysis_proc.pid, log_path)
+
+            def _open_when_ready() -> None:
+                import time
+                import urllib.request
+                proc = self._analysis_proc
+                deadline = time.monotonic() + 20.0
+                while time.monotonic() < deadline:
+                    if proc is None or proc.poll() is not None:
+                        log.error("Analysis viewer exited early — check %s", log_path)
+                        return
+                    try:
+                        urllib.request.urlopen("http://127.0.0.1:8050", timeout=1)
+                        break
+                    except Exception:
+                        time.sleep(0.4)
+                webbrowser.open("http://127.0.0.1:8050")
+
+            threading.Thread(target=_open_when_ready, daemon=True).start()
+
+        threading.Thread(target=_pick_and_launch, daemon=True).start()
 
     def _update_telemetry(self, d: TelemetryData, dt_ms: float) -> None:
         """Process a new telemetry frame: update derived metrics and store data."""
@@ -487,6 +568,8 @@ class DashboardApp:
                         if self._recording and self._data and self._data.in_race:
                             if not self._recorder.active:
                                 self._recorder.start_session()
+                    elif self._analysis_btn.collidepoint(event.pos):
+                        self._launch_analysis()
                     elif self._strategy_btn.collidepoint(event.pos):
                         if self._strategy_panel:
                             self._strategy_panel.open(
@@ -530,6 +613,8 @@ class DashboardApp:
         if self._recorder.active:
             log.info("App closing — saving session in progress")
             self._recorder.stop_session()
+        if self._analysis_proc and self._analysis_proc.poll() is None:
+            self._analysis_proc.terminate()
         pygame.quit()
 
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
@@ -731,6 +816,16 @@ class DashboardApp:
         else:
             h_sym = font_md.render("?", True, C_TEXT)
             screen.blit(h_sym, h_sym.get_rect(center=self._help_btn.center))
+
+        # Analysis button — bar-chart glyph, green when viewer is running
+        abtn_color = C_BTN_GEAR_HOVER if self._analysis_btn.collidepoint(mouse) else C_BTN_GEAR
+        pygame.draw.rect(screen, abtn_color, self._analysis_btn, border_radius=5)
+        running_analysis = self._analysis_proc and self._analysis_proc.poll() is None
+        bar_c = C_GREEN if running_analysis else C_TEXT
+        bx, by = self._analysis_btn.centerx, self._analysis_btn.centery
+        pygame.draw.rect(screen, bar_c, (bx - 8, by + 1,  4,  5))
+        pygame.draw.rect(screen, bar_c, (bx - 2, by - 2,  4,  8))
+        pygame.draw.rect(screen, bar_c, (bx + 4, by - 5,  4, 11))
 
         # Strategy button
         has_strategy = self._config.planned_stops > 0

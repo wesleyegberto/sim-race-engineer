@@ -23,9 +23,14 @@ dev = [
 voice = [
     "piper-tts>=1.2.0",
 ]
+analysis = [
+    "plotly>=5.20",
+    "dash>=2.17",
+]
 
 [project.scripts]
 simracing-engineer = "simracing.main:main"
+simracing-analyze   = "simracing.analysis.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simracing"]
