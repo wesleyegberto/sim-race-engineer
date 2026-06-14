@@ -22,7 +22,7 @@ C_LIGHT = (190, 200, 255)
 
 # fmt: off
 _LEFT = [
-    ("section", "GAUGES", "panel-cluster"),
+    ("section", "GAUGES", "speedometer"),
     ("item",  "Speed",          "left gauge · km/h · arc: green→orange→red as limit approaches",               C_TEXT, "speedometer"),
     ("item",  "RPM",            "right gauge · engine revs · same color scheme as speed",                       C_TEXT, "rpm"),
     ("item",  "RPM Bar",        "strip at top · green / orange / red based on rev zone",                        C_TEXT, "rpm"),
@@ -55,32 +55,32 @@ _RIGHT = [
     ("item",  "OIL!",              "oil temperature critical — above 130°C",                                    C_RED, "oil"),
     ("item",  "WATER!",            "water temperature critical — above 105°C",                                  C_RED, "coolant"),
 
-    ("section", "INFO PANEL (right)", "flags"),
+    ("section", "INFO PANEL (right)", "race-pos"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
-    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "stopwatch"),
+    ("item",  "LAP / BEST / LAST", "current lap · best lap · last completed lap",                               C_TEXT, "lap-time"),
     ("item",  "FUEL / FUEL·LAP",   "litres in tank · consumption per lap after 1st lap change",                 C_TEXT, "fuel"),
     ("item",  "LAPS LEFT",         "estimated laps remaining with current fuel",                                 C_TEXT, "fuel"),
     ("item",  "WATER · OIL · BOOST", "fluids and turbo · orange = above safe limit",                            C_ORANGE, "turbo"),
 ]
 # fmt: on
 
-_TAB_LABELS = ["APP GUIDE", "DASHBOARD", "VOICE ALERTS", "SETTINGS"]
+_TAB_LABELS = ["APP GUIDE", "DASHBOARD", "VOICE ALERTS", "SETTINGS", "LAP RECORD"]
 
 # fmt: off
 _VOICE_LEFT = [
-    ("section", "LAP & PACE", "stopwatch"),
+    ("section", "LAP & PACE", "lap-time"),
     ("item", "Lap completed",
      "fires on lap change when no new best lap was set",
-     C_TEXT, "stopwatch"),
+     C_TEXT, "lap-time"),
     ("item", "Best lap",
      "new personal best — fires instead of 'Lap completed'",
-     C_GREEN, "stopwatch"),
+     C_GREEN, "lap-time"),
     ("item", "Final lap",
      "fires entering the last lap of a timed/lapped race",
      C_ORANGE, "flags"),
     ("item", "Lap delta",
      ">3s off best — fires once after the halfway point of the lap",
-     C_ORANGE, "stopwatch"),
+     C_ORANGE, "lap-time"),
 
     ("section", "FUEL & PIT", "fuel"),
     ("item", "Fuel low",
@@ -96,17 +96,17 @@ _VOICE_LEFT = [
      "less than 1 lap of fuel · highest priority fuel alert",
      C_RED, "fuel"),
 
-    ("section", "STRATEGY", "flags"),
+    ("section", "STRATEGY", "strategy"),
     ("item", "Strategy: pit window",
      "in pit window, can't finish · 'Box box box + reason'",
-     C_ACCENT, "fuel"),
+     C_ACCENT, "strategy"),
     ("item", "Strategy: tyres",
      "2–5 laps to pit · tyres degrading · plan ahead",
      C_ORANGE, "tire-wheel"),
 ]
 
 _VOICE_RIGHT = [
-    ("section", "ENGINE", "coolant"),
+    ("section", "ENGINE", "engine"),
     ("item", "Water temp",
      "coolant >105°C · repeats every 20s while above threshold",
      C_RED, "coolant"),
@@ -116,36 +116,36 @@ _VOICE_RIGHT = [
 
     ("section", "TYRES", "tire-wheel"),
     ("item", "Tyre temp",
-     "any surface >100°C · hot corners named · 30s cooldown",
+     "any surface >100°C · hot corners named · once per lap",
      C_ORANGE, "tire-wheel"),
     ("item", "Tyre wear",
-     "any inner zone >110°C · high inner temp signals wear · 30s",
+     "any inner zone >110°C · high inner temp signals wear · once per lap",
      C_ORANGE, "tire-wheel"),
     ("item", "Tyre wear %",
      "stint avg wear hits each 10% block · fires once per bucket",
      C_ORANGE, "tire-wheel"),
     ("item", "Pressure low",
-     "any tyre <160 kPa · grip loss / puncture risk · 30s",
-     C_RED, "tire-wheel"),
+     "any tyre <160 kPa · grip loss / puncture risk · once per lap",
+     C_RED, "tire-pressure"),
     ("item", "Pressure high",
-     "any tyre >250 kPa · blowout risk in heat · 30s cooldown",
-     C_RED, "tire-wheel"),
+     "any tyre >250 kPa · blowout risk in heat · once per lap",
+     C_RED, "tire-pressure"),
 
-    ("section", "PLANNED PIT", "race-pos"),
+    ("section", "PLANNED PIT", "pit-stop"),
     ("item", "Approaching",
      "'Pit in N lap(s)' · fires 2 laps before planned stop",
-     C_ACCENT, "fuel"),
+     C_ACCENT, "pit-stop"),
     ("item", "Box now",
      "'Box this lap. On strategy' · on the planned stop lap",
-     C_GREEN, "fuel"),
+     C_GREEN, "pit-stop"),
     ("item", "Tyre warning",
      "tyres won't reach planned stop · fires when life < plan lap",
      C_ORANGE, "tire-wheel"),
     ("item", "Missed / rescheduled",
      "missed window · reschedules to new lap if fuel allows",
-     C_RED, "fuel"),
+     C_RED, "pit-stop"),
 
-    ("section", "HOW TO READ", "panel-cluster"),
+    ("section", "HOW TO READ", "info"),
     ("item", "Corner names",
      "front/rear + left/right · only affected corners are named",
      C_DIM),
@@ -173,60 +173,117 @@ _APP_HEADER = [
      "Pit-wall engineer while you race",
      "Automatic spoken alerts: fuel status · tyre temps · lap pace · pit windows and planned stop reminders."
      " Available in English or Portuguese.",
-     C_GREEN, "flags"),
+     C_GREEN, "voice-cmd"),
     ("card",
      "3 · LAP ANALYSIS",
      "Post-session interactive browser viewer",
      "After the session ends: click ANALYSIS in the header · select session.parquet (all laps merged into one file)"
      " · the browser opens at localhost:8050.",
-     C_ORANGE, "stopwatch"),
+     C_ORANGE, "lap-analysis"),
 ]
 
 _APP_LEFT = [
-    ("section", "LAP RECORDING", "stopwatch"),
-    ("item",  "Auto-save",            "laps saved automatically — no manual action required",             C_TEXT, "stopwatch"),
-    ("item",  "On lap change",        "previous lap saved when the current_lap counter increments",       C_TEXT, "stopwatch"),
-    ("item",  "On session end",       "current buffer saved as lap_NN_incomplete.parquet",                C_TEXT, "stopwatch"),
-    ("item",  "Free Session Restart", "restarting in free session keeps same folder — laps continue",    C_TEXT, "stopwatch"),
-    ("item",  "Location",             "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",             C_TEXT),
-    ("item",  "session.parquet",      "all laps merged — created at session end · open this for analysis", C_ACCENT),
-    ("item",  "Format",               "Apache Parquet · Snappy · one row per frame (~60 Hz)",            C_TEXT),
-
-    ("section", "RECORDED PER FRAME", "panel-cluster"),
-    ("item",  "Driving inputs",   "speed · rpm · gear · throttle · brake · clutch · handbrake",  C_TEXT, "car-pedals"),
-    ("item",  "Position",         "pos_x/y/z · vel_x/y/z — world coordinates (metres)",          C_TEXT, "speedometer"),
-    ("item",  "G-force & slip",   "g_lat · g_lon · slip_angle_deg (EMA-smoothed, computed)",     C_TEXT, "g-force"),
-    ("item",  "Tires",            "surface temp FL/FR/RL/RR · suspension travel",                C_TEXT, "tire-wheel"),
-    ("item",  "Engine & fluids",  "turbo_boost · water_temp · oil_temp · fuel_level",            C_TEXT, "fuel"),
-]
-
-_APP_RIGHT = [
-    ("section", "LAP SUMMARY (filled at lap end)", "stopwatch"),
-    ("item",  "fuel_at_start",    "fuel level when the lap began (litres)",                       C_TEXT, "fuel"),
-    ("item",  "fuel_at_end",      "fuel level when the lap ended (litres)",                       C_TEXT, "fuel"),
-    ("item",  "fuel_used",        "litres consumed this lap (start − end)",                       C_TEXT, "fuel"),
-    ("item",  "fuel_avg",         "session average litres/lap at the moment lap ended",           C_TEXT, "fuel"),
-    ("item",  "lap_finish_ms",    "official lap time from GT7 (milliseconds)",                    C_TEXT, "stopwatch"),
-    ("item",  "Pedal counters",   "full_throttle · full_brake · coasting ticks",                  C_TEXT, "car-pedals"),
-
-    ("section", "HEADER CONTROLS", "panel-cluster"),
-    ("item",  "ANALYSIS",         "opens file picker → select session.parquet → browser at :8050", C_ACCENT, "stopwatch"),
-    ("item",  "REC",              "red = recording · grey = paused · same session mid-race",      C_RED, "rec-button"),
+    ("section", "CONNECTION STATUS", "semaphore"),
     ("item",  "LIVE  (green)",    "connected to GT7 telemetry and receiving data",                C_GREEN),
     ("item",  "WAIT  (yellow)",   "connecting or connected but awaiting first packet",            C_YELLOW),
     ("item",  "ERR   (orange)",   "connection error — check device IP and network",               C_ORANGE),
     ("item",  "DISC  (grey)",     "disconnected — device IP is set but not active",               C_DIM),
-    ("item",  "OFF   (red)",      "no device IP configured — open SETTINGS tab to set one",      C_RED),
+    ("item",  "OFF   (red)",      "no device IP configured — open Settings to set one",          C_RED),
+
+    ("section", "RECORDING", "rec-button"),
+    ("item",  "REC",              "rec = start · pause = pause · resumes same session",          C_RED, "rec-button"),
+    ("item",  "Session name",      "set folder name · green = name set · locked while recording", C_TEXT, "pencil"),
+]
+
+_APP_RIGHT = [
+    ("section", "HEADER BUTTONS", "panel-cluster"),
+    ("item",  "Analysis",         "opens file picker → select session.parquet → browser at :8050", C_ACCENT, "lap-analysis"),
+    ("item",  "Strategy",         "configure planned pit stops · green background when stops are set", C_GREEN, "strategy"),
+    ("item",  "Help",             "opens this guide",                                            C_TEXT, "info"),
+    ("item",  "Settings",         "opens the settings panel",                                    C_TEXT, "settings"),
 ]
 
 _SETTINGS_LEFT = [
-    ("section", "FILE  (~/simracing/simracing.conf)", "panel-cluster"),
-    ("item",  "device_ip",        "PS5 / PC IP address — required to receive telemetry",          C_TEXT),
-    ("item",  "record_on_start",  "true / false — start lap recording automatically on session start", C_TEXT, "rec"),
-    ("item",  "fuel_estimation",  "\"last\" or \"average\" — how FUEL/LAP is calculated",          C_TEXT, "fuel"),
+    ("section", "CONNECTION", "semaphore"),
+    ("item",  "Device IP",         "PS5 / PC IP address · required to receive telemetry",          C_TEXT),
+
+    ("section", "RECORDING", "rec-button"),
+    ("item",  "Record on start",   "auto-start lap recording when a new session begins",           C_TEXT, "rec-button"),
+    ("item",  "Fuel estimation",   "Last lap: previous lap · Average: session rolling average",    C_TEXT, "fuel"),
+
+    ("section", "VOICE", "voice-cmd"),
+    ("item",  "Voice enabled",     "master toggle · enables or disables all voice alerts",         C_TEXT),
+    ("item",  "Language · Test",   "EN = English · PT = Portuguese · Test plays a sample alert",  C_TEXT),
 ]
 
-_SETTINGS_RIGHT: list = []
+_SETTINGS_RIGHT = [
+    ("section", "RACE ALERTS", "racing"),
+    ("item",  "Lap completed",     "announce each lap time when no new best was set",              C_TEXT, "lap-time"),
+    ("item",  "Best lap",          "announce when a new personal best is set",                     C_GREEN, "lap-time"),
+    ("item",  "Final lap",         "announce entering the last lap of a timed / lapped race",      C_ORANGE, "flags"),
+    ("item",  "Lap delta",         "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
+
+    ("section", "FUEL & PIT ALERTS", "fuel"),
+    ("item",  "Fuel low",          "warn when fuel drops below low threshold (default 20%)",       C_ORANGE, "fuel"),
+    ("item",  "Fuel critical",     "warn when fuel drops below critical threshold (default 10%)",  C_RED, "fuel"),
+    ("item",  "Pit window",        "alert when 2–4 laps of fuel remain in a race",                C_ACCENT, "fuel"),
+
+    ("section", "CAR HEALTH ALERTS", "engine"),
+    ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
+    ("item",  "Tyre temp",         "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre inner temp",   "warn when any inner zone >110°C · wear indicator",            C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre pressure",     "warn below 160 kPa or above 250 kPa · once per lap",         C_RED, "tire-pressure"),
+
+    ("section", "TYRE WEAR ALERT", "tire-wheel"),
+    ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
+    ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
+]
+
+_LAP_RECORD_LEFT = [
+    ("section", "FILE STORAGE", "time"),
+    ("item",  "Location",              "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",       C_TEXT),
+    ("item",  "session.parquet",       "all laps merged · auto-created at session end",              C_ACCENT),
+    ("item",  "Format",                "Parquet · Snappy · ~60 Hz · auto-saved on lap change",       C_TEXT),
+
+    ("section", "TIMING", "lap-time"),
+    ("item",  "tick / packet_id",      "frame index within lap · GT7 packet counter",                C_TEXT, "lap-time"),
+    ("item",  "lap_number",            "lap number in session · starts at 1",                        C_TEXT, "lap-time"),
+    ("item",  "lap_time_ms / lap_finish_ms", "in-lap elapsed (ms) · official finish time (ms)",     C_TEXT, "lap-time"),
+
+    ("section", "MOTION", "speedometer"),
+    ("item",  "speed_kmh",             "km/h · derived from velocity vector",                        C_TEXT, "speedometer"),
+    ("item",  "pos_x/y/z · vel_x/y/z","world position (m) · world velocity (m/s)",                 C_TEXT),
+
+    ("section", "CONTROLS", "car-pedals"),
+    ("item",  "throttle / brake / clutch / handbrake", "0.0–1.0 · pedal inputs",                   C_TEXT, "car-pedals"),
+    ("item",  "gear / rev_limiter",    "0=R 15=N 1–8=gear · bool at max RPM",                       C_TEXT, "gearbox"),
+
+    ("section", "SESSION", "flags"),
+    ("item",  "session_type",          "\"race\" or \"practice\" · derived from GT7 flags",          C_TEXT, "flags"),
+    ("item",  "total_laps / cars_in_race", "scheduled laps (0=unlimited) · field size",             C_TEXT, "race-pos"),
+]
+
+_LAP_RECORD_RIGHT = [
+    ("section", "ENGINE", "engine"),
+    ("item",  "rpm / turbo_boost",     "RPM · bar above atmosphere",                                 C_TEXT, "engine"),
+    ("item",  "water_temp / oil_temp", "°C · coolant · oil",                                         C_TEXT, "coolant"),
+    ("item",  "fuel_level",            "L · instantaneous fuel remaining",                            C_TEXT, "fuel"),
+
+    ("section", "DYNAMICS", "g-force"),
+    ("item",  "g_lat / g_lon",         "G · lateral · longitudinal (EMA-smoothed)",                  C_TEXT, "g-force"),
+    ("item",  "slip_angle_deg",        "° · yaw slip angle · oversteer indicator",                   C_TEXT, "drifting"),
+
+    ("section", "TYRES", "tire-wheel"),
+    ("item",  "tire_fl/fr/rl/rr_temp", "°C · surface temp per corner (FL FR RL RR)",                C_TEXT, "tire-wheel"),
+    ("item",  "sus_fl/fr/rl/rr",       "m · suspension travel per corner",                           C_TEXT, "suspension"),
+    ("item",  "tcs_active / asm_active","bool · TCS · stability management interventions",           C_TEXT, "tcs"),
+
+    ("section", "LAP AGGREGATES", "lap-time"),
+    ("item",  "fuel_at_start/end/used", "L · fuel at start · end · consumed this lap",              C_TEXT, "fuel"),
+    ("item",  "fuel_avg",               "L/lap · rolling session average",                           C_TEXT, "fuel"),
+    ("item",  "full_throttle / full_brake ticks", "frames ≥ 0.98 throttle · brake",                 C_TEXT, "car-pedals"),
+    ("item",  "throttle+brake / coasting ticks",  "trail braking · coasting frames",                C_TEXT, "car-pedals"),
+]
 # fmt: on
 
 _FOOTER = "Press ESC or click anywhere to close"
@@ -265,7 +322,7 @@ class HelpPanel:
             _CARD_Y + (_TITLE_H - close_sz) // 2,
             close_sz, close_sz,
         )
-        tab_w, tab_h, tab_gap = 110, 26, 3
+        tab_w, tab_h, tab_gap = 100, 26, 3
         tab_y = _CARD_Y + (_TITLE_H - tab_h) // 2
         cx = _CARD_X + _CARD_W // 2
         n_tabs = len(_TAB_LABELS)
@@ -352,9 +409,9 @@ class HelpPanel:
             x_surf = font_sm.render("X", True, C_TITLE)
             surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
 
-        _header_by_tab = [_APP_HEADER, None,   None,        None]
-        _left_by_tab   = [_APP_LEFT,  _LEFT,   _VOICE_LEFT, _SETTINGS_LEFT]
-        _right_by_tab  = [_APP_RIGHT, _RIGHT,  _VOICE_RIGHT, _SETTINGS_RIGHT]
+        _header_by_tab = [_APP_HEADER, None,   None,          None,            None]
+        _left_by_tab   = [_APP_LEFT,  _LEFT,   _VOICE_LEFT,  _SETTINGS_LEFT,  _LAP_RECORD_LEFT]
+        _right_by_tab  = [_APP_RIGHT, _RIGHT,  _VOICE_RIGHT, _SETTINGS_RIGHT, _LAP_RECORD_RIGHT]
 
         left_entries  = _left_by_tab[self._active_tab]
         right_entries = _right_by_tab[self._active_tab]
