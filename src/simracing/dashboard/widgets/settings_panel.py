@@ -114,6 +114,10 @@ class SettingsPanel:
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
 
+        # Pre-allocated overlay (never changes)
+        self._overlay = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+        self._overlay.fill(C_OVERLAY)
+
     def open(
         self,
         current_ip: str,
@@ -249,10 +253,7 @@ class SettingsPanel:
             self._cursor_timer = 0
             self._cursor_visible = not self._cursor_visible
 
-        # Semi-transparent overlay
-        overlay = pygame.Surface((self._win_w, self._win_h), pygame.SRCALPHA)
-        overlay.fill(C_OVERLAY)
-        screen.blit(overlay, (0, 0))
+        screen.blit(self._overlay, (0, 0))
 
         # Card
         pygame.draw.rect(screen, C_CARD, self._card, border_radius=10)

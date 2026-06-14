@@ -65,6 +65,10 @@ class StrategyPanel:
         self._btn_clear  = pygame.Rect(cx + _CARD_W - 326, btn_y, 120, 34)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 34)
 
+        # Pre-allocated overlay (never changes)
+        self._overlay = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+        self._overlay.fill(C_OVERLAY)
+
         # State
         self._planned_stops: int = 0
         self._lap_texts: list[str] = ["", "", ""]
@@ -158,9 +162,7 @@ class StrategyPanel:
             self._cursor_timer = 0
             self._cursor_visible = not self._cursor_visible
 
-        overlay = pygame.Surface((self._win_w, self._win_h), pygame.SRCALPHA)
-        overlay.fill(C_OVERLAY)
-        screen.blit(overlay, (0, 0))
+        screen.blit(self._overlay, (0, 0))
 
         pygame.draw.rect(screen, C_CARD, self._card, border_radius=10)
         pygame.draw.rect(screen, C_BORDER, self._card, 1, border_radius=10)

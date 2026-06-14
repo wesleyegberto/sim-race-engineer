@@ -88,6 +88,14 @@ class DashboardApp:
         self._voice_service: Any | None = voice_service
         self._data: TelemetryData | None = None
         self._running = False
+        self._rev_overlay: pygame.Surface | None = None
+        self._info_card_surf: pygame.Surface | None = None
+        self._surf_title: pygame.Surface | None = None
+        self._surf_gear_lbl: pygame.Surface | None = None
+        self._surf_status_in_race: pygame.Surface | None = None
+        self._surf_status_finished: pygame.Surface | None = None
+        self._surf_status_pit: pygame.Surface | None = None
+        self._surf_free_session: pygame.Surface | None = None
         self._icon: pygame.Surface | None = None
         self._icon_settings: pygame.Surface | None = None
         self._icon_info: pygame.Surface | None = None
@@ -118,6 +126,7 @@ class DashboardApp:
         self._planned_monitor = PlannedStrategyMonitor()
         self._strategy_result: StrategyResult | None = None
         self._planned_status: PlannedStrategyStatus | None = None
+        self._strategy_lap: int = -2
         self._apply_planned_strategy(config)
 
         # State transition tracking (for debug logging)
@@ -154,6 +163,7 @@ class DashboardApp:
         self._planned_monitor.reset()
         self._strategy_result = None
         self._planned_status = None
+        self._strategy_lap = -2
         if self._voice_service is not None:
             self._voice_service.reset()
 
@@ -227,8 +237,8 @@ class DashboardApp:
                      path, self._analysis_proc.pid, log_path)
 
             def _open_when_ready() -> None:
+                import socket
                 import time
-                import urllib.request
                 proc = self._analysis_proc
                 deadline = time.monotonic() + 20.0
                 while time.monotonic() < deadline:
@@ -236,10 +246,10 @@ class DashboardApp:
                         log.error("Analysis viewer exited early — check %s", log_path)
                         return
                     try:
-                        urllib.request.urlopen("http://127.0.0.1:8050", timeout=1)
-                        break
-                    except Exception:
-                        time.sleep(0.4)
+                        with socket.create_connection(("127.0.0.1", 8050), timeout=1):
+                            break
+                    except OSError:
+                        time.sleep(1.0)
                 webbrowser.open("http://127.0.0.1:8050")
 
             threading.Thread(target=_open_when_ready, daemon=True).start()
@@ -337,16 +347,18 @@ class DashboardApp:
         pit_detected = self._stint.update(d)
         if pit_detected:
             self._planned_monitor.on_pit_detected(d.current_lap)
-        self._strategy_result = self._strategy_engine.compute(
-            current_lap=d.current_lap,
-            total_laps=d.total_laps,
-            fuel_level=d.fuel_level,
-            fuel_per_lap=self._fuel_per_lap,
-            avg_wear=self._stint.current_avg_wear,
-            wear_per_lap=self._stint.wear_per_lap,
-            tyre_wear_limit=self._config.tyre_wear_limit_pct,
-            pit_buffer_laps=self._config.pit_buffer_laps,
-        )
+        if d.current_lap != self._strategy_lap:
+            self._strategy_result = self._strategy_engine.compute(
+                current_lap=d.current_lap,
+                total_laps=d.total_laps,
+                fuel_level=d.fuel_level,
+                fuel_per_lap=self._fuel_per_lap,
+                avg_wear=self._stint.current_avg_wear,
+                wear_per_lap=self._stint.wear_per_lap,
+                tyre_wear_limit=self._config.tyre_wear_limit_pct,
+                pit_buffer_laps=self._config.pit_buffer_laps,
+            )
+            self._strategy_lap = d.current_lap
         self._planned_status = self._planned_monitor.evaluate(
             current_lap=d.current_lap,
             avg_wear=self._stint.current_avg_wear,
@@ -465,9 +477,13 @@ class DashboardApp:
 
         self._load_assets()
         self._settings = SettingsPanel(WIN_W, WIN_H)
-        self._help = HelpPanel(WIN_W, WIN_H)
+        self._help = HelpPanel()
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
 
+        self._rev_overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
+        self._rev_overlay.fill((220, 40, 40, 40))
+        self._info_card_surf = pygame.Surface((210, 574), pygame.SRCALPHA)  # PW=210, 30*18+10*2+14
+        self._info_card_surf.fill((15, 15, 22, 190))
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
@@ -657,7 +673,11 @@ class DashboardApp:
         else:
             screen.blit(gear_surf, gear_surf.get_rect(center=(CX, 155)))
 
-        gear_lbl = font_sm.render("GEAR", True, C_DIM)
+        _glbl = self._surf_gear_lbl
+        if _glbl is None:
+            _glbl = font_sm.render("GEAR", True, C_DIM)
+            self._surf_gear_lbl = _glbl
+        gear_lbl = _glbl
         if self._icon_gearbox:
             combined_w = self._icon_gearbox.get_width() + 5 + gear_lbl.get_width()
             lbl_x = CX - combined_w // 2
@@ -704,9 +724,7 @@ class DashboardApp:
         self._draw_indicators(screen, font_sm, d)
 
         if d.rev_limiter and self._config.rpm_flash:
-            overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
-            overlay.fill((220, 40, 40, 40))
-            screen.blit(overlay, (0, 0))
+            screen.blit(self._rev_overlay, (0, 0))
 
     def _draw_header(self, screen, font_md: pygame.font.Font,
                      font_sm: pygame.font.Font, in_race: bool = False,
@@ -719,25 +737,44 @@ class DashboardApp:
         if self._icon:
             screen.blit(self._icon, (icon_x, icon_y))
 
-        title = font_md.render("RACE ENGINEER", True, C_TEXT)
-        screen.blit(title, (icon_x + 32 + 10, (HEADER_H - title.get_height()) // 2))
+        _title = self._surf_title
+        if _title is None:
+            _title = font_md.render("RACE ENGINEER", True, C_TEXT)
+            self._surf_title = _title
+        screen.blit(_title, (icon_x + 32 + 10, (HEADER_H - _title.get_height()) // 2))
 
         # Race status indicator (centered in header)
         if race_finished:
-            status_icon  = self._icon_pit_stop
-            status_label = "FINISHED"
-            status_color = C_ORANGE
+            status_icon = self._icon_pit_stop
         elif in_race:
-            status_icon  = self._icon_racing
-            status_label = "IN RACE"
-            status_color = C_GREEN
+            status_icon = self._icon_racing
         else:
-            status_icon  = self._icon_pit_stop
-            status_label = "PIT / MENU"
-            status_color = C_DIM
+            status_icon = self._icon_pit_stop
         if status_icon:
-            label_surf = font_sm.render(status_label, True, status_color)
-            free_surf = font_sm.render("FREE SESSION", True, C_DIM) if (in_race and is_free and not race_finished) else None
+            if race_finished:
+                _s = self._surf_status_finished
+                if _s is None:
+                    _s = font_sm.render("FINISHED", True, C_ORANGE)
+                    self._surf_status_finished = _s
+            elif in_race:
+                _s = self._surf_status_in_race
+                if _s is None:
+                    _s = font_sm.render("IN RACE", True, C_GREEN)
+                    self._surf_status_in_race = _s
+            else:
+                _s = self._surf_status_pit
+                if _s is None:
+                    _s = font_sm.render("PIT / MENU", True, C_DIM)
+                    self._surf_status_pit = _s
+            label_surf = _s
+            if in_race and is_free and not race_finished:
+                _fs = self._surf_free_session
+                if _fs is None:
+                    _fs = font_sm.render("FREE SESSION", True, C_DIM)
+                    self._surf_free_session = _fs
+                free_surf: pygame.Surface | None = _fs
+            else:
+                free_surf = None
             gap = 8
             badge_gap = 10
             combined_w = (status_icon.get_width() + gap + label_surf.get_width()
@@ -914,9 +951,7 @@ class DashboardApp:
 
         # pre-draw card (fixed height covers max possible rows, including strategy rows)
         card_h = line_h * 18 + PAD * 2 + 14
-        card_surf = pygame.Surface((PW, card_h), pygame.SRCALPHA)
-        card_surf.fill((15, 15, 22, 190))
-        screen.blit(card_surf, (PX, PY))
+        screen.blit(self._info_card_surf, (PX, PY))
         pygame.draw.rect(screen, SEP_COLOR, pygame.Rect(PX, PY, PW, card_h), 1, border_radius=8)
 
         y = PY + PAD
