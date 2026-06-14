@@ -71,6 +71,7 @@ class AppConfig:
         self.planned_stop_laps: list[int] = []
 
         # Recording
+        self.recording_on_start: bool = True
         self.recording_suffix: str = ""
 
         self.load()
@@ -92,6 +93,7 @@ class AppConfig:
             "device_ip": self.device_ip,
             "rpm_flash": str(self.rpm_flash),
             "fuel_estimation": self.fuel_estimation,
+            "recording_on_start": str(self.recording_on_start),
             "recording_suffix": self.recording_suffix,
         }
         cp[self._VOICE] = {
@@ -181,4 +183,5 @@ class AppConfig:
         self.planned_stops = cp.getint(self._STRATEGY, "planned_stops", fallback=0)
         raw_laps = cp.get(self._STRATEGY, "planned_stop_laps", fallback="")
         self.planned_stop_laps = [int(x) for x in raw_laps.split(",") if x.strip().isdigit()]
+        self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")

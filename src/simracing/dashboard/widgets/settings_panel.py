@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 740
+_CARD_W, _CARD_H = 480, 766
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -45,6 +45,7 @@ class SettingsPanel:
         self._voice_alert_lap_delta = True
         self._voice_alert_pit_window = True
         self._voice_alert_tyre_wear = True
+        self._recording_on_start = True
         self._voice_wear_thr_text = "10"
         self._active_field: str | None = None  # "ip" | "wear_thr"
         self._cursor_visible = True
@@ -58,7 +59,10 @@ class SettingsPanel:
         field_y = cy + 90
         self._field = pygame.Rect(field_x, field_y, _CARD_W - 40, 38)
 
-        check_y = field_y + 58
+        # Recording on start checkbox (right below IP field)
+        self._rec_on_start_check = pygame.Rect(field_x, field_y + 46, 18, 18)
+
+        check_y = field_y + 84
         self._check_box = pygame.Rect(field_x, check_y, 18, 18)
 
         fuel_y = check_y + 44
@@ -123,6 +127,7 @@ class SettingsPanel:
         current_ip: str,
         rpm_flash: bool = True,
         fuel_estimation: str = "average",
+        recording_on_start: bool = True,
         voice_enabled: bool = False,
         voice_language: str = "en",
         voice_alert_fuel_critical: bool = True,
@@ -143,6 +148,7 @@ class SettingsPanel:
         self._ip_text = current_ip
         self._rpm_flash = rpm_flash
         self._fuel_estimation = fuel_estimation
+        self._recording_on_start = recording_on_start
         self._voice_enabled = voice_enabled
         self._voice_language = voice_language
         self._voice_alert_fuel_critical = voice_alert_fuel_critical
@@ -194,6 +200,9 @@ class SettingsPanel:
                 return "cancelled"
             if self._check_box.collidepoint(pos):
                 self._rpm_flash = not self._rpm_flash
+                return None
+            if self._rec_on_start_check.collidepoint(pos):
+                self._recording_on_start = not self._recording_on_start
                 return None
             if self._fuel_btn_last.collidepoint(pos):
                 self._fuel_estimation = "last"
@@ -274,6 +283,16 @@ class SettingsPanel:
         display = self._ip_text + ("|" if (self._cursor_visible and self._active_field != "wear_thr") else " ")
         ip_surf = font_md.render(display, True, C_TEXT)
         screen.blit(ip_surf, (self._field.x + 10, self._field.y + 8))
+
+        # Recording on start checkbox
+        pygame.draw.rect(screen, C_INPUT_BG, self._rec_on_start_check, border_radius=3)
+        pygame.draw.rect(screen, C_ACCENT, self._rec_on_start_check, 1, border_radius=3)
+        if self._recording_on_start:
+            inner = self._rec_on_start_check.inflate(-5, -5)
+            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+        rec_lbl = font_sm.render("Record automatically on start", True, C_TEXT)
+        screen.blit(rec_lbl, (self._rec_on_start_check.right + 10,
+                              self._rec_on_start_check.y + (self._rec_on_start_check.height - rec_lbl.get_height()) // 2))
 
         # RPM flash checkbox
         pygame.draw.rect(screen, C_INPUT_BG, self._check_box, border_radius=3)
@@ -450,6 +469,10 @@ class SettingsPanel:
     def _save(self) -> Action:
         self.active = False
         return "saved"
+
+    @property
+    def recording_on_start(self) -> bool:
+        return self._recording_on_start
 
     @property
     def ip_text(self) -> str:

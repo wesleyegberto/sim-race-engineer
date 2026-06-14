@@ -115,7 +115,7 @@ class DashboardApp:
         self._suffix_btn   = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._analysis_btn = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28, _btn_y, 28, 28)
         self._conn_btn     = pygame.Rect(WIN_W - 44 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 28 - 8 - 72, _btn_y, 72, 28)
-        self._recording: bool = True
+        self._recording: bool = self._config.recording_on_start
         self._analysis_proc: Any | None = None
 
         # Fuel rate tracking
@@ -494,6 +494,7 @@ class DashboardApp:
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
             self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+                        self._config.recording_on_start,
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
                         self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
@@ -563,6 +564,8 @@ class DashboardApp:
                         self._config.device_ip = self._settings.ip_text
                         self._config.rpm_flash = self._settings.rpm_flash
                         self._config.fuel_estimation = self._settings.fuel_estimation
+                        self._config.recording_on_start = self._settings.recording_on_start
+                        self._recording = self._settings.recording_on_start
                         self._config.voice_enabled = self._settings.voice_enabled
                         self._config.voice_language = self._settings.voice_language
                         self._config.voice_alert_fuel_critical = self._settings.voice_alert_fuel_critical
@@ -617,6 +620,7 @@ class DashboardApp:
                             )
                     elif self._gear_btn.collidepoint(event.pos):
                         self._settings.open(self._config.device_ip, self._config.rpm_flash, self._config.fuel_estimation,
+                        self._config.recording_on_start,
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
                         self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
