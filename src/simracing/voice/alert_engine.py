@@ -29,6 +29,8 @@ class AlertEngine:
         self._planned_monitor = PlannedStrategyMonitor()
         self._strategy_result: StrategyResult | None = None
         self._planned_status: PlannedStrategyStatus | None = None
+        self._window_entry_fired: set[int] = set()   # stop_numbers that got "window open" alert
+        self._window_fuel_fired: set[int] = set()    # stop_numbers that got fuel warning in window
         self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
@@ -70,7 +72,9 @@ class AlertEngine:
             self._prev_best_lap_ms = data.best_lap_ms
 
         # ── Fuel ──────────────────────────────────────────────────────────────
-        if data.fuel_capacity > 0:
+        total_laps = data.total_laps
+        is_last_lap = total_laps > 0 and data.current_lap >= total_laps
+        if data.fuel_capacity > 0 and not is_last_lap:
             pct = data.fuel_pct
             laps_left = data.fuel_level / fuel_per_lap if fuel_per_lap > 0 else -1.0
             laps_text = _laps_text(laps_left, lang)
@@ -272,43 +276,62 @@ class AlertEngine:
         # ── Planned strategy alerts ───────────────────────────────────────────
         ps = self._planned_status
         if cfg.voice_alert_strategy and ps is not None:
-            if ps.strategy_alert == "NOW":
+            stop = ps.next_stop
+            sn = stop.stop_number
+            sa = ps.strategy_alert
+
+            if sa == "APPROACHING_WINDOW":
+                # Fire once per approaching lap ("window opens in 2 laps", then "in 1 lap")
                 text = self._maybe_fire_interval(
-                    f"plan_now_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
-                    format_alert("planned_pit_now", lang),
+                    f"plan_approaching_{sn}_{clap}", now, 9999.0,
+                    format_alert("planned_pit_window_approaching", lang,
+                                 laps=ps.laps_to_window_open),
                 )
                 if text:
                     alerts.append(text)
-            elif ps.strategy_alert == "APPROACHING":
-                text = self._maybe_fire_interval(
-                    f"plan_soon_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
-                    format_alert("planned_pit_soon", lang, laps=ps.laps_to_planned_stop),
-                )
-                if text:
-                    alerts.append(text)
-            elif ps.strategy_alert == "MISSED":
+
+            elif sa in ("IN_WINDOW", "NOW", "PAST_TARGET", "WINDOW_CLOSING"):
+                # On first entry into the window: announce once with laps available
+                if sn not in self._window_entry_fired:
+                    laps_available = ps.laps_to_window_close + 1
+                    text = format_alert("planned_pit_window_open", lang, laps=laps_available)
+                    if text:
+                        self._window_entry_fired.add(sn)
+                        alerts.append(text)
+                # Inside the window: one additional alert only if fuel is running out
+                elif sn not in self._window_fuel_fired and fuel_per_lap > 0:
+                    laps_of_fuel = data.fuel_level / fuel_per_lap
+                    if laps_of_fuel < 3.0:
+                        text = format_alert("planned_pit_window_fuel_warn", lang, laps=laps_of_fuel)
+                        if text:
+                            self._window_fuel_fired.add(sn)
+                            alerts.append(text)
+
+            elif sa == "MISSED":
                 result = self._strategy_result
                 if result is not None and result.laps_to_fuel_out > 1.0:
                     new_lap = result.recommended_pit_lap
-                    self._planned_monitor.reschedule_missed_stop(ps.next_stop.stop_number, new_lap)
+                    self._planned_monitor.reschedule_missed_stop(sn, new_lap)
                     text = self._maybe_fire_interval(
-                        f"plan_rescheduled_{ps.next_stop.stop_number}", now, 9999.0,
+                        f"plan_rescheduled_{sn}", now, 9999.0,
                         format_alert("planned_pit_rescheduled", lang, lap=new_lap),
                     )
                 else:
                     text = self._maybe_fire_interval(
-                        f"plan_missed_{ps.next_stop.stop_number}", now, 9999.0,
-                        format_alert("planned_pit_missed", lang, lap=ps.next_stop.planned_lap),
+                        f"plan_missed_{sn}", now, 9999.0,
+                        format_alert("planned_pit_missed", lang,
+                                     open=stop.window_open, close=stop.window_close),
                     )
                 if text:
                     alerts.append(text)
-            elif ps.strategy_alert == "TYRE_WARNING":
+
+            elif sa == "TYRE_WARNING":
                 life_lap = int(data.current_lap + ps.tyre_life_remaining_laps)
                 text = self._maybe_fire_interval(
-                    f"plan_tyre_warn_{ps.next_stop.stop_number}_{clap}", now, 9999.0,
+                    f"plan_tyre_warn_{sn}_{clap}", now, 9999.0,
                     format_alert("tyre_wont_reach", lang,
                                  life_lap=life_lap,
-                                 plan_lap=ps.next_stop.planned_lap),
+                                 plan_lap=stop.window_open),
                 )
                 if text:
                     alerts.append(text)
@@ -331,12 +354,12 @@ class AlertEngine:
         self._apply_planned_strategy(config)
 
     def _apply_planned_strategy(self, config: AppConfig) -> None:
-        if config.planned_stops <= 0 or not config.planned_stop_laps:
+        if config.planned_stops <= 0 or not config.planned_stop_windows:
             self._planned_monitor.set_strategy(None)
             return
         stops = [
-            PlannedStop(stop_number=i + 1, planned_lap=lap)
-            for i, lap in enumerate(config.planned_stop_laps[:config.planned_stops])
+            PlannedStop(stop_number=i + 1, window_open=o, window_close=c)
+            for i, (o, c) in enumerate(config.planned_stop_windows[:config.planned_stops])
         ]
         self._planned_monitor.set_strategy(PlannedStrategy(stops=stops))
 
@@ -348,6 +371,8 @@ class AlertEngine:
         self._planned_monitor.reset()
         self._strategy_result = None
         self._planned_status = None
+        self._window_entry_fired.clear()
+        self._window_fuel_fired.clear()
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s

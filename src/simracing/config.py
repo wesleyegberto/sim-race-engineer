@@ -14,6 +14,29 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
+def _parse_stop_windows(raw: str) -> list[tuple[int, int]]:
+    """Parse comma-separated stop entries into (open, close) tuples.
+
+    Accepts both "25" (single lap → 25-25) and "23-27" (window).
+    """
+    windows: list[tuple[int, int]] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        if "-" in token:
+            parts = token.split("-", 1)
+            try:
+                o, c = int(parts[0]), int(parts[1])
+                windows.append((o, max(o, c)))
+            except ValueError:
+                pass
+        elif token.isdigit():
+            n = int(token)
+            windows.append((n, n))
+    return windows
+
+
 class AppConfig:
     PATH = Path.home() / "simracing" / "simracing.conf"
     ENV_VAR = "SIMRACING_DEVICE_IP"
@@ -67,7 +90,8 @@ class AppConfig:
 
         # Race strategy (user-defined)
         self.planned_stops: int = 0
-        self.planned_stop_laps: list[int] = []
+        # Each window is (open_lap, close_lap); if open==close it's a single-lap stop.
+        self.planned_stop_windows: list[tuple[int, int]] = []
 
         # Recording
         self.recording_on_start: bool = True
@@ -133,7 +157,10 @@ class AppConfig:
             "voice_alert_strategy": str(self.voice_alert_strategy),
             "voice_strategy_interval_s": str(self.voice_strategy_interval_s),
             "planned_stops": str(self.planned_stops),
-            "planned_stop_laps": ",".join(str(x) for x in self.planned_stop_laps),
+            "planned_stop_laps": ",".join(
+                f"{o}-{c}" if o != c else str(o)
+                for o, c in self.planned_stop_windows
+            ),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -179,6 +206,6 @@ class AppConfig:
         self.voice_strategy_interval_s = cp.getfloat(self._STRATEGY, "voice_strategy_interval_s", fallback=30.0)
         self.planned_stops = cp.getint(self._STRATEGY, "planned_stops", fallback=0)
         raw_laps = cp.get(self._STRATEGY, "planned_stop_laps", fallback="")
-        self.planned_stop_laps = [int(x) for x in raw_laps.split(",") if x.strip().isdigit()]
+        self.planned_stop_windows = _parse_stop_windows(raw_laps)
         self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")

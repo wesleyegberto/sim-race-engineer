@@ -171,12 +171,12 @@ class DashboardApp:
             self._voice_service.reset()
 
     def _apply_planned_strategy(self, config: AppConfig) -> None:
-        if config.planned_stops <= 0 or not config.planned_stop_laps:
+        if config.planned_stops <= 0 or not config.planned_stop_windows:
             self._planned_monitor.set_strategy(None)
             return
         stops = [
-            PlannedStop(stop_number=i + 1, planned_lap=lap)
-            for i, lap in enumerate(config.planned_stop_laps[:config.planned_stops])
+            PlannedStop(stop_number=i + 1, window_open=o, window_close=c)
+            for i, (o, c) in enumerate(config.planned_stop_windows[:config.planned_stops])
         ]
         self._planned_monitor.set_strategy(PlannedStrategy(stops=stops))
 
@@ -592,7 +592,7 @@ class DashboardApp:
                     action = self._strategy_panel.handle_event(event)
                     if action in ("saved", "cleared"):
                         self._config.planned_stops = self._strategy_panel.planned_stops
-                        self._config.planned_stop_laps = self._strategy_panel.planned_stop_laps
+                        self._config.planned_stop_windows = self._strategy_panel.planned_stop_windows
                         self._config.tyre_wear_limit_pct = self._strategy_panel.tyre_wear_limit_pct
                         self._config.pit_buffer_laps = self._strategy_panel.pit_buffer_laps
                         self._config.voice_alert_strategy = self._strategy_panel.voice_alert_strategy
@@ -600,8 +600,8 @@ class DashboardApp:
                         self._apply_planned_strategy(self._config)
                         if self._voice_service is not None:
                             self._voice_service.update_planned_strategy(self._config)
-                        log.info("Strategy saved: stops=%d laps=%s",
-                                 self._config.planned_stops, self._config.planned_stop_laps)
+                        log.info("Strategy saved: stops=%d windows=%s",
+                                 self._config.planned_stops, self._config.planned_stop_windows)
                     continue
 
                 # Settings panel absorbs all events when open
@@ -662,7 +662,7 @@ class DashboardApp:
                         if self._strategy_panel:
                             self._strategy_panel.open(
                                 self._config.planned_stops,
-                                self._config.planned_stop_laps,
+                                self._config.planned_stop_windows,
                                 self._config.tyre_wear_limit_pct,
                                 self._config.pit_buffer_laps,
                                 self._config.voice_alert_strategy,
@@ -1112,14 +1112,19 @@ class DashboardApp:
 
             if ps is not None and ps.next_stop is not None:
                 sa = ps.strategy_alert
-                user_color = C_GREEN
+                user_color = C_TEXT
                 if sa == "MISSED":
                     user_color = C_RED
-                elif sa in ("TYRE_WARNING", "APPROACHING"):
+                elif sa in ("TYRE_WARNING", "APPROACHING_WINDOW"):
                     user_color = C_ORANGE
-                elif sa == "NOW":
-                    user_color = C_RED
-                row("STRATEGY", f"lap {ps.next_stop.planned_lap}", user_color, icon=self._icon_pit_stop)
+                elif sa in ("IN_WINDOW", "NOW", "WINDOW_CLOSING", "PAST_TARGET"):
+                    user_color = C_GREEN
+                stop = ps.next_stop
+                if stop.window_open == stop.window_close:
+                    strat_val = f"L{stop.target_lap}"
+                else:
+                    strat_val = f"L{stop.window_open}–{stop.window_close}"
+                row("STRATEGY", strat_val, user_color, icon=self._icon_pit_stop)
                 life_laps = ps.tyre_life_remaining_laps
                 laps_remaining = max(0, d.total_laps - d.current_lap + 1) if d.total_laps > 0 else 0
                 if laps_remaining > 0 and life_laps >= laps_remaining:

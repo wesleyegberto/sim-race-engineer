@@ -17,7 +17,7 @@ C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 C_BTN_CLEAR = (80, 50, 50)
 
-_CARD_W, _CARD_H = 420, 460
+_CARD_W, _CARD_H = 480, 490
 _ALLOWED_DIGITS = set("0123456789")
 _MAX_LAP = 999
 
@@ -45,20 +45,22 @@ class StrategyPanel:
             for i in range(4)
         ]
 
-        # Lap input fields for each stop
-        self._lap_fields = [
-            pygame.Rect(fx + 120, fy + 50 + i * 40, 80, 30)
+        # Open/Close input fields for each stop (two rects per stop)
+        self._open_fields = [
+            pygame.Rect(fx + 140, fy + 55 + i * 50, 60, 30)
+            for i in range(_MAX_STOPS)
+        ]
+        self._close_fields = [
+            pygame.Rect(fx + 220, fy + 55 + i * 50, 60, 30)
             for i in range(_MAX_STOPS)
         ]
 
-        # Tyre wear limit field
-        self._wear_field = pygame.Rect(fx + 180, fy + 170 + 20, 60, 30)
-
-        # Pit buffer field
-        self._buffer_field = pygame.Rect(fx + 180, fy + 220 + 20, 60, 30)
+        # Tyre wear limit and pit buffer fields
+        self._wear_field   = pygame.Rect(fx + 180, fy + 215, 60, 30)
+        self._buffer_field = pygame.Rect(fx + 180, fy + 265, 60, 30)
 
         # Voice strategy checkbox
-        self._voice_chk = pygame.Rect(fx, fy + 280, 18, 18)
+        self._voice_chk = pygame.Rect(fx, fy + 315, 18, 18)
 
         btn_y = cy + _CARD_H - 52
         self._btn_save   = pygame.Rect(cx + _CARD_W - 198, btn_y, 80, 34)
@@ -71,11 +73,12 @@ class StrategyPanel:
 
         # State
         self._planned_stops: int = 0
-        self._lap_texts: list[str] = ["", "", ""]
+        self._open_texts: list[str] = ["", "", ""]
+        self._close_texts: list[str] = ["", "", ""]
         self._wear_text: str = "80"
         self._buffer_text: str = "1"
         self._voice_strategy: bool = True
-        self._active_field: str | None = None  # "lap0","lap1","lap2","wear","buffer"
+        self._active_field: str | None = None  # "open0".."open2","close0".."close2","wear","buffer"
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -84,15 +87,17 @@ class StrategyPanel:
     def open(
         self,
         planned_stops: int,
-        planned_stop_laps: list[int],
+        planned_stop_windows: list[tuple[int, int]],
         tyre_wear_limit_pct: float,
         pit_buffer_laps: int,
         voice_alert_strategy: bool,
     ) -> None:
         self._planned_stops = min(planned_stops, _MAX_STOPS)
-        self._lap_texts = ["", "", ""]
-        for i, lap in enumerate(planned_stop_laps[:_MAX_STOPS]):
-            self._lap_texts[i] = str(lap)
+        self._open_texts = ["", "", ""]
+        self._close_texts = ["", "", ""]
+        for i, (o, c) in enumerate(planned_stop_windows[:_MAX_STOPS]):
+            self._open_texts[i] = str(o)
+            self._close_texts[i] = str(c) if c != o else str(o)
         self._wear_text = str(int(tyre_wear_limit_pct * 100))
         self._buffer_text = str(pit_buffer_laps)
         self._voice_strategy = voice_alert_strategy
@@ -133,9 +138,12 @@ class StrategyPanel:
                 if btn.collidepoint(pos):
                     self._planned_stops = i
                     return None
-            for i, field in enumerate(self._lap_fields):
-                if field.collidepoint(pos) and i < self._planned_stops:
-                    self._active_field = f"lap{i}"
+            for i in range(_MAX_STOPS):
+                if self._open_fields[i].collidepoint(pos) and i < self._planned_stops:
+                    self._active_field = f"open{i}"
+                    return None
+                if self._close_fields[i].collidepoint(pos) and i < self._planned_stops:
+                    self._active_field = f"close{i}"
                     return None
             if self._wear_field.collidepoint(pos):
                 self._active_field = "wear"
@@ -187,54 +195,101 @@ class StrategyPanel:
             surf = font_sm.render(str(i), True, (15, 15, 22) if active else C_TEXT)
             screen.blit(surf, surf.get_rect(center=btn.center))
 
-        # Lap inputs
-        for i, field in enumerate(self._lap_fields):
+        # Column headers (shown above first row)
+        if self._planned_stops > 0:
+            hdr_y = fy + 36
+            open_hdr = font_sm.render("Open", True, C_DIM)
+            close_hdr = font_sm.render("Close", True, C_DIM)
+            tgt_hdr = font_sm.render("Target", True, C_DIM)
+            screen.blit(open_hdr, (self._open_fields[0].x + 6, hdr_y))
+            screen.blit(close_hdr, (self._close_fields[0].x + 4, hdr_y))
+            screen.blit(tgt_hdr, (self._close_fields[0].right + 12, hdr_y))
+
+        # Per-stop rows
+        for i in range(_MAX_STOPS):
+            open_f = self._open_fields[i]
+            close_f = self._close_fields[i]
             enabled = i < self._planned_stops
-            lbl = font_sm.render(f"Stop {i + 1} — Lap:", True, C_TEXT if enabled else C_DIM)
-            screen.blit(lbl, (fx, field.y + (field.height - font_sm.get_height()) // 2))
+            color = C_TEXT if enabled else C_DIM
+
+            # Stop label
+            lbl = font_sm.render(f"Stop {i + 1}:", True, color)
+            screen.blit(lbl, (fx, open_f.y + (open_f.height - font_sm.get_height()) // 2))
+
             if enabled:
-                bg = C_INPUT_ACTIVE if self._active_field == f"lap{i}" else C_INPUT_BG
-                border = C_ACCENT if self._active_field == f"lap{i}" else C_BORDER
-                pygame.draw.rect(screen, bg, field, border_radius=5)
-                pygame.draw.rect(screen, border, field, 1, border_radius=5)
-                cursor = "|" if (self._active_field == f"lap{i}" and self._cursor_visible) else ""
-                surf = font_sm.render(self._lap_texts[i] + cursor, True, C_TEXT)
-                screen.blit(surf, (field.x + 8, field.y + (field.height - surf.get_height()) // 2))
+                # Open field
+                active_open = self._active_field == f"open{i}"
+                pygame.draw.rect(screen, C_INPUT_ACTIVE if active_open else C_INPUT_BG, open_f, border_radius=5)
+                pygame.draw.rect(screen, C_ACCENT if active_open else C_BORDER, open_f, 1, border_radius=5)
+                cursor_open = "|" if (active_open and self._cursor_visible) else ""
+                surf = font_sm.render(self._open_texts[i] + cursor_open, True, C_TEXT)
+                screen.blit(surf, (open_f.x + 6, open_f.y + (open_f.height - surf.get_height()) // 2))
+
+                # Separator "—"
+                dash = font_sm.render("—", True, C_DIM)
+                screen.blit(dash, (open_f.right + 4,
+                                   open_f.y + (open_f.height - dash.get_height()) // 2))
+
+                # Close field
+                active_close = self._active_field == f"close{i}"
+                pygame.draw.rect(screen, C_INPUT_ACTIVE if active_close else C_INPUT_BG, close_f, border_radius=5)
+                pygame.draw.rect(screen, C_ACCENT if active_close else C_BORDER, close_f, 1, border_radius=5)
+                cursor_close = "|" if (active_close and self._cursor_visible) else ""
+                surf = font_sm.render(self._close_texts[i] + cursor_close, True, C_TEXT)
+                screen.blit(surf, (close_f.x + 6, close_f.y + (close_f.height - surf.get_height()) // 2))
+
+                # Target label
+                try:
+                    o = int(self._open_texts[i]) if self._open_texts[i] else 0
+                    c = int(self._close_texts[i]) if self._close_texts[i] else o
+                    tgt = (o + max(o, c)) // 2 if o > 0 else 0
+                    tgt_str = f"→ {tgt}" if tgt > 0 else ""
+                except ValueError:
+                    tgt_str = ""
+                if tgt_str:
+                    tgt_surf = font_sm.render(tgt_str, True, C_ACCENT)
+                    screen.blit(tgt_surf, (close_f.right + 12,
+                                           close_f.y + (close_f.height - tgt_surf.get_height()) // 2))
             else:
-                pygame.draw.rect(screen, (20, 20, 28), field, border_radius=5)
-                pygame.draw.rect(screen, (40, 40, 50), field, 1, border_radius=5)
+                for field in (open_f, close_f):
+                    pygame.draw.rect(screen, (20, 20, 28), field, border_radius=5)
+                    pygame.draw.rect(screen, (40, 40, 50), field, 1, border_radius=5)
 
         # Separator
-        sep_y = fy + 170
+        sep_y = fy + 200
         pygame.draw.line(screen, C_BORDER, (self._card.x + 20, sep_y), (self._card.right - 20, sep_y))
 
         # Tyre wear limit
-        wear_y = sep_y + 20
+        wear_y = sep_y + 15
         wear_lbl = font_sm.render("Tyre wear limit:", True, C_DIM)
         screen.blit(wear_lbl, (fx, wear_y + (self._wear_field.height - font_sm.get_height()) // 2))
         wear_unit = font_sm.render("%", True, C_DIM)
-        screen.blit(wear_unit, (self._wear_field.right + 6, wear_y + (self._wear_field.height - wear_unit.get_height()) // 2))
+        screen.blit(wear_unit, (self._wear_field.right + 6,
+                                wear_y + (self._wear_field.height - wear_unit.get_height()) // 2))
         wear_bg = C_INPUT_ACTIVE if self._active_field == "wear" else C_INPUT_BG
         wear_border = C_ACCENT if self._active_field == "wear" else C_BORDER
         pygame.draw.rect(screen, wear_bg, self._wear_field, border_radius=5)
         pygame.draw.rect(screen, wear_border, self._wear_field, 1, border_radius=5)
         wear_cursor = "|" if (self._active_field == "wear" and self._cursor_visible) else ""
         surf = font_sm.render(self._wear_text + wear_cursor, True, C_TEXT)
-        screen.blit(surf, (self._wear_field.x + 6, self._wear_field.y + (self._wear_field.height - surf.get_height()) // 2))
+        screen.blit(surf, (self._wear_field.x + 6,
+                           self._wear_field.y + (self._wear_field.height - surf.get_height()) // 2))
 
         # Pit buffer
         buf_y = wear_y + 50
         buf_lbl = font_sm.render("Pit buffer:", True, C_DIM)
         screen.blit(buf_lbl, (fx, buf_y + (self._buffer_field.height - font_sm.get_height()) // 2))
         buf_unit = font_sm.render("laps", True, C_DIM)
-        screen.blit(buf_unit, (self._buffer_field.right + 6, buf_y + (self._buffer_field.height - buf_unit.get_height()) // 2))
+        screen.blit(buf_unit, (self._buffer_field.right + 6,
+                               buf_y + (self._buffer_field.height - buf_unit.get_height()) // 2))
         buf_bg = C_INPUT_ACTIVE if self._active_field == "buffer" else C_INPUT_BG
         buf_border = C_ACCENT if self._active_field == "buffer" else C_BORDER
         pygame.draw.rect(screen, buf_bg, self._buffer_field, border_radius=5)
         pygame.draw.rect(screen, buf_border, self._buffer_field, 1, border_radius=5)
         buf_cursor = "|" if (self._active_field == "buffer" and self._cursor_visible) else ""
         surf = font_sm.render(self._buffer_text + buf_cursor, True, C_TEXT)
-        screen.blit(surf, (self._buffer_field.x + 6, self._buffer_field.y + (self._buffer_field.height - surf.get_height()) // 2))
+        screen.blit(surf, (self._buffer_field.x + 6,
+                           self._buffer_field.y + (self._buffer_field.height - surf.get_height()) // 2))
 
         # Voice strategy checkbox
         pygame.draw.rect(screen, C_INPUT_BG, self._voice_chk, border_radius=3)
@@ -262,14 +317,17 @@ class StrategyPanel:
         return self._planned_stops
 
     @property
-    def planned_stop_laps(self) -> list[int]:
-        laps = []
+    def planned_stop_windows(self) -> list[tuple[int, int]]:
+        windows: list[tuple[int, int]] = []
         for i in range(self._planned_stops):
             try:
-                laps.append(int(self._lap_texts[i]))
+                o = int(self._open_texts[i]) if self._open_texts[i] else 0
+                c = int(self._close_texts[i]) if self._close_texts[i] else o
+                if o > 0:
+                    windows.append((o, max(o, c)))
             except ValueError:
                 pass
-        return laps
+        return windows
 
     @property
     def tyre_wear_limit_pct(self) -> float:
@@ -298,11 +356,15 @@ class StrategyPanel:
 
     def _clear(self) -> None:
         self._planned_stops = 0
-        self._lap_texts = ["", "", ""]
+        self._open_texts = ["", "", ""]
+        self._close_texts = ["", "", ""]
         self.active = False
 
     def _cycle_focus(self) -> None:
-        fields = [f"lap{i}" for i in range(self._planned_stops)] + ["wear", "buffer"]
+        fields: list[str] = []
+        for i in range(self._planned_stops):
+            fields += [f"open{i}", f"close{i}"]
+        fields += ["wear", "buffer"]
         if not fields:
             return
         current = self._active_field
@@ -315,9 +377,12 @@ class StrategyPanel:
     def _backspace_active(self) -> None:
         if self._active_field is None:
             return
-        if self._active_field.startswith("lap"):
-            i = int(self._active_field[3])
-            self._lap_texts[i] = self._lap_texts[i][:-1]
+        if self._active_field.startswith("open"):
+            i = int(self._active_field[4])
+            self._open_texts[i] = self._open_texts[i][:-1]
+        elif self._active_field.startswith("close"):
+            i = int(self._active_field[5])
+            self._close_texts[i] = self._close_texts[i][:-1]
         elif self._active_field == "wear":
             self._wear_text = self._wear_text[:-1]
         elif self._active_field == "buffer":
@@ -326,11 +391,16 @@ class StrategyPanel:
     def _type_char(self, ch: str) -> None:
         if self._active_field is None:
             return
-        if self._active_field.startswith("lap"):
-            i = int(self._active_field[3])
-            candidate = self._lap_texts[i] + ch
+        if self._active_field.startswith("open"):
+            i = int(self._active_field[4])
+            candidate = self._open_texts[i] + ch
             if int(candidate) <= _MAX_LAP and len(candidate) <= 3:
-                self._lap_texts[i] = candidate
+                self._open_texts[i] = candidate
+        elif self._active_field.startswith("close"):
+            i = int(self._active_field[5])
+            candidate = self._close_texts[i] + ch
+            if int(candidate) <= _MAX_LAP and len(candidate) <= 3:
+                self._close_texts[i] = candidate
         elif self._active_field == "wear":
             candidate = self._wear_text + ch
             if len(candidate) <= 3:
