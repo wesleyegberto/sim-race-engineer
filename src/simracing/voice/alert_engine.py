@@ -31,6 +31,7 @@ class AlertEngine:
         self._planned_status: PlannedStrategyStatus | None = None
         self._window_entry_fired: set[int] = set()   # stop_numbers that got "window open" alert
         self._window_fuel_fired: set[int] = set()    # stop_numbers that got fuel warning in window
+        self._last_fuel_alert_lap: int = -1          # gate: at most one fuel alert per lap
         self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
@@ -73,37 +74,40 @@ class AlertEngine:
 
         # ── Fuel ──────────────────────────────────────────────────────────────
         total_laps = data.total_laps
-        is_last_lap = total_laps > 0 and data.current_lap >= total_laps
-        if data.fuel_capacity > 0 and not is_last_lap:
+        clap = data.current_lap
+        is_last_lap = total_laps > 0 and clap >= total_laps
+        if data.fuel_capacity > 0 and not is_last_lap and self._last_fuel_alert_lap != clap:
             pct = data.fuel_pct
             laps_left = data.fuel_level / fuel_per_lap if fuel_per_lap > 0 else -1.0
             laps_text = _laps_text(laps_left, lang)
             critical_pct: float = cfg.voice_fuel_critical_pct
             low_pct: float = cfg.voice_fuel_low_pct
 
-            lap_key = data.current_lap
             if 0 < laps_left < 1.0:
                 text = self._maybe_fire_interval(
-                    f"fuel_last_lap_{lap_key}", now, 9999.0,
+                    f"fuel_last_lap_{clap}", now, 9999.0,
                     format_alert("fuel_last_lap", lang),
                 )
                 if text:
+                    self._last_fuel_alert_lap = clap
                     alerts.append(text)
             elif cfg.voice_alert_fuel_critical and pct < critical_pct:
                 text = self._maybe_fire_interval(
-                    f"fuel_critical_{lap_key}", now, 9999.0,
+                    f"fuel_critical_{clap}", now, 9999.0,
                     format_alert("fuel_critical", lang,
                                  fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
                 )
                 if text:
+                    self._last_fuel_alert_lap = clap
                     alerts.append(text)
             elif cfg.voice_alert_fuel_low and pct < low_pct:
                 text = self._maybe_fire_interval(
-                    f"fuel_low_{lap_key}", now, 9999.0,
+                    f"fuel_low_{clap}", now, 9999.0,
                     format_alert("fuel_low", lang,
                                  fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
                 )
                 if text:
+                    self._last_fuel_alert_lap = clap
                     alerts.append(text)
 
         # ── Engine temp ───────────────────────────────────────────────────────
@@ -243,13 +247,17 @@ class AlertEngine:
         if cfg.voice_alert_strategy and result is not None:
             if result.is_in_pit_window and not result.can_finish_direct:
                 laps_label = max(0, result.laps_to_pit)
-                text = self._maybe_fire_interval(
-                    f"strategy_pit_{clap}", now, 9999.0,
-                    format_alert("strategy_pit_window", lang,
-                                 reason=result.pit_reason, laps=laps_label),
-                )
-                if text:
-                    alerts.append(text)
+                pit_is_fuel = "FUEL" in (result.pit_reason or "")
+                if not pit_is_fuel or self._last_fuel_alert_lap != clap:
+                    text = self._maybe_fire_interval(
+                        f"strategy_pit_{clap}", now, 9999.0,
+                        format_alert("strategy_pit_window", lang,
+                                     reason=result.pit_reason, laps=laps_label),
+                    )
+                    if text:
+                        if pit_is_fuel:
+                            self._last_fuel_alert_lap = clap
+                        alerts.append(text)
             elif 2 <= result.laps_to_pit <= 5 and result.pit_reason in ("TYRES", "FUEL+TYRES"):
                 text = self._maybe_fire_interval(
                     f"strategy_warn_{clap}", now, 9999.0,
@@ -259,7 +267,7 @@ class AlertEngine:
                 )
                 if text:
                     alerts.append(text)
-        elif cfg.voice_alert_pit_window and fuel_per_lap > 0 and data.total_laps > 0:
+        elif cfg.voice_alert_pit_window and fuel_per_lap > 0 and data.total_laps > 0 and self._last_fuel_alert_lap != clap:
             # Fall back to basic pit window alert when auto strategy is disabled
             laps_of_fuel = data.fuel_level / fuel_per_lap
             laps_remaining = max(0, data.total_laps - data.current_lap + 1)
@@ -271,6 +279,7 @@ class AlertEngine:
                     format_alert("pit_window", lang, laps=laps_of_fuel),
                 )
                 if text:
+                    self._last_fuel_alert_lap = clap
                     alerts.append(text)
 
         # ── Planned strategy alerts ───────────────────────────────────────────
@@ -299,12 +308,13 @@ class AlertEngine:
                         self._window_entry_fired.add(sn)
                         alerts.append(text)
                 # Inside the window: one additional alert only if fuel is running out
-                elif sn not in self._window_fuel_fired and fuel_per_lap > 0:
+                elif sn not in self._window_fuel_fired and fuel_per_lap > 0 and self._last_fuel_alert_lap != clap:
                     laps_of_fuel = data.fuel_level / fuel_per_lap
                     if laps_of_fuel < 3.0:
                         text = format_alert("planned_pit_window_fuel_warn", lang, laps=laps_of_fuel)
                         if text:
                             self._window_fuel_fired.add(sn)
+                            self._last_fuel_alert_lap = clap
                             alerts.append(text)
 
             elif sa == "MISSED":
@@ -373,6 +383,7 @@ class AlertEngine:
         self._planned_status = None
         self._window_entry_fired.clear()
         self._window_fuel_fired.clear()
+        self._last_fuel_alert_lap = -1
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s
