@@ -1,15 +1,23 @@
-"""Tracks tyre stint: laps on current compound and wear via dynamic radius."""
+"""Tracks tyre stint: laps on current compound and wear via effective rolling radius."""
 
+import logging
+import math
 from collections import deque
 
 from ..telemetry.models import TelemetryData
 
+log = logging.getLogger(__name__)
+
 _PIT_FUEL_GAIN = 0.01       # litres/frame → refuelling in progress
 _PIT_HOLD_FRAMES = 30       # frames to keep in_pit_stop=True after signal
 
-_RADIUS_SMOOTH_N = 20       # rolling-average window (frames) to filter deformation
-_MIN_VALID_RADIUS = 0.25    # metres — sanity gate; below this → ignore reading
-_TYRE_WEAR_DEPTH_M = 0.003  # radius reduction (m) that maps to 100% wear
+_RADIUS_SMOOTH_N = 60       # rolling-average window — larger to smooth slip transients
+_MIN_VALID_RADIUS = 0.20    # metres — sanity gate
+_MIN_SPEED_MS = 10.0        # sample only above ~36 km/h (avoid slip at low speed)
+_MIN_WHEEL_RPM = 10.0       # ignore nearly-stationary wheels
+_TYRE_WEAR_DEPTH_M = 0.003  # effective-radius reduction (m) = 100% worn
+
+_TWO_PI = 2.0 * math.pi
 
 
 class StintTracker:
@@ -25,19 +33,25 @@ class StintTracker:
         self._prev_fuel: float = -1.0
         self._pit_hold: int = 0
 
-        # per-tyre radius tracking (index = FL/FR/RL/RR)
+        # per-tyre effective-radius tracking (index = FL/FR/RL/RR)
         self._radius_bufs: list[deque] = [deque(maxlen=_RADIUS_SMOOTH_N) for _ in range(4)]
         self._smooth_radii: list[float] = [0.0] * 4
-        # Max radius seen in this session — new tyre naturally raises this
-        self._max_radii: list[float] = [0.0] * 4
+        self._max_radii: list[float] = [0.0] * 4   # fresh-tyre reference
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
-    def _update_radius(self, i: int, raw: float) -> float:
-        """Append raw radius to rolling average; return smoothed value."""
-        if raw < _MIN_VALID_RADIUS:
+    def _effective_radius(self, speed_ms: float, wheel_rpm: float) -> float:
+        """Compute rolling radius from speed and wheel rotation rate."""
+        if wheel_rpm < _MIN_WHEEL_RPM or speed_ms < _MIN_SPEED_MS:
+            return 0.0
+        rps = wheel_rpm / 60.0
+        return speed_ms / (rps * _TWO_PI)
+
+    def _update_smooth(self, i: int, r: float) -> float:
+        """Append radius to rolling average; return smoothed value (0 if not enough data)."""
+        if r < _MIN_VALID_RADIUS:
             return self._smooth_radii[i]
-        self._radius_bufs[i].append(raw)
+        self._radius_bufs[i].append(r)
         sr = sum(self._radius_bufs[i]) / len(self._radius_bufs[i])
         self._smooth_radii[i] = sr
         return sr
@@ -47,30 +61,28 @@ class StintTracker:
     def update(self, data: TelemetryData) -> bool:
         """Process a telemetry frame. Returns True when a tyre change is detected.
 
-        Populates data.tires[i].wear (0.0 = new, 1.0 = worn) in place.
-
-        Strategy: use the maximum smoothed radius ever seen as the fresh-tyre
-        reference.  When new tyres are fitted the radius increases, which
-        naturally raises the max reference and resets wear to ~0.  Transient
-        radius drops (hard braking / cornering deformation) shrink the
-        current value but do not reset the max, so they appear only as
-        momentary wear spikes that smooth out on the next straight.
+        Populates data.tires[i].wear (0.0 = new, 1.0 = worn) in place using
+        effective rolling radius: speed_ms / (wheel_rps × 2π).  As rubber
+        wears the tyre shrinks, forcing higher RPM for the same speed, which
+        lowers the effective radius.  We track the maximum smoothed radius seen
+        (= fresh-tyre reference) and compute wear as how far below that maximum
+        the current value is.
         """
         if not data.tires or data.current_lap <= 0:
             return False
 
         tyre_changed = False
+        speed = data.speed_ms
 
         for i, tire in enumerate(data.tires):
-            sr = self._update_radius(i, tire.radius)
+            eff_r = self._effective_radius(speed, tire.wheel_rpm)
+            sr = self._update_smooth(i, eff_r)
             if sr < _MIN_VALID_RADIUS:
                 continue
 
             prev_max = self._max_radii[i]
-
             if sr > prev_max:
                 if prev_max > _MIN_VALID_RADIUS and sr > prev_max + _TYRE_WEAR_DEPTH_M * 0.5:
-                    # Jumped by ≥ half the wear-depth: very likely a fresh tyre
                     tyre_changed = True
                 self._max_radii[i] = sr
 
@@ -102,6 +114,14 @@ class StintTracker:
 
         if data.current_lap == self._prev_lap:
             return tyre_changed
+
+        log.info(
+            "WEAR DBG lap=%d eff_r=%s max_r=%s wear=%s",
+            data.current_lap,
+            [f"{r:.5f}" for r in self._smooth_radii],
+            [f"{r:.5f}" for r in self._max_radii],
+            [f"{t.wear*100:.2f}%" for t in data.tires],
+        )
 
         wear_delta = avg_wear - self._prev_avg_wear
         self._prev_lap = data.current_lap
