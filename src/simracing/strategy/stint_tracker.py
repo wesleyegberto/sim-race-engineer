@@ -37,7 +37,8 @@ class StintTracker:
         # per-tyre effective-radius tracking (index = FL/FR/RL/RR)
         self._radius_bufs: list[deque] = [deque(maxlen=_RADIUS_SMOOTH_N) for _ in range(4)]
         self._smooth_radii: list[float] = [0.0] * 4
-        self._max_radii: list[float] = [0.0] * 4   # fresh-tyre reference
+        self._ref_radii: list[float] = [0.0] * 4    # locked fresh-tyre reference
+        self._ref_locked: list[bool] = [False] * 4  # True once buffer is full
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -85,13 +86,22 @@ class StintTracker:
             if sr < _MIN_VALID_RADIUS:
                 continue
 
-            prev_max = self._max_radii[i]
-            if sr > prev_max:
-                if prev_max > _MIN_VALID_RADIUS and sr > prev_max + _TYRE_WEAR_DEPTH_M * 0.5:
-                    tyre_changed = True
-                self._max_radii[i] = sr
+            if not self._ref_locked[i]:
+                if len(self._radius_bufs[i]) >= _RADIUS_SMOOTH_N:
+                    # Buffer full → lock reference as the current smoothed average
+                    self._ref_radii[i] = sr
+                    self._ref_locked[i] = True
+                continue  # no wear output until reference is established
 
-            ref = self._max_radii[i]
+            ref = self._ref_radii[i]
+            if sr > ref + _TYRE_WEAR_DEPTH_M * 0.5:
+                # Large radius jump → new tyre; unlock to re-establish reference
+                self._ref_locked[i] = False
+                self._radius_bufs[i].clear()
+                self._smooth_radii[i] = 0.0
+                tyre_changed = True
+                continue
+
             tire.wear = max(0.0, min(1.0, (ref - sr) / _TYRE_WEAR_DEPTH_M))
 
         avg_wear = sum(t.wear for t in data.tires) / len(data.tires)
@@ -121,10 +131,11 @@ class StintTracker:
             return tyre_changed
 
         log.info(
-            "WEAR DBG lap=%d eff_r=%s max_r=%s wear=%s",
+            "WEAR DBG lap=%d eff_r=%s ref=%s locked=%s wear=%s",
             data.current_lap,
             [f"{r:.5f}" for r in self._smooth_radii],
-            [f"{r:.5f}" for r in self._max_radii],
+            [f"{r:.5f}" for r in self._ref_radii],
+            self._ref_locked,
             [f"{t.wear*100:.2f}%" for t in data.tires],
         )
 
@@ -157,4 +168,5 @@ class StintTracker:
         self._pit_hold = 0
         self._radius_bufs = [deque(maxlen=_RADIUS_SMOOTH_N) for _ in range(4)]
         self._smooth_radii = [0.0] * 4
-        self._max_radii = [0.0] * 4
+        self._ref_radii = [0.0] * 4
+        self._ref_locked = [False] * 4
