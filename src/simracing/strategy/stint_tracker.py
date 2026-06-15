@@ -12,9 +12,10 @@ _PIT_FUEL_GAIN = 0.01       # litres/frame → refuelling in progress
 _PIT_HOLD_FRAMES = 30       # frames to keep in_pit_stop=True after signal
 
 _RADIUS_SMOOTH_N = 60       # rolling-average window — larger to smooth slip transients
-_MIN_VALID_RADIUS = 0.20    # metres — sanity gate
-_MIN_SPEED_MS = 10.0        # sample only above ~36 km/h (avoid slip at low speed)
-_MIN_WHEEL_RPM = 10.0       # ignore nearly-stationary wheels
+_MIN_VALID_RADIUS = 0.25    # metres — reject below this (wheelspin / stopped wheel)
+_MAX_VALID_RADIUS = 0.40    # metres — reject above this (lockup / nearly-stopped wheel)
+_MIN_SPEED_MS = 15.0        # sample only above ~54 km/h (avoids heavy-slip zones)
+_MIN_WHEEL_RPM = 30.0       # ignore nearly-stationary wheels
 _TYRE_WEAR_DEPTH_M = 0.003  # effective-radius reduction (m) = 100% worn
 
 _TWO_PI = 2.0 * math.pi
@@ -48,8 +49,12 @@ class StintTracker:
         return speed_ms / (rps * _TWO_PI)
 
     def _update_smooth(self, i: int, r: float) -> float:
-        """Append radius to rolling average; return smoothed value (0 if not enough data)."""
-        if r < _MIN_VALID_RADIUS:
+        """Append radius to rolling average; return smoothed value.
+
+        Samples outside [_MIN_VALID_RADIUS, _MAX_VALID_RADIUS] are discarded
+        to reject lockup (eff_r >> real) and wheelspin (eff_r << real) outliers.
+        """
+        if r < _MIN_VALID_RADIUS or r > _MAX_VALID_RADIUS:
             return self._smooth_radii[i]
         self._radius_bufs[i].append(r)
         sr = sum(self._radius_bufs[i]) / len(self._radius_bufs[i])
