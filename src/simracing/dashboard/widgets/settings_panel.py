@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 766
+_CARD_W, _CARD_H = 480, 788
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -36,6 +36,7 @@ class SettingsPanel:
         self._voice_alert_lap_completed = True
         self._voice_alert_best_lap = True
         self._voice_alert_final_lap = True
+        self._voice_alert_race_report = True
         self._voice_alert_engine_temp = True
         self._voice_alert_tire_temp = True
         self._voice_alert_tire_inner_temp = True
@@ -87,28 +88,29 @@ class SettingsPanel:
         self._voice_chk_best_lap      = pygame.Rect(col2_x,  alerts_y + 40, 18, 18)
         self._voice_chk_final_lap     = pygame.Rect(field_x, alerts_y + 62, 18, 18)
         self._voice_chk_lap_delta     = pygame.Rect(col2_x,  alerts_y + 62, 18, 18)
+        self._voice_chk_race_report   = pygame.Rect(field_x, alerts_y + 84, 18, 18)
 
         # ── Fuel & Pit group ──────────────────────────────────────────────────
-        self._voice_grp_fuel_sep_y    = alerts_y + 84
-        self._voice_grp_fuel_lbl_y    = alerts_y + 90
-        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 106, 18, 18)
-        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 106, 18, 18)
-        self._voice_chk_pit_window    = pygame.Rect(field_x, alerts_y + 128, 18, 18)
+        self._voice_grp_fuel_sep_y    = alerts_y + 106
+        self._voice_grp_fuel_lbl_y    = alerts_y + 112
+        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 128, 18, 18)
+        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 128, 18, 18)
+        self._voice_chk_pit_window    = pygame.Rect(field_x, alerts_y + 150, 18, 18)
 
         # ── Car health group ──────────────────────────────────────────────────
-        self._voice_grp_car_sep_y     = alerts_y + 150
-        self._voice_grp_car_lbl_y     = alerts_y + 156
-        self._voice_chk_engine_temp     = pygame.Rect(field_x, alerts_y + 172, 18, 18)
-        self._voice_chk_oil_temp        = pygame.Rect(col2_x,  alerts_y + 172, 18, 18)
-        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 194, 18, 18)
-        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 194, 18, 18)
-        self._voice_chk_tire_pressure   = pygame.Rect(field_x, alerts_y + 216, 18, 18)
+        self._voice_grp_car_sep_y     = alerts_y + 172
+        self._voice_grp_car_lbl_y     = alerts_y + 178
+        self._voice_chk_engine_temp     = pygame.Rect(field_x, alerts_y + 194, 18, 18)
+        self._voice_chk_oil_temp        = pygame.Rect(col2_x,  alerts_y + 194, 18, 18)
+        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 216, 18, 18)
+        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 216, 18, 18)
+        self._voice_chk_tire_pressure   = pygame.Rect(field_x, alerts_y + 238, 18, 18)
 
         # ── Tyre wear (real field) ─────────────────────────────────────────────
-        self._voice_grp_wear_sep_y    = alerts_y + 238
-        self._voice_grp_wear_lbl_y    = alerts_y + 244
-        self._voice_chk_tyre_wear     = pygame.Rect(field_x, alerts_y + 260, 18, 18)
-        self._voice_wear_thr_field    = pygame.Rect(col2_x + 20, alerts_y + 258, 50, 22)
+        self._voice_grp_wear_sep_y    = alerts_y + 260
+        self._voice_grp_wear_lbl_y    = alerts_y + 266
+        self._voice_chk_tyre_wear     = pygame.Rect(field_x, alerts_y + 282, 18, 18)
+        self._voice_wear_thr_field    = pygame.Rect(col2_x + 20, alerts_y + 280, 50, 22)
 
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
@@ -130,6 +132,7 @@ class SettingsPanel:
         voice_alert_lap_completed: bool = True,
         voice_alert_best_lap: bool = True,
         voice_alert_final_lap: bool = True,
+        voice_alert_race_report: bool = True,
         voice_alert_engine_temp: bool = True,
         voice_alert_tire_temp: bool = True,
         voice_alert_tire_inner_temp: bool = True,
@@ -150,6 +153,7 @@ class SettingsPanel:
         self._voice_alert_lap_completed = voice_alert_lap_completed
         self._voice_alert_best_lap = voice_alert_best_lap
         self._voice_alert_final_lap = voice_alert_final_lap
+        self._voice_alert_race_report = voice_alert_race_report
         self._voice_alert_engine_temp = voice_alert_engine_temp
         self._voice_alert_tire_temp = voice_alert_tire_temp
         self._voice_alert_tire_inner_temp = voice_alert_tire_inner_temp
@@ -223,6 +227,7 @@ class SettingsPanel:
                 (self._voice_chk_best_lap,        "_voice_alert_best_lap"),
                 (self._voice_chk_final_lap,       "_voice_alert_final_lap"),
                 (self._voice_chk_lap_delta,       "_voice_alert_lap_delta"),
+                (self._voice_chk_race_report,     "_voice_alert_race_report"),
                 (self._voice_chk_fuel_low,        "_voice_alert_fuel_low"),
                 (self._voice_chk_fuel_critical,   "_voice_alert_fuel_critical"),
                 (self._voice_chk_pit_window,      "_voice_alert_pit_window"),
@@ -380,6 +385,7 @@ class SettingsPanel:
             (self._voice_chk_best_lap,        self._voice_alert_best_lap,        "Best lap"),
             (self._voice_chk_final_lap,       self._voice_alert_final_lap,       "Final lap"),
             (self._voice_chk_lap_delta,       self._voice_alert_lap_delta,       "Lap delta"),
+            (self._voice_chk_race_report,     self._voice_alert_race_report,     "Race report"),
             (self._voice_chk_fuel_low,        self._voice_alert_fuel_low,        "Fuel low"),
             (self._voice_chk_fuel_critical,   self._voice_alert_fuel_critical,   "Fuel critical"),
             (self._voice_chk_pit_window,      self._voice_alert_pit_window,      "Pit window"),
@@ -490,6 +496,10 @@ class SettingsPanel:
     @property
     def voice_alert_final_lap(self) -> bool:
         return self._voice_alert_final_lap
+
+    @property
+    def voice_alert_race_report(self) -> bool:
+        return self._voice_alert_race_report
 
     @property
     def voice_alert_engine_temp(self) -> bool:

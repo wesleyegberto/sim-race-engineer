@@ -12,7 +12,7 @@ from ..strategy.planned_strategy import (
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
-from .templates import _lap_time_text, _laps_text, format_alert, hot_corners_text
+from .templates import _lap_time_text, _laps_text, corner_name, format_alert, hot_corners_text
 
 _ENGINE_COOLDOWN_S = 20.0
 _OIL_COOLDOWN_S = 20.0
@@ -32,6 +32,7 @@ class AlertEngine:
         self._window_entry_fired: set[int] = set()   # stop_numbers that got "window open" alert
         self._window_fuel_fired: set[int] = set()    # stop_numbers that got fuel warning in window
         self._last_fuel_alert_lap: int = -1          # gate: at most one fuel alert per lap
+        self._race_report_fired: set[int] = set()    # checkpoints (35, 70) already reported
         self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
@@ -346,6 +347,31 @@ class AlertEngine:
                 if text:
                     alerts.append(text)
 
+        # ── Race status report at 35% and 70% ────────────────────────────────
+        if cfg.voice_alert_race_report and data.total_laps > 0 and data.current_lap > 0:
+            race_pct = data.current_lap / data.total_laps * 100
+            for checkpoint in (35, 70):
+                if race_pct >= checkpoint and checkpoint not in self._race_report_fired:
+                    self._race_report_fired.add(checkpoint)
+                    avg_wear_pct = self._stint.current_avg_wear * 100
+                    laps_remaining = data.total_laps - data.current_lap
+                    report = format_alert("race_report", lang,
+                                          pos=data.race_position,
+                                          wear=avg_wear_pct,
+                                          laps=laps_remaining)
+                    if report and data.tires:
+                        wears = [t.wear for t in data.tires]
+                        max_wear = max(wears)
+                        if max_wear > 0.30:
+                            worst_idx = wears.index(max_wear)
+                            cname = corner_name(lang, worst_idx)
+                            warn = format_alert("race_report_tyre_warn", lang,
+                                                corner=cname, wear=max_wear * 100)
+                            if warn:
+                                report = f"{report} {warn}"
+                    if report:
+                        alerts.append(report)
+
         return alerts
 
     @property
@@ -384,6 +410,7 @@ class AlertEngine:
         self._window_entry_fired.clear()
         self._window_fuel_fired.clear()
         self._last_fuel_alert_lap = -1
+        self._race_report_fired.clear()
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s

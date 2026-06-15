@@ -548,7 +548,7 @@ class DashboardApp:
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
                         self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
-                        self._config.voice_alert_final_lap,
+                        self._config.voice_alert_final_lap, self._config.voice_alert_race_report,
                         self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
                         self._config.voice_alert_tire_inner_temp,
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
@@ -622,6 +622,7 @@ class DashboardApp:
                         self._config.voice_alert_lap_completed = self._settings.voice_alert_lap_completed
                         self._config.voice_alert_best_lap = self._settings.voice_alert_best_lap
                         self._config.voice_alert_final_lap = self._settings.voice_alert_final_lap
+                        self._config.voice_alert_race_report = self._settings.voice_alert_race_report
                         self._config.voice_alert_engine_temp = self._settings.voice_alert_engine_temp
                         self._config.voice_alert_tire_temp = self._settings.voice_alert_tire_temp
                         self._config.voice_alert_tire_inner_temp = self._settings.voice_alert_tire_inner_temp
@@ -673,7 +674,7 @@ class DashboardApp:
                         self._config.voice_enabled, self._config.voice_language,
                         self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
                         self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
-                        self._config.voice_alert_final_lap,
+                        self._config.voice_alert_final_lap, self._config.voice_alert_race_report,
                         self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
                         self._config.voice_alert_tire_inner_temp,
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,

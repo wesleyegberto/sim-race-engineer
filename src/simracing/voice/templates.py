@@ -23,6 +23,8 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "planned_pit_window_approaching": "Pit window opens in {laps} laps. Prepare to box.",
         "planned_pit_window_open": "Pit window open. {laps} laps to box.",
         "planned_pit_window_fuel_warn": "Box box box. Fuel for {laps:.0f} laps only.",
+        "race_report": "P{pos}. {laps} laps to go. Tyres at {wear:.0f} percent average.",
+        "race_report_tyre_warn": "{corner} tyre is your highest at {wear:.0f} percent. Keep an eye on it.",
         "planned_pit_missed": "Missed pit window. Window was laps {open} to {close}. Re-evaluating.",
         "planned_pit_rescheduled": "Planned stop rescheduled to lap {lap}. Fuel window.",
         "tyre_wont_reach": "Warning: tyres last {life_lap} laps. Pit window opens at lap {plan_lap}.",
@@ -49,6 +51,8 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "planned_pit_window_approaching": "Janela de pit em {laps} voltas. Prepare-se.",
         "planned_pit_window_open": "Janela de pit aberta. {laps} voltas para o box.",
         "planned_pit_window_fuel_warn": "Box box box. Combustível para {laps:.0f} voltas.",
+        "race_report": "P{pos}. {laps} voltas restantes. Pneus com desgaste médio de {wear:.0f} porcento.",
+        "race_report_tyre_warn": "Pneu {corner} com maior desgaste, em {wear:.0f} porcento. Fique atento.",
         "planned_pit_missed": "Janela de pit perdida. Voltas {open} a {close}. Reavaliando.",
         "planned_pit_rescheduled": "Parada reagendada para a volta {lap}. Janela de combustível.",
         "tyre_wont_reach": "Atenção: pneus estimados até volta {life_lap}. Janela abre na {plan_lap}.",
@@ -95,6 +99,10 @@ def _laps_text(laps: float, lang: str) -> str:
     n = round(laps)
     s = "s" if n != 1 else ""
     return f"{n} lap{s} remaining."
+
+
+def corner_name(lang: str, idx: int) -> str:
+    return _CORNERS.get(lang, _CORNERS["en"])[idx]
 
 
 def format_alert(alert_type: str, lang: str, **kwargs: object) -> str:

@@ -78,6 +78,9 @@ _VOICE_LEFT = [
     ("item", "Final lap",
      "fires entering the last lap of a timed/lapped race",
      C_ORANGE, "flags"),
+    ("item", "Race report",
+     "35% and 70% race summary · position · avg tyre wear · worst tyre warning",
+     C_TEXT, "lap-time"),
     ("item", "Lap delta",
      ">3s off best — fires once after the halfway point of the lap",
      C_ORANGE, "lap-time"),
@@ -221,6 +224,7 @@ _SETTINGS_RIGHT = [
     ("item",  "Lap completed",     "announce each lap time when no new best was set",              C_TEXT, "lap-time"),
     ("item",  "Best lap",          "announce when a new personal best is set",                     C_GREEN, "lap-time"),
     ("item",  "Final lap",         "announce entering the last lap of a timed / lapped race",      C_ORANGE, "flags"),
+    ("item",  "Race report",       "35% and 70% race summary · position · avg tyre wear · worst tyre warning", C_TEXT, "lap-time"),
     ("item",  "Lap delta",         "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
 
     ("section", "FUEL & PIT ALERTS", "fuel"),

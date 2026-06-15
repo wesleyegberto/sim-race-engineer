@@ -63,6 +63,7 @@ class AppConfig:
         self.voice_alert_lap_completed: bool = True
         self.voice_alert_best_lap: bool = True
         self.voice_alert_final_lap: bool = True
+        self.voice_alert_race_report: bool = True
         self.voice_alert_engine_temp: bool = True
         self.voice_alert_tire_temp: bool = True
         self.voice_alert_tire_inner_temp: bool = True
@@ -132,6 +133,7 @@ class AppConfig:
             "alert_lap_completed": str(self.voice_alert_lap_completed),
             "alert_best_lap": str(self.voice_alert_best_lap),
             "alert_final_lap": str(self.voice_alert_final_lap),
+            "alert_race_report": str(self.voice_alert_race_report),
             "alert_engine_temp": str(self.voice_alert_engine_temp),
             "alert_tire_temp": str(self.voice_alert_tire_temp),
             "alert_tire_inner_temp": str(self.voice_alert_tire_inner_temp),
@@ -182,6 +184,7 @@ class AppConfig:
         self.voice_alert_lap_completed = cp.getboolean(self._VOICE, "alert_lap_completed", fallback=True)
         self.voice_alert_best_lap = cp.getboolean(self._VOICE, "alert_best_lap", fallback=True)
         self.voice_alert_final_lap = cp.getboolean(self._VOICE, "alert_final_lap", fallback=True)
+        self.voice_alert_race_report = cp.getboolean(self._VOICE, "alert_race_report", fallback=True)
         self.voice_alert_engine_temp = cp.getboolean(self._VOICE, "alert_engine_temp", fallback=True)
         self.voice_alert_tire_temp = cp.getboolean(self._VOICE, "alert_tire_temp", fallback=True)
         self.voice_alert_tire_inner_temp = cp.getboolean(self._VOICE, "alert_tire_inner_temp", fallback=True)
