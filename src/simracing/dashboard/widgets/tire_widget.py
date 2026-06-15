@@ -118,9 +118,7 @@ def draw_tires(
             t_txt = font.render(f"{temp:.0f}°", True, C_TEXT)
             surface.blit(t_txt, t_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h // 2)))
             wear = tire.wear if tire else 0.0
-            w_col = _wear_color(wear) if wear > 0 else C_DIM
-            w_label = f"{wear * 100:.0f}%" if wear > 0 else "--"
-            w_txt = font.render(w_label, True, w_col)
+            w_txt = font.render(f"{wear * 100:.0f}%", True, _wear_color(wear))
             surface.blit(w_txt, w_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h - 12)))
 
         # Suspension travel bar
