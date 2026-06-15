@@ -40,18 +40,6 @@ def _temp_color(temp: float) -> tuple:
 
 _SLIP_THRESHOLD = 0.05   # below this = no significant slip
 
-C_WEAR_OK   = (20, 20, 20)     # black  — < 30 %
-C_WEAR_MED  = (255, 190, 0)    # yellow — 30–60 %
-C_WEAR_HIGH = (220, 60, 40)    # red    — > 60 %
-
-
-def _wear_color(wear: float) -> tuple:
-    if wear < 0.30:
-        return C_WEAR_OK
-    if wear < 0.60:
-        return C_WEAR_MED
-    return C_WEAR_HIGH
-
 
 def _sus_color(pct: float) -> tuple:
     """Color for suspension bar fill based on compression (0=extended, 1=bottomed)."""
@@ -116,10 +104,7 @@ def draw_tires(
             lbl = font.render(labels[i], True, C_TEXT)
             surface.blit(lbl, lbl.get_rect(center=(tx + tile_w // 2, ty + 14)))
             t_txt = font.render(f"{temp:.0f}°", True, C_TEXT)
-            surface.blit(t_txt, t_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h // 2)))
-            wear = tire.wear if tire else 0.0
-            w_txt = font.render(f"{wear * 100:.0f}%", True, _wear_color(wear))
-            surface.blit(w_txt, w_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h - 12)))
+            surface.blit(t_txt, t_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h // 2 + 4)))
 
         # Suspension travel bar
         if suspension_heights and i < len(suspension_heights):
