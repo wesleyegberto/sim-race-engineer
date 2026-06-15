@@ -51,7 +51,9 @@ class AlertEngine:
             total: int = data.total_laps
 
             if cfg.voice_alert_final_lap and total > 0 and lap == total:
-                alerts.append(format_alert("final_lap", lang))
+                laps_of_fuel = data.fuel_level / fuel_per_lap if fuel_per_lap > 0 else 99.0
+                final_tmpl = "final_lap_save_fuel" if 0 < laps_of_fuel < 1.0 else "final_lap"
+                alerts.append(format_alert(final_tmpl, lang))
             elif data.last_lap_ms > 0:
                 lap_time = _lap_time_text(data.last_lap_ms, lang)
                 is_best = (
@@ -246,17 +248,7 @@ class AlertEngine:
         clap = data.current_lap
 
         if cfg.voice_alert_strategy and result is not None:
-            if is_last_lap and result.is_in_pit_window and not result.can_finish_direct:
-                pit_is_fuel = "FUEL" in (result.pit_reason or "")
-                if pit_is_fuel and self._last_fuel_alert_lap != clap:
-                    text = self._maybe_fire_interval(
-                        f"fuel_save_finish_{clap}", now, 9999.0,
-                        format_alert("fuel_save_finish", lang),
-                    )
-                    if text:
-                        self._last_fuel_alert_lap = clap
-                        alerts.append(text)
-            elif result.is_in_pit_window and not result.can_finish_direct and not is_last_lap:
+            if result.is_in_pit_window and not result.can_finish_direct and not is_last_lap:
                 laps_label = max(0, result.laps_to_pit)
                 pit_is_fuel = "FUEL" in (result.pit_reason or "")
                 if not pit_is_fuel or self._last_fuel_alert_lap != clap:
