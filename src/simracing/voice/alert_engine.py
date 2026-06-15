@@ -250,9 +250,10 @@ class AlertEngine:
                 laps_label = max(0, result.laps_to_pit)
                 pit_is_fuel = "FUEL" in (result.pit_reason or "")
                 if not pit_is_fuel or self._last_fuel_alert_lap != clap:
+                    _tmpl = "strategy_pit_window_now" if laps_label == 0 else "strategy_pit_window"
                     text = self._maybe_fire_interval(
                         f"strategy_pit_{clap}", now, 9999.0,
-                        format_alert("strategy_pit_window", lang,
+                        format_alert(_tmpl, lang,
                                      reason=result.pit_reason, laps=laps_label),
                     )
                     if text:
