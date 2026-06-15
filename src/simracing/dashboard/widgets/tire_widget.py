@@ -40,7 +40,7 @@ def _temp_color(temp: float) -> tuple:
 
 _SLIP_THRESHOLD = 0.05   # below this = no significant slip
 
-C_WEAR_OK   = (34, 139, 34)    # green  — < 30 %
+C_WEAR_OK   = (20, 20, 20)     # black  — < 30 %
 C_WEAR_MED  = (255, 190, 0)    # yellow — 30–60 %
 C_WEAR_HIGH = (220, 60, 40)    # red    — > 60 %
 
