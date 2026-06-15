@@ -12,7 +12,7 @@ from ..strategy.planned_strategy import (
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
-from .templates import _lap_time_text, _laps_text, corner_name, format_alert, hot_corners_text
+from .templates import _lap_time_text, _laps_text, corner_name, format_alert, hot_corners_text, pit_reason_text
 
 _ENGINE_COOLDOWN_S = 20.0
 _OIL_COOLDOWN_S = 20.0
@@ -256,7 +256,8 @@ class AlertEngine:
                     text = self._maybe_fire_interval(
                         f"strategy_pit_{clap}", now, 9999.0,
                         format_alert(_tmpl, lang,
-                                     reason=result.pit_reason, laps=laps_label),
+                                     reason=pit_reason_text(lang, result.pit_reason or ""),
+                                     laps=laps_label),
                     )
                     if text:
                         if pit_is_fuel:
