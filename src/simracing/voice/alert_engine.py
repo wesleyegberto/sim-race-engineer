@@ -75,22 +75,27 @@ class AlertEngine:
                 for checkpoint in (35, 70):
                     if race_pct >= checkpoint and checkpoint not in self._race_report_fired:
                         self._race_report_fired.add(checkpoint)
-                        avg_wear_pct = self._stint.current_avg_wear * 100
                         laps_remaining = total - lap
-                        report = format_alert("race_report", lang,
-                                              pos=data.race_position,
-                                              wear=avg_wear_pct,
-                                              laps=laps_remaining)
-                        if report and data.tires:
-                            wears = [t.wear for t in data.tires]
-                            max_wear = max(wears)
-                            if max_wear > 0.30:
-                                worst_idx = wears.index(max_wear)
-                                cname = corner_name(lang, worst_idx)
-                                warn = format_alert("race_report_tyre_warn", lang,
-                                                    corner=cname, wear=max_wear * 100)
-                                if warn:
-                                    report = f"{report} {warn}"
+                        if data.tyre_wear_available:
+                            avg_wear_pct = self._stint.current_avg_wear * 100
+                            report = format_alert("race_report", lang,
+                                                  pos=data.race_position,
+                                                  wear=avg_wear_pct,
+                                                  laps=laps_remaining)
+                            if report and data.tires:
+                                wears = [t.wear for t in data.tires]
+                                max_wear = max(wears)
+                                if max_wear > 0.30:
+                                    worst_idx = wears.index(max_wear)
+                                    cname = corner_name(lang, worst_idx)
+                                    warn = format_alert("race_report_tyre_warn", lang,
+                                                        corner=cname, wear=max_wear * 100)
+                                    if warn:
+                                        report = f"{report} {warn}"
+                        else:
+                            report = format_alert("race_report_no_wear", lang,
+                                                  pos=data.race_position,
+                                                  laps=laps_remaining)
                         if report:
                             alerts.append(report)
 
@@ -237,7 +242,7 @@ class AlertEngine:
                     del self._last_fired[k]
 
         # ── Tyre wear milestone alerts ─────────────────────────────────────────
-        if cfg.voice_alert_tyre_wear and self._stint.stint_laps > 0:
+        if cfg.voice_alert_tyre_wear and self._stint.stint_laps > 0 and data.tyre_wear_available:
             avg_wear = self._stint.current_avg_wear
             threshold = cfg.voice_tyre_wear_threshold_pct
             if avg_wear >= threshold:

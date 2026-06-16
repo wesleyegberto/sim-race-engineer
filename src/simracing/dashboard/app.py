@@ -1123,10 +1123,11 @@ class DashboardApp:
         stint = self._stint
         if stint.stint_laps > 0 or sr is not None:
             sep()
-            wear_pct = int(stint.current_avg_wear * 100)
-            wear_color = C_RED if wear_pct >= 85 else (C_ORANGE if wear_pct >= 70 else C_TEXT)
             row("STINT", f"{stint.stint_laps} laps", icon=self._icon_pit_stop)
-            row("TYRES", f"{wear_pct}%", wear_color, icon=self._icon_pit_stop)
+            if self._data and self._data.tyre_wear_available:
+                wear_pct = int(stint.current_avg_wear * 100)
+                wear_color = C_RED if wear_pct >= 85 else (C_ORANGE if wear_pct >= 70 else C_TEXT)
+                row("TYRES", f"{wear_pct}%", wear_color, icon=self._icon_pit_stop)
 
             if sr is not None:
                 auto_color = C_GREEN
