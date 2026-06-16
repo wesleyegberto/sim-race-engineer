@@ -196,3 +196,13 @@ The PS5 must be on the same network. Enable telemetry output in GT7:
 ## Roadmap
 
 [Roadmap for this project](docs/roadmap.md)
+
+
+---
+
+## Resources
+
+- [gt7-udp — GT7 UDP protocol reverse-engineering reference](https://github.com/MacManley/gt7-udp)
+- [GTPlanet forum — GT7 UDP packet structure community research](https://www.gtplanet.net/forum/threads/gt7-is-compatible-with-motion-rig.410728/page-4)
+- [GT7Proxy — GT7 packet field definitions (vthinsel)](https://github.com/vthinsel/GT7Proxy/blob/main/gt_packet_definition.py)
+

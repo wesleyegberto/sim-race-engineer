@@ -242,6 +242,16 @@ Each bit represents a boolean game state.
 
 ---
 
+## GT7 UDP Known Limitations
+
+Some fields in the GT7 UDP packet are fixed and do not reflect real in-game values:
+
+| Field | Observed value | Note |
+|-------|---------------|------|
+| `water_temp` | 85 °C | Always constant — not the actual engine water temperature |
+| `oil_temp` | 110 °C | Always constant — not the actual oil temperature |
+| `tire_radius` | fixed per compound | Geometric property of the tyre model, does not decrease with wear |
+
 ## Fields Not Available
 
 The following data is **not** transmitted by the GT7 UDP protocol:
