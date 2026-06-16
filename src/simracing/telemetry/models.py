@@ -67,6 +67,10 @@ class TelemetryData:
     race_position: int = 0
     cars_in_race: int = 0
 
+    # Tyre wear availability — set by the telemetry provider; False means the
+    # data source does not expose reliable wear data (e.g. GT7 UDP).
+    tyre_wear_available: bool = False
+
     # Flags
     in_race: bool = False
     paused: bool = False

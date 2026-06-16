@@ -22,6 +22,7 @@ from ..strategy.planned_strategy import (
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
+from ..telemetry.tire_wear_estimator import TireWearEstimator
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
 from .widgets.gauge import draw_gauge
@@ -151,6 +152,13 @@ class DashboardApp:
         # Slip angle (smoothed)
         self._slip_angle: float = 0.0
 
+        # Tyre wear estimator
+        self._wear_estimator = TireWearEstimator(
+            wear_range_m=config.tire_wear_range_m
+        )
+        self._wear_pcts: list[float] = [0.0, 0.0, 0.0, 0.0]
+        self._wear_pcts_ema: list[float] = [0.0, 0.0, 0.0, 0.0]
+
     def _reset_derived(self) -> None:
         self._prev_lap = -1
         self._lap_fuel_start = 0.0
@@ -161,6 +169,9 @@ class DashboardApp:
         self._g_lon = 0.0
         self._slip_ratios = [0.0, 0.0, 0.0, 0.0]
         self._slip_angle = 0.0
+        self._wear_estimator.reset()
+        self._wear_pcts = [0.0, 0.0, 0.0, 0.0]
+        self._wear_pcts_ema = [0.0, 0.0, 0.0, 0.0]
         self._data = None
         self._stint.reset()
         self._planned_monitor.reset()
@@ -388,6 +399,18 @@ class DashboardApp:
                 slip = 0.0
             self._slip_ratios[i] = 0.3 * slip + 0.7 * self._slip_ratios[i]
 
+        if d.tyre_wear_available:
+            raw_wear = self._wear_estimator.update(
+                [t.radius for t in d.tires], d.speed_ms,
+            )
+            _EMA_ALPHA = 0.002
+            for i, w in enumerate(raw_wear):
+                if w > 0.0 or self._wear_pcts_ema[i] > 0.0:
+                    self._wear_pcts_ema[i] = _EMA_ALPHA * w + (1.0 - _EMA_ALPHA) * self._wear_pcts_ema[i]
+                else:
+                    self._wear_pcts_ema[i] = 0.0
+            self._wear_pcts = self._wear_pcts_ema
+
         # Slip angle: angle between velocity vector and car heading.
         # rotation.(x,y,z) are quaternion imaginary components (qi, qj, qk).
         # Reconstruct qw from unit-quaternion constraint, then derive the
@@ -447,6 +470,7 @@ class DashboardApp:
         self._icon_fuel = _load_icon("fuel.png", 15, C_DIM)
         self._icon_wheel = _load_icon("steering-wheel.png", 15, C_DIM)
         self._icon_suspension = _load_icon("suspension.png", 15, C_DIM)
+        self._icon_suspension_bar = _load_icon("suspension.png", 10, (140, 140, 155))
         self._icon_gearbox = _load_icon("gearbox.png", 16, C_DIM)
         self._icon_gearbox_lg = _load_icon("gearbox.png", 40, C_DIM)
         self._icon_turbo = _load_icon("turbo.png", 15, C_DIM)
@@ -781,9 +805,11 @@ class DashboardApp:
 
         draw_tires(screen, cx=CX, cy=630,
                    tire_data=d.tires, font=font_sm,
-                   tile_w=60, tile_h=68, gap=14,
+                   tile_w=60, tile_h=68, gap=24,
                    slip_ratios=self._slip_ratios,
-                   suspension_heights=[t.suspension_height for t in d.tires])
+                   suspension_heights=[t.suspension_height for t in d.tires],
+                   wear_pcts=self._wear_pcts if self._data and self._data.tyre_wear_available else None,
+                   suspension_icon=self._icon_suspension_bar)
 
         draw_g_meter(screen, cx=160, cy=615, radius=55,
                      lat_g=self._g_lat, lon_g=self._g_lon, font=font_sm)
