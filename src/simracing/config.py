@@ -83,6 +83,9 @@ class AppConfig:
         self.voice_pit_window_min_laps: float = 2.0
         self.voice_pit_window_max_laps: float = 4.0
 
+        # Tyre wear estimation
+        self.tire_wear_range_m: float = 0.003   # usable rubber depth in metres (GT7: radius shrinks ~1-3 mm per stint)
+
         # Race strategy (auto)
         self.tyre_wear_limit_pct: float = 0.80
         self.pit_buffer_laps: int = 1
@@ -154,6 +157,7 @@ class AppConfig:
             "pit_window_max_laps": str(self.voice_pit_window_max_laps),
         }
         cp[self._STRATEGY] = {
+            "tire_wear_range_m": str(self.tire_wear_range_m),
             "tyre_wear_limit_pct": str(self.tyre_wear_limit_pct),
             "pit_buffer_laps": str(self.pit_buffer_laps),
             "voice_alert_strategy": str(self.voice_alert_strategy),
@@ -203,6 +207,7 @@ class AppConfig:
         self.voice_lap_delta_threshold_s = cp.getfloat(self._VOICE, "lap_delta_threshold_s", fallback=3.0)
         self.voice_pit_window_min_laps = cp.getfloat(self._VOICE, "pit_window_min_laps", fallback=2.0)
         self.voice_pit_window_max_laps = cp.getfloat(self._VOICE, "pit_window_max_laps", fallback=4.0)
+        self.tire_wear_range_m = cp.getfloat(self._STRATEGY, "tire_wear_range_m", fallback=0.015)
         self.tyre_wear_limit_pct = cp.getfloat(self._STRATEGY, "tyre_wear_limit_pct", fallback=0.80)
         self.pit_buffer_laps = cp.getint(self._STRATEGY, "pit_buffer_laps", fallback=1)
         self.voice_alert_strategy = cp.getboolean(self._STRATEGY, "voice_alert_strategy", fallback=True)
