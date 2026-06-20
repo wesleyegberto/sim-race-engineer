@@ -131,6 +131,19 @@ def format_alert(alert_type: str, lang: str, **kwargs: object) -> str:
     return tmpl.format(**kwargs)
 
 
+_MULTI_OVERTAKE_TEMPLATES: dict[str, list[str]] = {
+    "en": [
+        "P{new_pos}. What a move! Keep pushing!",
+        "P{new_pos}. Two for one! Brilliant work.",
+        "P{new_pos}. Double overtake! You've got the pace.",
+    ],
+    "pt": [
+        "P{new_pos}. Linda ultrapassagem! Bora para cima.",
+        "P{new_pos}. Dois coelhos com uma cajadada! Excelente trabalho.",
+        "P{new_pos}. Dupla ultrapassagem! Você tem o dom.",
+    ],
+}
+
 _OVERTAKE_TEMPLATES: dict[str, list[str]] = {
     "en": [
         "P{new_pos}. Good pass. Keep pushing.",

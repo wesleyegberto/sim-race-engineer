@@ -15,7 +15,7 @@ from ..telemetry.models import TelemetryData
 from .templates import (
     _lap_time_text, _laps_text, corner_name, format_alert, format_alert_random,
     hot_corners_text, pit_reason_text,
-    _OVERTAKE_TEMPLATES, _OVERTAKEN_TEMPLATES,
+    _MULTI_OVERTAKE_TEMPLATES, _OVERTAKE_TEMPLATES, _OVERTAKEN_TEMPLATES,
 )
 
 
@@ -253,9 +253,11 @@ class AlertEngine:
         pos = data.race_position
         if cfg.voice_alert_overtake and self._prev_position > 0 and pos > 0 and pos != self._prev_position and data.cars_in_race > 1:
             if pos < self._prev_position:
+                gained = self._prev_position - pos
+                tmpl = _MULTI_OVERTAKE_TEMPLATES if gained >= 2 else _OVERTAKE_TEMPLATES
                 text = self._maybe_fire_interval(
                     "overtake", now, 15.0,
-                    format_alert_random(_OVERTAKE_TEMPLATES, lang, new_pos=pos),
+                    format_alert_random(tmpl, lang, new_pos=pos),
                 )
             else:
                 text = self._maybe_fire_interval(
