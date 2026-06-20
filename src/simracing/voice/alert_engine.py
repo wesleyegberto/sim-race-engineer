@@ -28,6 +28,8 @@ class AlertEngine:
         self._prev_best_lap_ms: int = 0
         self._prev_position: int = 0
         self._fuel_to_finish_announced: bool = False
+        # (detection_time, original_position, best_position_seen)
+        self._pending_overtake: tuple[float, int, int] | None = None
         self._stint = StintTracker()
         self._strategy_engine = RaceStrategyEngine()
         self._planned_monitor = PlannedStrategyMonitor()
@@ -251,21 +253,39 @@ class AlertEngine:
 
         # ── Position change (overtake / overtaken) ────────────────────────────
         pos = data.race_position
-        if cfg.voice_alert_overtake and self._prev_position > 0 and pos > 0 and pos != self._prev_position and data.cars_in_race > 1:
-            if pos < self._prev_position:
-                gained = self._prev_position - pos
-                tmpl = _MULTI_OVERTAKE_TEMPLATES if gained >= 2 else _OVERTAKE_TEMPLATES
-                text = self._maybe_fire_interval(
-                    "overtake", now, 15.0,
-                    format_alert_random(tmpl, lang, new_pos=pos),
-                )
-            else:
-                text = self._maybe_fire_interval(
-                    "overtaken", now, 15.0,
-                    format_alert_random(_OVERTAKEN_TEMPLATES, lang, new_pos=pos),
-                )
-            if text:
-                alerts.append(text)
+        if cfg.voice_alert_overtake and self._prev_position > 0 and pos > 0 and data.cars_in_race > 1:
+            if pos != self._prev_position:
+                if pos < self._prev_position:
+                    # Gained position: start or extend the pending window
+                    if self._pending_overtake is None:
+                        self._pending_overtake = (now, self._prev_position, pos)
+                    else:
+                        det, orig, best = self._pending_overtake
+                        self._pending_overtake = (det, orig, min(best, pos))
+                else:
+                    # Lost position: cancel any pending overtake, announce immediately
+                    self._pending_overtake = None
+                    text = self._maybe_fire_interval(
+                        "overtaken", now, 15.0,
+                        format_alert_random(_OVERTAKEN_TEMPLATES, lang, new_pos=pos),
+                    )
+                    if text:
+                        alerts.append(text)
+
+            # Fire pending overtake after 1s window
+            if self._pending_overtake is not None:
+                det, orig, best = self._pending_overtake
+                if now - det >= 1.0:
+                    self._pending_overtake = None
+                    gained = orig - best
+                    tmpl = _MULTI_OVERTAKE_TEMPLATES if gained >= 2 else _OVERTAKE_TEMPLATES
+                    text = self._maybe_fire_interval(
+                        "overtake", now, 15.0,
+                        format_alert_random(tmpl, lang, new_pos=best),
+                    )
+                    if text:
+                        alerts.append(text)
+
         self._prev_position = pos
 
         # ── Stint tracker + auto strategy ─────────────────────────────────────
@@ -448,6 +468,7 @@ class AlertEngine:
         self._prev_best_lap_ms = 0
         self._prev_position = 0
         self._fuel_to_finish_announced = False
+        self._pending_overtake = None
         self._stint.reset()
         self._planned_monitor.reset()
         self._strategy_result = None
