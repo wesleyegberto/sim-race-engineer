@@ -484,16 +484,21 @@ class AlertEngine:
                     clap, data.total_laps, cfg.strategy_check_in_interval_laps, self._check_in_fired
                 ):
                     self._check_in_fired.add(clap)
-                    if ar.fuel_delta >= 0 and ar.recommended_stops == 0:
-                        tmpl = "strategy_check_in_ok"
-                        text = format_alert(tmpl, lang,
+                    if ar.strategy_health == "ON_PLAN" and ar.recommended_stops == 0:
+                        text = format_alert("strategy_check_in_ok", lang,
+                                            fuel_laps=ar.laps_to_fuel_out_avg,
                                             laps=ar.laps_remaining)
                     else:
                         pit_lap = result.recommended_pit_lap if result else clap + max(1, int(ar.laps_to_fuel_out_avg) - 1)
-                        tmpl = "strategy_check_in"
-                        text = format_alert(tmpl, lang,
-                                            fuel_laps=ar.laps_to_fuel_out_avg,
-                                            pit_lap=pit_lap)
+                        if ar.strategy_health == "CRITICAL":
+                            text = format_alert("strategy_check_in_critical", lang,
+                                                fuel_laps=ar.laps_to_fuel_out_avg,
+                                                pit_lap=pit_lap)
+                        else:
+                            text = format_alert("strategy_check_in", lang,
+                                                fuel_laps=ar.laps_to_fuel_out_avg,
+                                                pit_lap=pit_lap,
+                                                laps=ar.laps_remaining)
                     if text:
                         alerts.append(text)
 
