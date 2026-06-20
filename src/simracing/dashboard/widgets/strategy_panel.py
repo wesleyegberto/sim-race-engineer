@@ -20,7 +20,7 @@ C_HEALTH_OK = (60, 190, 100)
 C_HEALTH_REVISE = (220, 155, 40)
 C_HEALTH_CRITICAL = (210, 65, 65)
 
-_CARD_W, _CARD_H = 480, 630
+_CARD_W, _CARD_H = 480, 670
 _ALLOWED_DIGITS = set("0123456789")
 _MAX_LAP = 999
 
@@ -259,6 +259,15 @@ class StrategyPanel:
                     pygame.draw.rect(screen, (20, 20, 28), field, border_radius=5)
                     pygame.draw.rect(screen, (40, 40, 50), field, 1, border_radius=5)
 
+            # Advisor window suggestion (read-only, from StrategyAdvisor)
+            if report is not None and i < len(report.stop_windows):
+                adv_open, adv_close = report.stop_windows[i]
+                adv_str = f"Adv: {adv_open}–{adv_close}" if adv_open != adv_close else f"Adv: {adv_open}"
+                adv_color = C_ACCENT if enabled else C_HEALTH_REVISE
+                adv_surf = font_sm.render(adv_str, True, adv_color)
+                screen.blit(adv_surf, (self._card.right - 110,
+                                       open_f.y + (open_f.height - adv_surf.get_height()) // 2))
+
         # Separator
         sep_y = fy + 200
         pygame.draw.line(screen, C_BORDER, (self._card.x + 20, sep_y), (self._card.right - 20, sep_y))
@@ -346,8 +355,11 @@ class StrategyPanel:
             else:
                 lap_str = "—"
             _row("Avg lap time:", lap_str, 3)
+            last_fuel = report.last_lap_fuel
+            last_fuel_str = f"{last_fuel:.2f} L" if last_fuel > 0 else "—"
+            _row("Last lap fuel:", last_fuel_str, 4)
             stops_str = str(report.recommended_stops) if report.recommended_stops >= 0 else "—"
-            _row("Recommended stops:", stops_str, 4)
+            _row("Recommended stops:", stops_str, 5)
         else:
             no_data = font_sm.render("No data yet — race in progress", True, C_DIM)
             screen.blit(no_data, (fx, fa_y + 14))
