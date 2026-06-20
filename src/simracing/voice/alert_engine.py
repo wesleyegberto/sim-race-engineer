@@ -508,15 +508,16 @@ class AlertEngine:
                         and result is not None):
                     new_pit = result.recommended_pit_lap
                     if new_pit != self._last_revised_pit_lap:
-                        text = self._maybe_fire_interval(
-                            "strategy_revised", now, 60.0,
-                            format_alert("strategy_revised", lang,
-                                         new_lap=new_pit,
-                                         old_lap=self._last_revised_pit_lap if self._last_revised_pit_lap > 0 else new_pit),
-                        )
-                        if text:
-                            self._last_revised_pit_lap = new_pit
-                            alerts.append(text)
+                        if self._last_revised_pit_lap > 0:
+                            text = self._maybe_fire_interval(
+                                "strategy_revised", now, 60.0,
+                                format_alert("strategy_revised", lang,
+                                             new_lap=new_pit,
+                                             old_lap=self._last_revised_pit_lap),
+                            )
+                            if text:
+                                alerts.append(text)
+                        self._last_revised_pit_lap = new_pit
 
                 # ── Fuel save recommend ───────────────────────────────────────
                 if (cfg.voice_alert_fuel_save_recommend
