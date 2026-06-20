@@ -9,18 +9,49 @@ _INF = 9999.0
 
 @dataclass
 class StrategyReport:
+    """Complete race + strategy snapshot — designed to be AI-ready."""
+
+    # ── Race snapshot ──────────────────────────────────────────────────────
+    current_lap: int               # lap number when report was computed
+    total_laps: int
     laps_remaining: int
-    fuel_to_finish: float          # litres needed from current lap to end
-    fuel_delta: float              # positive = surplus, negative = shortfall
-    laps_to_fuel_out_avg: float    # based on average fuel_per_lap
-    laps_to_fuel_out_last: float   # based on last lap fuel consumption
-    fuel_save_laps: int            # extra laps attainable if saving ~10% per lap
-    recommended_stops: int         # 0, 1, 2, or 3
-    stop_windows: list[tuple[int, int]]  # computed optimal windows (open, close)
+    race_position: int             # current race position (0 = unknown)
+    cars_in_race: int
+
+    # ── Lap timing ────────────────────────────────────────────────────────
+    last_lap_ms: int               # last completed lap time (ms); 0 = none yet
+    best_lap_ms: int               # session best (ms); 0 = none yet
+    avg_lap_time_ms: int           # rolling avg of last N laps (ms); 0 = insufficient data
+    lap_time_history: list[int]    # raw list of recent lap times used in the avg
+
+    # ── Fuel raw ──────────────────────────────────────────────────────────
+    fuel_level: float              # current litres in tank
+    fuel_capacity: float           # tank capacity
+    fuel_per_lap_avg: float        # rolling avg consumption per lap
+    last_lap_fuel: float           # consumption on the most recently completed lap
+
+    # ── Fuel derived ──────────────────────────────────────────────────────
+    fuel_to_finish: float          # litres needed from current lap to flag
+    fuel_delta: float              # positive = surplus; negative = shortfall
+    laps_to_fuel_out_avg: float    # fuel_level / avg_rate
+    laps_to_fuel_out_last: float   # fuel_level / last_lap_rate
+    fuel_save_laps: int            # extra laps attainable by saving ~10% per lap
+
+    # ── Tyres ─────────────────────────────────────────────────────────────
+    avg_wear: float                # current avg wear across all corners (0–1)
+    wear_per_lap: float            # wear rate per lap
+    tyre_wear_limit: float         # configured degradation limit (e.g. 0.8)
+
+    # ── Thermals ──────────────────────────────────────────────────────────
+    water_temp: float              # coolant °C
+    oil_temp: float                # oil °C
+
+    # ── Strategy outputs ──────────────────────────────────────────────────
+    recommended_stops: int         # 0–3 fuel stops needed
+    stop_windows: list[tuple[int, int]]  # optimal pit windows (open_lap, close_lap)
     strategy_health: str           # "ON_PLAN" | "REVISE" | "CRITICAL"
     deviation_laps: int            # laps off from planned stop target (0 if no plan)
     deviation_alert: str | None    # human-readable note when health != ON_PLAN
-    avg_lap_time_ms: int           # average of last N completed laps (0 if unavailable)
 
 
 def _check_in_laps(total_laps: int, interval: int) -> set[int]:
@@ -45,13 +76,22 @@ class StrategyAdvisor:
         fuel_per_lap_avg: float,
         last_lap_fuel: float,
         avg_lap_time_ms: int,
-        avg_wear: float,  # noqa: ARG002 — reserved for tyre-stop calc
-        wear_per_lap: float,  # noqa: ARG002
-        tyre_wear_limit: float,  # noqa: ARG002
+        avg_wear: float,
+        wear_per_lap: float,
+        tyre_wear_limit: float,
         pit_buffer_laps: int,
         planned_strategy: PlannedStrategy | None = None,
         pit_loss_time_s: float = 25.0,  # noqa: ARG002 — reserved for time-loss model
         fuel_save_pct: float = 0.10,
+        # Race context — optional so existing tests remain unchanged
+        race_position: int = 0,
+        cars_in_race: int = 0,
+        last_lap_ms: int = 0,
+        best_lap_ms: int = 0,
+        lap_time_history: list[int] | None = None,
+        fuel_capacity: float = 0.0,
+        water_temp: float = 0.0,
+        oil_temp: float = 0.0,
     ) -> StrategyReport | None:
         """Return a StrategyReport, or None when there is insufficient data."""
         if current_lap <= 0 or total_laps <= 0 or fuel_per_lap_avg <= 0:
@@ -77,11 +117,8 @@ class StrategyAdvisor:
         # How many fuel stops are needed
         if fuel_delta >= 0:
             recommended_stops = 0
-            stop_windows = []
+            stop_windows: list[tuple[int, int]] = []
         else:
-            # Each stop provides a full tank refill (approximated as fuel_capacity)
-            # We don't have fuel_capacity here, so estimate via fuel_per_lap * laps
-            # A conservative approach: count how many stints of laps_to_fuel_out_avg fit
             stints_needed = int(-fuel_delta / (fuel_per_lap_avg * max(1, laps_to_fuel_out_avg))) + 1
             recommended_stops = max(1, min(3, stints_needed))
             stop_windows = _compute_stop_windows(
@@ -98,18 +135,41 @@ class StrategyAdvisor:
         )
 
         return StrategyReport(
+            # Race snapshot
+            current_lap=current_lap,
+            total_laps=total_laps,
             laps_remaining=laps_remaining,
+            race_position=race_position,
+            cars_in_race=cars_in_race,
+            # Timing
+            last_lap_ms=last_lap_ms,
+            best_lap_ms=best_lap_ms,
+            avg_lap_time_ms=avg_lap_time_ms,
+            lap_time_history=list(lap_time_history) if lap_time_history else [],
+            # Fuel raw
+            fuel_level=fuel_level,
+            fuel_capacity=fuel_capacity,
+            fuel_per_lap_avg=fuel_per_lap_avg,
+            last_lap_fuel=last_lap_fuel,
+            # Fuel derived
             fuel_to_finish=fuel_to_finish,
             fuel_delta=fuel_delta,
             laps_to_fuel_out_avg=laps_to_fuel_out_avg,
             laps_to_fuel_out_last=laps_to_fuel_out_last,
             fuel_save_laps=fuel_save_laps,
+            # Tyres
+            avg_wear=avg_wear,
+            wear_per_lap=wear_per_lap,
+            tyre_wear_limit=tyre_wear_limit,
+            # Thermals
+            water_temp=water_temp,
+            oil_temp=oil_temp,
+            # Strategy outputs
             recommended_stops=recommended_stops,
             stop_windows=stop_windows,
             strategy_health=strategy_health,
             deviation_laps=deviation_laps,
             deviation_alert=deviation_alert,
-            avg_lap_time_ms=avg_lap_time_ms,
         )
 
     def should_check_in(

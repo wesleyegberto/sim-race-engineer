@@ -408,6 +408,14 @@ class DashboardApp:
                     tyre_wear_limit=self._config.tyre_wear_limit_pct,
                     pit_buffer_laps=self._config.pit_buffer_laps,
                     pit_loss_time_s=self._config.pit_loss_time_s,
+                    race_position=d.race_position,
+                    cars_in_race=d.cars_in_race,
+                    last_lap_ms=d.last_lap_ms,
+                    best_lap_ms=d.best_lap_ms,
+                    lap_time_history=list(self._lap_time_history),
+                    fuel_capacity=d.fuel_capacity,
+                    water_temp=d.water_temp,
+                    oil_temp=d.oil_temp,
                 )
         self._planned_status = self._planned_monitor.evaluate(
             current_lap=d.current_lap,
