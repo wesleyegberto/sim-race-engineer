@@ -74,6 +74,8 @@ class AppConfig:
         self.voice_alert_lap_delta: bool = True
         self.voice_alert_pit_window: bool = True
         self.voice_alert_overtake: bool = True
+        self.voice_alert_laps_to_finish: bool = True
+        self.voice_alert_fuel_save: bool = True
         self.voice_engine_temp_threshold: float = 105.0
         self.voice_tire_temp_threshold: float = 100.0
         self.voice_tire_inner_temp_threshold: float = 110.0
@@ -148,6 +150,8 @@ class AppConfig:
             "alert_lap_delta": str(self.voice_alert_lap_delta),
             "alert_pit_window": str(self.voice_alert_pit_window),
             "alert_overtake": str(self.voice_alert_overtake),
+            "alert_laps_to_finish": str(self.voice_alert_laps_to_finish),
+            "alert_fuel_save": str(self.voice_alert_fuel_save),
             "engine_temp_threshold": str(self.voice_engine_temp_threshold),
             "tire_temp_threshold": str(self.voice_tire_temp_threshold),
             "tire_inner_temp_threshold": str(self.voice_tire_inner_temp_threshold),
@@ -201,6 +205,8 @@ class AppConfig:
         self.voice_alert_lap_delta = cp.getboolean(self._VOICE, "alert_lap_delta", fallback=True)
         self.voice_alert_pit_window = cp.getboolean(self._VOICE, "alert_pit_window", fallback=True)
         self.voice_alert_overtake = cp.getboolean(self._VOICE, "alert_overtake", fallback=True)
+        self.voice_alert_laps_to_finish = cp.getboolean(self._VOICE, "alert_laps_to_finish", fallback=True)
+        self.voice_alert_fuel_save = cp.getboolean(self._VOICE, "alert_fuel_save", fallback=True)
         self.voice_engine_temp_threshold = cp.getfloat(self._VOICE, "engine_temp_threshold", fallback=105.0)
         self.voice_tire_temp_threshold = cp.getfloat(self._VOICE, "tire_temp_threshold", fallback=100.0)
         self.voice_tire_inner_temp_threshold = cp.getfloat(self._VOICE, "tire_inner_temp_threshold", fallback=110.0)

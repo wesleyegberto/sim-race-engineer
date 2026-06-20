@@ -34,6 +34,8 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "planned_pit_rescheduled": "Box rescheduled. New target lap {lap}.",
         "tyre_wont_reach": "Caution. Tyres to lap {life_lap}. Window at lap {plan_lap}.",
         "fuel_to_finish": "Fuel to the flag. {laps} laps remaining. No more fuel calls.",
+        "laps_to_finish": "{laps} laps to go.",
+        "fuel_save_mode": "Fuel is tight. Save fuel. Lift and coast where possible.",
     },
     "pt": {
         "fuel_last_lap": "Combustível na última volta. Box agora, box agora.",
@@ -66,6 +68,8 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "planned_pit_rescheduled": "Box remarcado. Nova janela na volta {lap}.",
         "tyre_wont_reach": "Atenção. Pneu até volta {life_lap}. Janela na volta {plan_lap}.",
         "fuel_to_finish": "Combustível até a bandeirada. {laps} voltas restantes. Sem mais chamadas de combustível.",
+        "laps_to_finish": "{laps} voltas restantes.",
+        "fuel_save_mode": "Combustível no limite. Economize. Levanta o pé onde possível.",
     },
 }
 

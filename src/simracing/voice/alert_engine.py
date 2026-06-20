@@ -39,6 +39,7 @@ class AlertEngine:
         self._window_fuel_fired: set[int] = set()    # stop_numbers that got fuel warning in window
         self._last_fuel_alert_lap: int = -1          # gate: at most one fuel alert per lap
         self._race_report_fired: set[int] = set()    # checkpoints (35, 70) already reported
+        self._fuel_save_announced: bool = False
         self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
@@ -76,6 +77,17 @@ class AlertEngine:
                     text = ""
                 if text:
                     alerts.append(text)
+
+            # ── Laps to finish countdown: 5, 4, 3, 2, 1 (only in races ≥ 10 laps) ──
+            if cfg.voice_alert_laps_to_finish and total >= 10:
+                laps_remaining_countdown = total - lap
+                if 1 <= laps_remaining_countdown <= 5:
+                    text = self._maybe_fire_interval(
+                        f"laps_to_finish_{laps_remaining_countdown}", now, 9999.0,
+                        format_alert("laps_to_finish", lang, laps=laps_remaining_countdown),
+                    )
+                    if text:
+                        alerts.append(text)
 
             # ── Race status report at 35% and 70% (on lap transition only) ───
             if cfg.voice_alert_race_report and total > 0 and 0 < lap < total:
@@ -122,7 +134,11 @@ class AlertEngine:
             # If fuel covers remaining race distance, announce once and silence further fuel calls
             if laps_left > 0 and laps_remaining > 0 and laps_left >= laps_remaining:
                 if not self._fuel_to_finish_announced:
-                    text = format_alert("fuel_to_finish", lang, laps=laps_remaining)
+                    margin = laps_left - laps_remaining
+                    if cfg.voice_alert_fuel_save and total_laps >= 10 and margin < 1.5:
+                        text = format_alert("fuel_save_mode", lang)
+                    else:
+                        text = format_alert("fuel_to_finish", lang, laps=laps_remaining)
                     if text:
                         self._fuel_to_finish_announced = True
                         self._last_fuel_alert_lap = clap
@@ -468,6 +484,7 @@ class AlertEngine:
         self._prev_best_lap_ms = 0
         self._prev_position = 0
         self._fuel_to_finish_announced = False
+        self._fuel_save_announced = False
         self._pending_overtake = None
         self._stint.reset()
         self._planned_monitor.reset()

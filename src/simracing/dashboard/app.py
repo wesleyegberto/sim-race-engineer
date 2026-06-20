@@ -578,7 +578,9 @@ class DashboardApp:
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
                         self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
                         self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
-                        self._config.voice_alert_overtake)
+                        self._config.voice_alert_overtake,
+                        self._config.voice_alert_laps_to_finish,
+                        self._config.voice_alert_fuel_save)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -658,6 +660,8 @@ class DashboardApp:
                         self._config.voice_alert_tyre_wear = self._settings.voice_alert_tyre_wear
                         self._config.voice_tyre_wear_threshold_pct = self._settings.voice_tyre_wear_threshold_pct
                         self._config.voice_alert_overtake = self._settings.voice_alert_overtake
+                        self._config.voice_alert_laps_to_finish = self._settings.voice_alert_laps_to_finish
+                        self._config.voice_alert_fuel_save = self._settings.voice_alert_fuel_save
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -706,7 +710,9 @@ class DashboardApp:
                         self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
                         self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
                         self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
-                        self._config.voice_alert_overtake)
+                        self._config.voice_alert_overtake,
+                        self._config.voice_alert_laps_to_finish,
+                        self._config.voice_alert_fuel_save)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

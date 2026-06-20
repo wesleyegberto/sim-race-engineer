@@ -228,11 +228,13 @@ _SETTINGS_RIGHT = [
     ("item",  "Race report",       "35% and 70% race summary · position · avg tyre wear · worst tyre warning", C_TEXT, "lap-time"),
     ("item",  "Lap delta",         "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
     ("item",  "Overtake",          "position gained → encouragement · position lost → support · 15s cooldown", C_GREEN, "race-pos"),
+    ("item",  "Laps to go",        "countdown at 5, 4, 3, 2, 1 laps remaining · only in races ≥ 10 laps", C_ACCENT, "flags"),
 
     ("section", "FUEL & PIT ALERTS", "fuel"),
     ("item",  "Fuel low",          "warn when fuel drops below low threshold (default 20%)",       C_ORANGE, "fuel"),
     ("item",  "Fuel critical",     "warn when fuel drops below critical threshold (default 10%)",  C_RED, "fuel"),
     ("item",  "Pit window",        "alert when 2–4 laps of fuel remain in a race",                C_ACCENT, "fuel"),
+    ("item",  "Fuel save",         "warn when fuel margin < 1.5 laps to finish · only in races ≥ 10 laps · replaces fuel-to-finish call", C_ORANGE, "fuel"),
 
     ("section", "CAR HEALTH ALERTS", "engine"),
     ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
