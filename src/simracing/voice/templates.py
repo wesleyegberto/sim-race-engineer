@@ -36,10 +36,10 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "fuel_to_finish": "Fuel to the flag. {laps} laps remaining. No more fuel calls.",
         "laps_to_finish": "{laps} laps to go.",
         "fuel_save_mode": "Fuel is tight. Save fuel. Lift and coast where possible.",
-        "strategy_check_in": "Strategy check: fuel for {fuel_laps:.0f} laps. Box lap {pit_lap}. {laps} to go.",
+        "strategy_check_in": "Strategy check: fuel for {fuel_laps:.0f} laps. Box window lap {pit_window}. {laps} to go.",
         "strategy_check_in_ok": "Strategy check: on plan. Fuel for {fuel_laps:.0f} laps. {laps} laps to go.",
-        "strategy_check_in_critical": "Strategy critical. Fuel for {fuel_laps:.0f} laps only. Box lap {pit_lap}.",
-        "strategy_revised": "Strategy revised. Box now lap {new_lap} instead of {old_lap}.",
+        "strategy_check_in_critical": "Strategy critical. Fuel for {fuel_laps:.0f} laps only. Box window lap {pit_window}.",
+        "strategy_revised": "Strategy revised. New box window lap {new_window}, was {old_window}.",
         "fuel_save_recommend": "Fuel tight. Save fuel. Lift and coast to extend {save_laps} laps.",
     },
     "pt": {
@@ -75,10 +75,10 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "fuel_to_finish": "Combustível até a bandeirada. {laps} voltas restantes. Sem mais chamadas de combustível.",
         "laps_to_finish": "{laps} voltas restantes.",
         "fuel_save_mode": "Combustível no limite. Economize. Levanta o pé onde possível.",
-        "strategy_check_in": "Revisão de estratégia: combustível para {fuel_laps:.0f} voltas. Box na volta {pit_lap}. {laps} a cumprir.",
+        "strategy_check_in": "Revisão de estratégia: combustível para {fuel_laps:.0f} voltas. Janela de parada na volta {pit_window}. {laps} a cumprir.",
         "strategy_check_in_ok": "Revisão de estratégia: no plano. Combustível para {fuel_laps:.0f} voltas. {laps} voltas restantes.",
-        "strategy_check_in_critical": "Estratégia crítica. Combustível para {fuel_laps:.0f} voltas apenas. Box na volta {pit_lap}.",
-        "strategy_revised": "Estratégia revisada. Box na volta {new_lap} em vez da volta {old_lap}.",
+        "strategy_check_in_critical": "Estratégia crítica. Combustível para {fuel_laps:.0f} voltas apenas. Janela de parada na volta {pit_window}.",
+        "strategy_revised": "Estratégia revisada. Nova janela volta {new_window}, era {old_window}.",
         "fuel_save_recommend": "Combustível no limite. Economize. Levanta o pé para ganhar {save_laps} voltas.",
     },
 }
@@ -136,6 +136,15 @@ def corner_name(lang: str, idx: int) -> str:
 
 def pit_reason_text(lang: str, reason: str) -> str:
     return _PIT_REASON_TEXT.get(lang, _PIT_REASON_TEXT["en"]).get(reason, reason.lower())
+
+
+def pit_window_text(open_lap: int, close_lap: int, lang: str) -> str:
+    """Format a pit window for voice output. Single lap when open==close."""
+    if open_lap == close_lap:
+        return str(open_lap)
+    if lang == "pt":
+        return f"{open_lap} a {close_lap}"
+    return f"{open_lap} to {close_lap}"
 
 
 def format_alert(alert_type: str, lang: str, **kwargs: object) -> str:

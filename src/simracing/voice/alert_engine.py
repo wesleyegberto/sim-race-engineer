@@ -15,7 +15,7 @@ from ..strategy.strategy_advisor import StrategyAdvisor, StrategyReport
 from ..telemetry.models import TelemetryData
 from .templates import (
     _lap_time_text, _laps_text, corner_name, format_alert, format_alert_random,
-    hot_corners_text, pit_reason_text,
+    hot_corners_text, pit_reason_text, pit_window_text,
     _MULTI_OVERTAKE_TEMPLATES, _OVERTAKE_TEMPLATES, _OVERTAKEN_TEMPLATES,
 )
 
@@ -45,8 +45,9 @@ class AlertEngine:
         # Strategy advisor (check-ins, revision alerts, fuel save)
         self._advisor = StrategyAdvisor()
         self._advisor_report: StrategyReport | None = None
-        self._check_in_fired: set[int] = set()       # laps where check-in already fired
-        self._last_revised_pit_lap: int = -1         # track when recommended pit changes
+        self._check_in_fired: set[int] = set()        # laps where check-in already fired
+        self._last_revised_pit_lap: int = -1          # track when recommended pit changes
+        self._last_revised_window: tuple[int, int] = (-1, -1)  # previous stop window
 
         self._apply_planned_strategy(config)
 
@@ -489,15 +490,19 @@ class AlertEngine:
                                             fuel_laps=ar.laps_to_fuel_out_avg,
                                             laps=ar.laps_remaining)
                     else:
-                        pit_lap = result.recommended_pit_lap if result else clap + max(1, int(ar.laps_to_fuel_out_avg) - 1)
+                        win = ar.stop_windows[0] if ar.stop_windows else None
+                        if win is None:
+                            fallback = result.recommended_pit_lap if result else clap + max(1, int(ar.laps_to_fuel_out_avg) - 1)
+                            win = (fallback, fallback)
+                        pit_window = pit_window_text(win[0], win[1], lang)
                         if ar.strategy_health == "CRITICAL":
                             text = format_alert("strategy_check_in_critical", lang,
                                                 fuel_laps=ar.laps_to_fuel_out_avg,
-                                                pit_lap=pit_lap)
+                                                pit_window=pit_window)
                         else:
                             text = format_alert("strategy_check_in", lang,
                                                 fuel_laps=ar.laps_to_fuel_out_avg,
-                                                pit_lap=pit_lap,
+                                                pit_window=pit_window,
                                                 laps=ar.laps_remaining)
                     if text:
                         alerts.append(text)
@@ -507,17 +512,20 @@ class AlertEngine:
                         and ar.strategy_health == "REVISE"
                         and result is not None):
                     new_pit = result.recommended_pit_lap
+                    new_win = ar.stop_windows[0] if ar.stop_windows else (new_pit, new_pit)
                     if new_pit != self._last_revised_pit_lap:
                         if self._last_revised_pit_lap > 0:
+                            old_win = self._last_revised_window
                             text = self._maybe_fire_interval(
                                 "strategy_revised", now, 60.0,
                                 format_alert("strategy_revised", lang,
-                                             new_lap=new_pit,
-                                             old_lap=self._last_revised_pit_lap),
+                                             new_window=pit_window_text(new_win[0], new_win[1], lang),
+                                             old_window=pit_window_text(old_win[0], old_win[1], lang)),
                             )
                             if text:
                                 alerts.append(text)
                         self._last_revised_pit_lap = new_pit
+                        self._last_revised_window = new_win
 
                 # ── Fuel save recommend ───────────────────────────────────────
                 if (cfg.voice_alert_fuel_save_recommend
@@ -577,6 +585,7 @@ class AlertEngine:
         self._advisor_report = None
         self._check_in_fired.clear()
         self._last_revised_pit_lap = -1
+        self._last_revised_window = (-1, -1)
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s
