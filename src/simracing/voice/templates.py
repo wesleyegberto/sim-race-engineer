@@ -1,8 +1,10 @@
 """Alert message templates for EN and PT."""
 
+import random
+
 _TEMPLATES: dict[str, dict[str, str]] = {
     "en": {
-        "fuel_last_lap": "Fuel for less than one lap. Box now.",
+        "fuel_last_lap": "Fuel last lap. Box now. Box now.",
         "fuel_critical": "Fuel critical. {fuel:.0f} litres. {laps_text}",
         "fuel_low": "Fuel low. {laps_text}",
         "lap_completed": "Lap {lap}. {lap_time}.",
@@ -10,15 +12,15 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "final_lap": "Last lap. Take care and bring it home.",
         "final_lap_save_fuel": "Last lap. Fuel low. Lift and coast. Bring it home.",
         "engine_temp_high": "Water temp {temp:.0f}. Manage the engine.",
-        "tire_temp_high": "Tyre temps high. {corners}.",
-        "tire_wear_excessive": "High tyre wear. {corners}.",
+        "tire_temp_high": "Tyre temps high on {corners}.",
+        "tire_wear_excessive": "High inner wear on {corners}. Monitor.",
         "tyre_wear_milestone": "Tyre wear at {wear} percent.",
         "oil_temp_high": "Oil temp {temp:.0f}. Manage the engine.",
-        "tire_pressure_low": "Tyre pressure low. {corners}.",
-        "tire_pressure_high": "Tyre pressure high. {corners}.",
+        "tire_pressure_low": "Low tyre pressure on {corners}.",
+        "tire_pressure_high": "High tyre pressure on {corners}.",
         "lap_delta_warn": "{delta:.1f} seconds off pace.",
         "pit_window": "Box box box. Fuel for {laps:.0f} laps.",
-        "strategy_pit_window": "Box box box. {reason}. Pit in {laps} laps.",
+        "strategy_pit_window": "Box box box. {reason}. Box in {laps} laps.",
         "strategy_pit_window_now": "Box box box. {reason}. Box this lap.",
         "strategy_tyres_warn": "Tyres at {wear} percent. Box window in {laps} laps.",
         "strategy_can_finish": "Fuel and tyres to the flag. {laps} laps remaining.",
@@ -28,12 +30,13 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "race_report": "P{pos}. {laps} laps to go. Tyres at {wear:.0f} percent average.",
         "race_report_no_wear": "P{pos}. {laps} laps to go.",
         "race_report_tyre_warn": "{corner} leading in wear at {wear:.0f} percent. Monitor.",
-        "planned_pit_missed": "Missed window. Laps {open} to {close}. Re-evaluating.",
-        "planned_pit_rescheduled": "Box rescheduled. Lap {lap}. Fuel window.",
+        "planned_pit_missed": "Window missed. Laps {open} to {close}. Stand by.",
+        "planned_pit_rescheduled": "Box rescheduled. New target lap {lap}.",
         "tyre_wont_reach": "Caution. Tyres to lap {life_lap}. Window at lap {plan_lap}.",
+        "fuel_to_finish": "Fuel to the flag. {laps} laps remaining. No more fuel calls.",
     },
     "pt": {
-        "fuel_last_lap": "Combustível para menos de uma volta. Box agora.",
+        "fuel_last_lap": "Combustível na última volta. Box agora, box agora.",
         "fuel_critical": "Combustível crítico. {fuel:.0f} litros. {laps_text}",
         "fuel_low": "Combustível baixo. {laps_text}",
         "lap_completed": "Volta {lap}. {lap_time}.",
@@ -41,27 +44,28 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "final_lap": "Última volta. Cuida do carro e traz pra casa.",
         "final_lap_save_fuel": "Última volta. Combustível no limite. Gerencia e traz pra casa.",
         "engine_temp_high": "Água em {temp:.0f} graus. Gerencia o motor.",
-        "tire_temp_high": "Pneu quente. {corners}.",
-        "tire_wear_excessive": "Desgaste alto. {corners}.",
-        "tyre_wear_milestone": "Pneu em {wear} porcento.",
+        "tire_temp_high": "Temperatura alta. {corners}.",
+        "tire_wear_excessive": "Desgaste interno alto. {corners}. Monitora.",
+        "tyre_wear_milestone": "Pneu em {wear} por cento.",
         "oil_temp_high": "Óleo em {temp:.0f} graus. Gerencia o motor.",
-        "tire_pressure_low": "Pressão baixa. {corners}.",
-        "tire_pressure_high": "Pressão alta. {corners}.",
+        "tire_pressure_low": "Pressão baixa em {corners}.",
+        "tire_pressure_high": "Pressão alta em {corners}.",
         "lap_delta_warn": "{delta:.1f} segundos fora do ritmo.",
         "pit_window": "Box box box. {laps:.0f} voltas de combustível.",
-        "strategy_pit_window": "Box box box. {reason}. Pit em {laps} voltas.",
+        "strategy_pit_window": "Box box box. {reason}. Box em {laps} voltas.",
         "strategy_pit_window_now": "Box box box. {reason}. Box nesta volta.",
-        "strategy_tyres_warn": "Pneus em {wear} porcento. Janela em {laps} voltas.",
+        "strategy_tyres_warn": "Pneus em {wear} por cento. Janela em {laps} voltas.",
         "strategy_can_finish": "Combustível e pneus para a bandeirada. {laps} voltas.",
         "planned_pit_window_approaching": "Janela em {laps} voltas. Prepare-se para o box.",
         "planned_pit_window_open": "Janela aberta. {laps} voltas para o box.",
         "planned_pit_window_fuel_warn": "Box box box. Combustível para {laps:.0f} voltas.",
-        "race_report": "P{pos}. {laps} voltas restantes. Pneus em {wear:.0f} porcento.",
+        "race_report": "P{pos}. {laps} voltas restantes. Pneus em {wear:.0f} por cento.",
         "race_report_no_wear": "P{pos}. {laps} voltas restantes.",
-        "race_report_tyre_warn": "Maior desgaste {corner}. {wear:.0f} porcento. Monitora.",
-        "planned_pit_missed": "Janela perdida. Voltas {open} a {close}. Reavaliando.",
-        "planned_pit_rescheduled": "Box remarcado. Volta {lap}. Janela de combustível.",
+        "race_report_tyre_warn": "Maior desgaste {corner}. {wear:.0f} por cento. Monitora.",
+        "planned_pit_missed": "Janela perdida. Voltas {open} a {close}. Aguarda.",
+        "planned_pit_rescheduled": "Box remarcado. Nova janela na volta {lap}.",
         "tyre_wont_reach": "Atenção. Pneu até volta {life_lap}. Janela na volta {plan_lap}.",
+        "fuel_to_finish": "Combustível até a bandeirada. {laps} voltas restantes. Sem mais chamadas de combustível.",
     },
 }
 
@@ -125,3 +129,49 @@ def format_alert(alert_type: str, lang: str, **kwargs: object) -> str:
     if not tmpl:
         return ""
     return tmpl.format(**kwargs)
+
+
+_OVERTAKE_TEMPLATES: dict[str, list[str]] = {
+    "en": [
+        "P{new_pos}. Good pass. Keep pushing.",
+        "P{new_pos}. Well done. Stay focused.",
+        "P{new_pos}. Nice move. Maintain the pace.",
+        "P{new_pos}. Position gained. Keep it up.",
+        "P{new_pos}. Good work. Stay on it.",
+        "P{new_pos}. Clean pass. Push on.",
+    ],
+    "pt": [
+        "P{new_pos}. Boa ultrapassagem. Segue firme.",
+        "P{new_pos}. Bela manobra. Mantém o ritmo.",
+        "P{new_pos}. Muito bem. Continua assim.",
+        "P{new_pos}. Posição ganha. Segue em frente.",
+        "P{new_pos}. Excelente. Mantém a pressão.",
+        "P{new_pos}. Bom trabalho. Foca no próximo.",
+    ],
+}
+
+_OVERTAKEN_TEMPLATES: dict[str, list[str]] = {
+    "en": [
+        "P{new_pos}. Regroup. Stay focused.",
+        "P{new_pos}. Keep your head. Push back.",
+        "P{new_pos}. Stay calm. Respond.",
+        "P{new_pos}. Don't panic. Keep pushing.",
+        "P{new_pos}. Focus. We'll get it back.",
+        "P{new_pos}. Stay with it. Manage the gap.",
+    ],
+    "pt": [
+        "P{new_pos}. Mantém a cabeça. Foca.",
+        "P{new_pos}. Calma. Reage logo.",
+        "P{new_pos}. Não desiste. Busca a posição.",
+        "P{new_pos}. Mantém o foco. Vamos recuperar.",
+        "P{new_pos}. Continua focado. Responde.",
+        "P{new_pos}. Segura. Avalia e ataca.",
+    ],
+}
+
+
+def format_alert_random(variants: dict[str, list[str]], lang: str, **kwargs: object) -> str:
+    pool = variants.get(lang, variants.get("en", []))
+    if not pool:
+        return ""
+    return random.choice(pool).format(**kwargs)

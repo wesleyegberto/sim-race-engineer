@@ -227,6 +227,7 @@ _SETTINGS_RIGHT = [
     ("item",  "Final lap",         "announce entering the last lap of a timed / lapped race",      C_ORANGE, "flags"),
     ("item",  "Race report",       "35% and 70% race summary · position · avg tyre wear · worst tyre warning", C_TEXT, "lap-time"),
     ("item",  "Lap delta",         "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
+    ("item",  "Overtake",          "position gained → encouragement · position lost → support · 15s cooldown", C_GREEN, "race-pos"),
 
     ("section", "FUEL & PIT ALERTS", "fuel"),
     ("item",  "Fuel low",          "warn when fuel drops below low threshold (default 20%)",       C_ORANGE, "fuel"),

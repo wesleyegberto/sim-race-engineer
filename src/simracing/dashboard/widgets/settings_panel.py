@@ -45,6 +45,7 @@ class SettingsPanel:
         self._voice_alert_lap_delta = True
         self._voice_alert_pit_window = True
         self._voice_alert_tyre_wear = True
+        self._voice_alert_overtake = True
         self._recording_on_start = True
         self._voice_wear_thr_text = "10"
         self._active_field: str | None = None  # "ip" | "wear_thr"
@@ -89,6 +90,7 @@ class SettingsPanel:
         self._voice_chk_final_lap     = pygame.Rect(field_x, alerts_y + 62, 18, 18)
         self._voice_chk_lap_delta     = pygame.Rect(col2_x,  alerts_y + 62, 18, 18)
         self._voice_chk_race_report   = pygame.Rect(field_x, alerts_y + 84, 18, 18)
+        self._voice_chk_overtake      = pygame.Rect(col2_x,  alerts_y + 84, 18, 18)
 
         # ── Fuel & Pit group ──────────────────────────────────────────────────
         self._voice_grp_fuel_sep_y    = alerts_y + 106
@@ -142,6 +144,7 @@ class SettingsPanel:
         voice_alert_pit_window: bool = True,
         voice_alert_tyre_wear: bool = True,
         voice_tyre_wear_threshold_pct: float = 0.10,
+        voice_alert_overtake: bool = True,
     ) -> None:
         self._ip_text = current_ip
         self._fuel_estimation = fuel_estimation
@@ -163,6 +166,7 @@ class SettingsPanel:
         self._voice_alert_pit_window = voice_alert_pit_window
         self._voice_alert_tyre_wear = voice_alert_tyre_wear
         self._voice_wear_thr_text = str(int(voice_tyre_wear_threshold_pct * 100))
+        self._voice_alert_overtake = voice_alert_overtake
         self.active = True
         self._active_field = None
         self._cursor_timer = 0
@@ -237,6 +241,7 @@ class SettingsPanel:
                 (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
                 (self._voice_chk_tire_pressure,   "_voice_alert_tire_pressure"),
                 (self._voice_chk_tyre_wear,       "_voice_alert_tyre_wear"),
+                (self._voice_chk_overtake,        "_voice_alert_overtake"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -394,6 +399,7 @@ class SettingsPanel:
             (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
             (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Tyre wear"),
             (self._voice_chk_tire_pressure,   self._voice_alert_tire_pressure,   "Tyre pres."),
+            (self._voice_chk_overtake,        self._voice_alert_overtake,        "Overtake"),
         ):
             enabled = self._voice_enabled
             pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
@@ -532,6 +538,10 @@ class SettingsPanel:
     @property
     def voice_alert_tyre_wear(self) -> bool:
         return self._voice_alert_tyre_wear
+
+    @property
+    def voice_alert_overtake(self) -> bool:
+        return self._voice_alert_overtake
 
     @property
     def voice_tyre_wear_threshold_pct(self) -> float:

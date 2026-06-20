@@ -12,7 +12,11 @@ from ..strategy.planned_strategy import (
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
 from ..telemetry.models import TelemetryData
-from .templates import _lap_time_text, _laps_text, corner_name, format_alert, hot_corners_text, pit_reason_text
+from .templates import (
+    _lap_time_text, _laps_text, corner_name, format_alert, format_alert_random,
+    hot_corners_text, pit_reason_text,
+    _OVERTAKE_TEMPLATES, _OVERTAKEN_TEMPLATES,
+)
 
 
 
@@ -22,6 +26,8 @@ class AlertEngine:
         self._last_fired: dict[str, float] = {}
         self._prev_lap: int = -1
         self._prev_best_lap_ms: int = 0
+        self._prev_position: int = 0
+        self._fuel_to_finish_announced: bool = False
         self._stint = StintTracker()
         self._strategy_engine = RaceStrategyEngine()
         self._planned_monitor = PlannedStrategyMonitor()
@@ -45,7 +51,7 @@ class AlertEngine:
 
         # ── Lap events ────────────────────────────────────────────────────────
         lap = data.current_lap
-        if self._prev_lap >= 0 and lap != self._prev_lap:
+        if self._prev_lap >= 1 and lap != self._prev_lap:
             total: int = data.total_laps
 
             if cfg.voice_alert_final_lap and total > 0 and lap == total:
@@ -108,38 +114,49 @@ class AlertEngine:
         clap = data.current_lap
         is_last_lap = total_laps > 0 and clap >= total_laps
         if data.fuel_capacity > 0 and not is_last_lap and self._last_fuel_alert_lap != clap:
-            pct = data.fuel_pct
             laps_left = data.fuel_level / fuel_per_lap if fuel_per_lap > 0 else -1.0
-            laps_text = _laps_text(laps_left, lang)
-            critical_pct: float = cfg.voice_fuel_critical_pct
-            low_pct: float = cfg.voice_fuel_low_pct
+            laps_remaining = total_laps - clap if total_laps > 0 else -1
 
-            if 0 < laps_left < 1.0:
-                text = self._maybe_fire_interval(
-                    f"fuel_last_lap_{clap}", now, 9999.0,
-                    format_alert("fuel_last_lap", lang),
-                )
-                if text:
-                    self._last_fuel_alert_lap = clap
-                    alerts.append(text)
-            elif cfg.voice_alert_fuel_critical and pct < critical_pct:
-                text = self._maybe_fire_interval(
-                    f"fuel_critical_{clap}", now, 9999.0,
-                    format_alert("fuel_critical", lang,
-                                 fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
-                )
-                if text:
-                    self._last_fuel_alert_lap = clap
-                    alerts.append(text)
-            elif cfg.voice_alert_fuel_low and pct < low_pct:
-                text = self._maybe_fire_interval(
-                    f"fuel_low_{clap}", now, 9999.0,
-                    format_alert("fuel_low", lang,
-                                 fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
-                )
-                if text:
-                    self._last_fuel_alert_lap = clap
-                    alerts.append(text)
+            # If fuel covers remaining race distance, announce once and silence further fuel calls
+            if laps_left > 0 and laps_remaining > 0 and laps_left >= laps_remaining:
+                if not self._fuel_to_finish_announced:
+                    text = format_alert("fuel_to_finish", lang, laps=laps_remaining)
+                    if text:
+                        self._fuel_to_finish_announced = True
+                        self._last_fuel_alert_lap = clap
+                        alerts.append(text)
+            elif not self._fuel_to_finish_announced:
+                pct = data.fuel_pct
+                laps_text = _laps_text(laps_left, lang)
+                critical_pct: float = cfg.voice_fuel_critical_pct
+                low_pct: float = cfg.voice_fuel_low_pct
+
+                if 0 < laps_left < 1.0:
+                    text = self._maybe_fire_interval(
+                        f"fuel_last_lap_{clap}", now, 9999.0,
+                        format_alert("fuel_last_lap", lang),
+                    )
+                    if text:
+                        self._last_fuel_alert_lap = clap
+                        alerts.append(text)
+                elif cfg.voice_alert_fuel_critical and pct < critical_pct:
+                    text = self._maybe_fire_interval(
+                        f"fuel_critical_{clap}", now, 9999.0,
+                        format_alert("fuel_critical", lang,
+                                     fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
+                    )
+                    if text:
+                        self._last_fuel_alert_lap = clap
+                        alerts.append(text)
+                elif cfg.voice_alert_fuel_low and pct < low_pct:
+                    text = self._maybe_fire_interval(
+                        f"fuel_low_{clap}", now, 9999.0,
+                        format_alert("fuel_low", lang,
+                                     fuel=data.fuel_level, pct=pct * 100, laps_text=laps_text),
+                    )
+                    if text:
+                        self._last_fuel_alert_lap = clap
+                        alerts.append(text)
 
         # ── Engine temp ───────────────────────────────────────────────────────
         if cfg.voice_alert_engine_temp and data.water_temp > 0:
@@ -231,6 +248,23 @@ class AlertEngine:
                 )
                 if text:
                     alerts.append(text)
+
+        # ── Position change (overtake / overtaken) ────────────────────────────
+        pos = data.race_position
+        if cfg.voice_alert_overtake and self._prev_position > 0 and pos > 0 and pos != self._prev_position and data.cars_in_race > 1:
+            if pos < self._prev_position:
+                text = self._maybe_fire_interval(
+                    "overtake", now, 15.0,
+                    format_alert_random(_OVERTAKE_TEMPLATES, lang, new_pos=pos),
+                )
+            else:
+                text = self._maybe_fire_interval(
+                    "overtaken", now, 15.0,
+                    format_alert_random(_OVERTAKEN_TEMPLATES, lang, new_pos=pos),
+                )
+            if text:
+                alerts.append(text)
+        self._prev_position = pos
 
         # ── Stint tracker + auto strategy ─────────────────────────────────────
         pit_detected = self._stint.update(data)
@@ -410,6 +444,8 @@ class AlertEngine:
         self._last_fired.clear()
         self._prev_lap = -1
         self._prev_best_lap_ms = 0
+        self._prev_position = 0
+        self._fuel_to_finish_announced = False
         self._stint.reset()
         self._planned_monitor.reset()
         self._strategy_result = None
