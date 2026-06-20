@@ -82,6 +82,12 @@ Each alert has an independent cooldown to avoid repetition.
 | Planned: box now | On the planned stop lap · "Box this lap. On strategy." | once |
 | Planned: tyre warning | Tyres won't last to planned stop lap | once |
 | Planned: missed | Missed stop window · reschedules if fuel allows | once |
+| Laps to go | Countdown at 5, 4, 3, 2, 1 laps remaining (races ≥ 10 laps) | — |
+| Fuel save | Fuel margin < 1.5 laps to finish — recommends lift and coast | once/lap |
+| Strategy check-in | Proactive fuel + box lap briefing — at 33%/66% (≥ 10 laps) or every 3 laps | once/lap |
+| Strategy revised | Pit lap shifted > 2 laps from ideal — prompts driver to adapt | 60 s |
+| Fuel save+ | Fuel delta 0–2 L — lift and coast to extend range | once/lap |
+| Overtake | Position gained → encouragement; position lost → support | 15 s |
 
 All thresholds are configurable in `~/simracing/simracing.conf`.
 Each alert can be individually enabled or disabled in the in-app Settings panel.
@@ -111,6 +117,33 @@ Real-time strategy engine that computes pit stop recommendations from live fuel 
 
 Pit entry is detected automatically and marks the corresponding stop as done.
 Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/simracing/simracing.conf`.
+
+**Strategy Advisor** — proactive race engineer logic, computed every lap:
+
+| Output | Description |
+|--------|-------------|
+| Fuel to finish | Total litres needed from current lap to chequered flag |
+| Fuel delta | Surplus (positive) or shortfall (negative) vs current tank |
+| Laps to fuel out | `fuel_level ÷ avg_rate` and `fuel_level ÷ last_lap_rate` |
+| Fuel save laps | Extra laps achievable with 10% lift-and-coast saving |
+| Recommended stops | 0–3 stops derived from fuel shortfall |
+| Stop windows | Evenly distributed optimal pit laps (open–close) |
+| Strategy health | `ON_PLAN` · `REVISE` · `CRITICAL` shown in the Strategy panel |
+| Avg lap time | Rolling average of last 3 completed laps (ms) |
+
+The advisor fires three voice alerts:
+- **Check-in** (33%/66% of race, or every 3 laps for short races): fuel laps + recommended box lap.
+- **Revised**: when health flips to `REVISE` and the optimal pit lap moves > 2 laps.
+- **Fuel save+**: when fuel delta is between 0 and `fuel_save_delta_l` (default 2 L).
+
+Advisor config keys in `~/simracing/simracing.conf` under `[strategy]`:
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `pit_loss_time_s` | `25.0` | Estimated time lost per pit stop (reserved for future time-loss model) |
+| `strategy_check_in_interval_laps` | `3` | Check-in interval for races < 10 laps |
+| `fuel_save_delta_l` | `2.0` | Fuel delta threshold (L) that triggers the fuel-save+ alert |
+| `lap_time_buffer` | `3` | Number of recent laps used for avg lap time calculation |
 
 ### Lap Recording
 

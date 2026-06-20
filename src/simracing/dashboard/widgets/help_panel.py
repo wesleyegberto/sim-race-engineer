@@ -236,6 +236,11 @@ _SETTINGS_RIGHT = [
     ("item",  "Pit window",        "alert when 2–4 laps of fuel remain in a race",                C_ACCENT, "fuel"),
     ("item",  "Fuel save",         "warn when fuel margin < 1.5 laps to finish · only in races ≥ 10 laps · replaces fuel-to-finish call", C_ORANGE, "fuel"),
 
+    ("section", "STRATEGY ALERTS", "strategy"),
+    ("item",  "Check-in",           "periodic strategy briefing: fuel laps, recommended box lap · fires at 33%/66% of race (≥10 laps) or every 3 laps (short races)", C_ACCENT, "strategy"),
+    ("item",  "Revised",            "fires when strategy health changes to REVISE: pit lap has shifted by >2 laps from plan", C_ORANGE, "strategy"),
+    ("item",  "Fuel save+",         "fires when fuel delta is between 0 and fuel_save_delta_l (default 2 L): suggests lift-and-coast to extend range", C_ORANGE, "fuel"),
+
     ("section", "CAR HEALTH ALERTS", "engine"),
     ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
     ("item",  "Tyre temp",         "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),

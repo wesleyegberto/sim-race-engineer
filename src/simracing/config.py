@@ -76,6 +76,9 @@ class AppConfig:
         self.voice_alert_overtake: bool = True
         self.voice_alert_laps_to_finish: bool = True
         self.voice_alert_fuel_save: bool = True
+        self.voice_alert_strategy_check_in: bool = True
+        self.voice_alert_strategy_revised: bool = True
+        self.voice_alert_fuel_save_recommend: bool = True
         self.voice_engine_temp_threshold: float = 105.0
         self.voice_tire_temp_threshold: float = 100.0
         self.voice_tire_inner_temp_threshold: float = 110.0
@@ -94,6 +97,12 @@ class AppConfig:
         self.pit_buffer_laps: int = 1
         self.voice_alert_strategy: bool = True
         self.voice_strategy_interval_s: float = 30.0
+
+        # Strategy advisor
+        self.pit_loss_time_s: float = 25.0
+        self.strategy_check_in_interval_laps: int = 3
+        self.fuel_save_delta_l: float = 2.0
+        self.lap_time_buffer: int = 3
 
         # Race strategy (user-defined)
         self.planned_stops: int = 0
@@ -152,6 +161,9 @@ class AppConfig:
             "alert_overtake": str(self.voice_alert_overtake),
             "alert_laps_to_finish": str(self.voice_alert_laps_to_finish),
             "alert_fuel_save": str(self.voice_alert_fuel_save),
+            "alert_strategy_check_in": str(self.voice_alert_strategy_check_in),
+            "alert_strategy_revised": str(self.voice_alert_strategy_revised),
+            "alert_fuel_save_recommend": str(self.voice_alert_fuel_save_recommend),
             "engine_temp_threshold": str(self.voice_engine_temp_threshold),
             "tire_temp_threshold": str(self.voice_tire_temp_threshold),
             "tire_inner_temp_threshold": str(self.voice_tire_inner_temp_threshold),
@@ -173,6 +185,10 @@ class AppConfig:
                 f"{o}-{c}" if o != c else str(o)
                 for o, c in self.planned_stop_windows
             ),
+            "pit_loss_time_s": str(self.pit_loss_time_s),
+            "strategy_check_in_interval_laps": str(self.strategy_check_in_interval_laps),
+            "fuel_save_delta_l": str(self.fuel_save_delta_l),
+            "lap_time_buffer": str(self.lap_time_buffer),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -207,6 +223,9 @@ class AppConfig:
         self.voice_alert_overtake = cp.getboolean(self._VOICE, "alert_overtake", fallback=True)
         self.voice_alert_laps_to_finish = cp.getboolean(self._VOICE, "alert_laps_to_finish", fallback=True)
         self.voice_alert_fuel_save = cp.getboolean(self._VOICE, "alert_fuel_save", fallback=True)
+        self.voice_alert_strategy_check_in = cp.getboolean(self._VOICE, "alert_strategy_check_in", fallback=True)
+        self.voice_alert_strategy_revised = cp.getboolean(self._VOICE, "alert_strategy_revised", fallback=True)
+        self.voice_alert_fuel_save_recommend = cp.getboolean(self._VOICE, "alert_fuel_save_recommend", fallback=True)
         self.voice_engine_temp_threshold = cp.getfloat(self._VOICE, "engine_temp_threshold", fallback=105.0)
         self.voice_tire_temp_threshold = cp.getfloat(self._VOICE, "tire_temp_threshold", fallback=100.0)
         self.voice_tire_inner_temp_threshold = cp.getfloat(self._VOICE, "tire_inner_temp_threshold", fallback=110.0)
@@ -224,5 +243,9 @@ class AppConfig:
         self.planned_stops = cp.getint(self._STRATEGY, "planned_stops", fallback=0)
         raw_laps = cp.get(self._STRATEGY, "planned_stop_laps", fallback="")
         self.planned_stop_windows = _parse_stop_windows(raw_laps)
+        self.pit_loss_time_s = cp.getfloat(self._STRATEGY, "pit_loss_time_s", fallback=25.0)
+        self.strategy_check_in_interval_laps = cp.getint(self._STRATEGY, "strategy_check_in_interval_laps", fallback=3)
+        self.fuel_save_delta_l = cp.getfloat(self._STRATEGY, "fuel_save_delta_l", fallback=2.0)
+        self.lap_time_buffer = cp.getint(self._STRATEGY, "lap_time_buffer", fallback=3)
         self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")

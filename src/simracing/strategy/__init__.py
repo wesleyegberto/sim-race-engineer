@@ -1,1 +1,1 @@
-"""Race strategy: stint tracking, auto pit window, and user-defined strategy."""
+"""Race strategy: stint tracking, auto pit window, user-defined strategy, and advisor."""

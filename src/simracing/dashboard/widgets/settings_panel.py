@@ -16,7 +16,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 788
+_CARD_W, _CARD_H = 480, 804
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice"] | None
@@ -48,6 +48,9 @@ class SettingsPanel:
         self._voice_alert_overtake = True
         self._voice_alert_laps_to_finish = True
         self._voice_alert_fuel_save = True
+        self._voice_alert_strategy_check_in = True
+        self._voice_alert_strategy_revised = True
+        self._voice_alert_fuel_save_recommend = True
         self._recording_on_start = True
         self._voice_wear_thr_text = "10"
         self._active_field: str | None = None  # "ip" | "wear_thr"
@@ -55,7 +58,7 @@ class SettingsPanel:
         self._cursor_timer = 0
 
         cx = (win_w - _CARD_W) // 2
-        cy = (win_h - _CARD_H) // 2
+        cy = max(4, (win_h - _CARD_H) // 2)
         self._card = pygame.Rect(cx, cy, _CARD_W, _CARD_H)
 
         field_x = cx + 20
@@ -118,6 +121,13 @@ class SettingsPanel:
         self._voice_chk_tyre_wear     = pygame.Rect(field_x, alerts_y + 304, 18, 18)
         self._voice_wear_thr_field    = pygame.Rect(col2_x + 20, alerts_y + 302, 50, 22)
 
+        # ── Strategy alerts group ──────────────────────────────────────────────
+        self._voice_grp_strategy_sep_y = alerts_y + 330
+        self._voice_grp_strategy_lbl_y = alerts_y + 336
+        self._voice_chk_strategy_check_in   = pygame.Rect(field_x, alerts_y + 352, 18, 18)
+        self._voice_chk_strategy_revised    = pygame.Rect(col2_x,  alerts_y + 352, 18, 18)
+        self._voice_chk_fuel_save_recommend = pygame.Rect(field_x, alerts_y + 374, 18, 18)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
@@ -151,6 +161,9 @@ class SettingsPanel:
         voice_alert_overtake: bool = True,
         voice_alert_laps_to_finish: bool = True,
         voice_alert_fuel_save: bool = True,
+        voice_alert_strategy_check_in: bool = True,
+        voice_alert_strategy_revised: bool = True,
+        voice_alert_fuel_save_recommend: bool = True,
     ) -> None:
         self._ip_text = current_ip
         self._fuel_estimation = fuel_estimation
@@ -175,6 +188,9 @@ class SettingsPanel:
         self._voice_alert_overtake = voice_alert_overtake
         self._voice_alert_laps_to_finish = voice_alert_laps_to_finish
         self._voice_alert_fuel_save = voice_alert_fuel_save
+        self._voice_alert_strategy_check_in = voice_alert_strategy_check_in
+        self._voice_alert_strategy_revised = voice_alert_strategy_revised
+        self._voice_alert_fuel_save_recommend = voice_alert_fuel_save_recommend
         self.active = True
         self._active_field = None
         self._cursor_timer = 0
@@ -252,6 +268,9 @@ class SettingsPanel:
                 (self._voice_chk_overtake,          "_voice_alert_overtake"),
                 (self._voice_chk_laps_to_finish,    "_voice_alert_laps_to_finish"),
                 (self._voice_chk_fuel_save,         "_voice_alert_fuel_save"),
+                (self._voice_chk_strategy_check_in,   "_voice_alert_strategy_check_in"),
+                (self._voice_chk_strategy_revised,    "_voice_alert_strategy_revised"),
+                (self._voice_chk_fuel_save_recommend, "_voice_alert_fuel_save_recommend"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -458,6 +477,28 @@ class SettingsPanel:
         screen.blit(thr_lbl, (self._voice_wear_thr_field.x - font_sm.size("Threshold: ")[0] - 4,
                                self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - thr_lbl.get_height()) // 2))
 
+        # ── Strategy alerts group ─────────────────────────────────────────────
+        pygame.draw.line(screen, C_BORDER,
+                         (self._card.x + 20, self._voice_grp_strategy_sep_y),
+                         (self._card.right - 20, self._voice_grp_strategy_sep_y))
+        grp_strategy = font_sm.render("Strategy Alerts", True, C_DIM)
+        screen.blit(grp_strategy, (self._card.x + 20, self._voice_grp_strategy_lbl_y))
+
+        for chk, checked, label in (
+            (self._voice_chk_strategy_check_in,   self._voice_alert_strategy_check_in,   "Check-in"),
+            (self._voice_chk_strategy_revised,    self._voice_alert_strategy_revised,    "Revised"),
+            (self._voice_chk_fuel_save_recommend, self._voice_alert_fuel_save_recommend, "Fuel save+"),
+        ):
+            enabled = self._voice_enabled
+            pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
+            pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
+            if checked and enabled:
+                inner = chk.inflate(-5, -5)
+                pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+            txt_color = C_TEXT if enabled else C_DIM
+            surf = font_sm.render(label, True, txt_color)
+            screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -562,6 +603,18 @@ class SettingsPanel:
     @property
     def voice_alert_fuel_save(self) -> bool:
         return self._voice_alert_fuel_save
+
+    @property
+    def voice_alert_strategy_check_in(self) -> bool:
+        return self._voice_alert_strategy_check_in
+
+    @property
+    def voice_alert_strategy_revised(self) -> bool:
+        return self._voice_alert_strategy_revised
+
+    @property
+    def voice_alert_fuel_save_recommend(self) -> bool:
+        return self._voice_alert_fuel_save_recommend
 
     @property
     def voice_tyre_wear_threshold_pct(self) -> float:

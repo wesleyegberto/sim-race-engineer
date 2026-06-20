@@ -36,6 +36,10 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "fuel_to_finish": "Fuel to the flag. {laps} laps remaining. No more fuel calls.",
         "laps_to_finish": "{laps} laps to go.",
         "fuel_save_mode": "Fuel is tight. Save fuel. Lift and coast where possible.",
+        "strategy_check_in": "Strategy check: fuel for {fuel_laps:.0f} laps. Box lap {pit_lap}.",
+        "strategy_check_in_ok": "Strategy check: fuel and tyres to the flag. {laps} laps remaining.",
+        "strategy_revised": "Strategy revised. Box now lap {new_lap} instead of {old_lap}.",
+        "fuel_save_recommend": "Fuel tight. Save fuel. Lift and coast to extend {save_laps} laps.",
     },
     "pt": {
         "fuel_last_lap": "Combustível na última volta. Box agora, box agora.",
@@ -70,6 +74,10 @@ _TEMPLATES: dict[str, dict[str, str]] = {
         "fuel_to_finish": "Combustível até a bandeirada. {laps} voltas restantes. Sem mais chamadas de combustível.",
         "laps_to_finish": "{laps} voltas restantes.",
         "fuel_save_mode": "Combustível no limite. Economize. Levanta o pé onde possível.",
+        "strategy_check_in": "Revisão de estratégia: combustível para {fuel_laps:.0f} voltas. Box na volta {pit_lap}.",
+        "strategy_check_in_ok": "Revisão de estratégia: combustível e pneus para a bandeirada. {laps} voltas.",
+        "strategy_revised": "Estratégia revisada. Box na volta {new_lap} em vez da volta {old_lap}.",
+        "fuel_save_recommend": "Combustível no limite. Economize. Levanta o pé para ganhar {save_laps} voltas.",
     },
 }
 

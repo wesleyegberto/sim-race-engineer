@@ -62,6 +62,38 @@ Settings are saved on **Save** and take effect immediately.
 
 ---
 
+## Strategy Panel
+
+Opened via the **S** key or the strategy button in the header. Configure planned pit stops and review live advisor data.
+
+### Planned Stops (top section)
+
+| Field | Description |
+|-------|-------------|
+| **Planned pit stops** | Number of stops: 0, 1, 2, or 3 |
+| **Open / Close** | Lap window for each stop; enter a single lap or an open–close range |
+| **Target** | Midpoint of the window — displayed live as you type |
+| **Tyre wear limit** | Avg wear % at which the auto strategy triggers a tyre stop (default 80%) |
+| **Pit buffer** | Safety margin in laps before the computed pit lap (default 1) |
+| **Voice strategy alerts** | Toggle all strategy-related voice alerts on/off |
+
+### Fuel Analysis & Strategy Health (bottom section, live data)
+
+Populated once at least one lap has been completed. All values are recomputed each lap.
+
+| Field | Description |
+|-------|-------------|
+| **Strategy health** | `ON PLAN` (green) — fuel and stops on target; `REVISE` (orange) — adapt pit lap; `CRITICAL` (red) — fuel shortfall > 5 L |
+| **Fuel to finish** | Litres needed to complete remaining laps at the current average rate |
+| **Fuel delta** | Surplus (+) or shortfall (−) versus current tank level. Green = ok, red = problem |
+| **Laps to fuel out** | `avg`: fuel ÷ avg rate · `last`: fuel ÷ last-lap rate |
+| **Avg lap time** | Rolling average of the last 3 completed laps |
+| **Recommended stops** | Computed stops needed based on fuel shortfall (0–3) |
+
+**Use:** Open the Strategy Panel mid-race to assess whether you can finish on current fuel or need to adapt. The health badge gives an at-a-glance status; the Fuel Analysis rows give the detail behind it.
+
+---
+
 ## RPM Bar
 
 A full-width strip at the top of the dashboard reflecting engine rev zone:

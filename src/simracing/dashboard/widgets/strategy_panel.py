@@ -1,6 +1,6 @@
 """Strategy overlay panel for configuring user-defined pit stop strategy."""
 
-from typing import Literal
+from typing import Any, Literal
 
 import pygame
 
@@ -16,8 +16,11 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 C_BTN_CLEAR = (80, 50, 50)
+C_HEALTH_OK = (60, 190, 100)
+C_HEALTH_REVISE = (220, 155, 40)
+C_HEALTH_CRITICAL = (210, 65, 65)
 
-_CARD_W, _CARD_H = 480, 490
+_CARD_W, _CARD_H = 480, 630
 _ALLOWED_DIGITS = set("0123456789")
 _MAX_LAP = 999
 
@@ -161,7 +164,8 @@ class StrategyPanel:
         return None
 
     def draw(self, screen: pygame.Surface, font_md: pygame.font.Font,
-             font_sm: pygame.font.Font, dt_ms: int) -> None:
+             font_sm: pygame.font.Font, dt_ms: int,
+             report: Any = None) -> None:
         if not self.active:
             return
 
@@ -300,6 +304,53 @@ class StrategyPanel:
         chk_lbl = font_sm.render("Voice strategy alerts", True, C_TEXT)
         screen.blit(chk_lbl, (self._voice_chk.right + 10,
                                self._voice_chk.y + (self._voice_chk.height - chk_lbl.get_height()) // 2))
+
+        # ── Fuel Analysis / Strategy Health ──────────────────────────────────
+        fa_y = fy + 345
+        pygame.draw.line(screen, C_BORDER,
+                         (self._card.x + 20, fa_y), (self._card.right - 20, fa_y))
+
+        if report is not None:
+            # Strategy Health badge
+            health = report.strategy_health
+            badge_color = (
+                C_HEALTH_OK if health == "ON_PLAN"
+                else C_HEALTH_CRITICAL if health == "CRITICAL"
+                else C_HEALTH_REVISE
+            )
+            health_lbl = font_sm.render("Strategy:", True, C_DIM)
+            screen.blit(health_lbl, (fx, fa_y + 10))
+            badge_text = health.replace("_", " ")
+            badge_surf = font_sm.render(badge_text, True, badge_color)
+            screen.blit(badge_surf, (fx + 100, fa_y + 10))
+
+            # Fuel analysis rows
+            pygame.draw.line(screen, C_BORDER,
+                             (self._card.x + 20, fa_y + 34), (self._card.right - 20, fa_y + 34))
+            fa_title = font_sm.render("Fuel Analysis", True, C_DIM)
+            screen.blit(fa_title, (fx, fa_y + 42))
+
+            def _row(label: str, value: str, row: int, val_color: tuple = C_TEXT) -> None:
+                y = fa_y + 64 + row * 22
+                screen.blit(font_sm.render(label, True, C_DIM), (fx, y))
+                screen.blit(font_sm.render(value, True, val_color), (fx + 200, y))
+
+            fuel_delta_color = C_HEALTH_OK if report.fuel_delta >= 0 else C_HEALTH_CRITICAL
+            delta_sign = "+" if report.fuel_delta >= 0 else ""
+            _row("Fuel to finish:", f"{report.fuel_to_finish:.1f} L", 0)
+            _row("Fuel delta:", f"{delta_sign}{report.fuel_delta:.1f} L", 1, fuel_delta_color)
+            _row("Laps to fuel out:", f"{report.laps_to_fuel_out_avg:.1f} avg / {report.laps_to_fuel_out_last:.1f} last", 2)
+            ms = report.avg_lap_time_ms
+            if ms > 0:
+                lap_str = f"{ms // 60000}:{(ms % 60000) // 1000:02d}.{(ms % 1000) // 100}"
+            else:
+                lap_str = "—"
+            _row("Avg lap time:", lap_str, 3)
+            stops_str = str(report.recommended_stops) if report.recommended_stops >= 0 else "—"
+            _row("Recommended stops:", stops_str, 4)
+        else:
+            no_data = font_sm.render("No data yet — race in progress", True, C_DIM)
+            screen.blit(no_data, (fx, fa_y + 14))
 
         # Buttons
         mouse = pygame.mouse.get_pos()

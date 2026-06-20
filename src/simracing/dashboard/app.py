@@ -5,6 +5,7 @@ import math
 import queue as _queue
 import signal
 import sys
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from ..strategy.planned_strategy import (
 )
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
+from ..strategy.strategy_advisor import StrategyAdvisor, StrategyReport
 from ..telemetry.models import TelemetryData
 from ..telemetry.tire_wear_estimator import TireWearEstimator
 from .widgets.bar import draw_bar
@@ -123,6 +125,9 @@ class DashboardApp:
         self._lap_fuel_start: float = 0.0
         self._fuel_per_lap: float = 0.0
         self._fuel_history: list[float] = []
+        self._last_lap_fuel: float = 0.0
+        self._last_lap_ms_prev: int = 0
+        self._lap_time_history: deque[int] = deque(maxlen=self._config.lap_time_buffer)
 
         # Race strategy (display)
         self._stint = StintTracker()
@@ -131,6 +136,8 @@ class DashboardApp:
         self._strategy_result: StrategyResult | None = None
         self._planned_status: PlannedStrategyStatus | None = None
         self._strategy_lap: int = -2
+        self._strategy_advisor = StrategyAdvisor()
+        self._strategy_report: StrategyReport | None = None
         self._apply_planned_strategy(config)
 
         # State transition tracking (for debug logging)
@@ -164,6 +171,10 @@ class DashboardApp:
         self._lap_fuel_start = 0.0
         self._fuel_per_lap = 0.0
         self._fuel_history = []
+        self._last_lap_fuel = 0.0
+        self._last_lap_ms_prev = 0
+        self._lap_time_history.clear()
+        self._strategy_report = None
         self._prev_speed_ms = 0.0
         self._g_lat = 0.0
         self._g_lon = 0.0
@@ -341,6 +352,7 @@ class DashboardApp:
             elif d.current_lap > self._prev_lap:
                 delta = self._lap_fuel_start - d.fuel_level
                 if 0 < delta < 200:
+                    self._last_lap_fuel = delta
                     self._fuel_history.append(delta)
                     if self._config.fuel_estimation == "last":
                         self._fuel_per_lap = delta
@@ -356,6 +368,11 @@ class DashboardApp:
                 )
                 self._lap_fuel_start = d.fuel_level
                 self._prev_lap = d.current_lap
+
+        # Lap time history (track last N completed laps)
+        if d.last_lap_ms > 0 and d.last_lap_ms != self._last_lap_ms_prev:
+            self._lap_time_history.append(d.last_lap_ms)
+            self._last_lap_ms_prev = d.last_lap_ms
 
         # Strategy tracking (for display — AlertEngine tracks separately for voice)
         pit_detected = self._stint.update(d)
@@ -373,6 +390,25 @@ class DashboardApp:
                 pit_buffer_laps=self._config.pit_buffer_laps,
             )
             self._strategy_lap = d.current_lap
+            if self._fuel_per_lap > 0 and d.total_laps > 0:
+                avg_lap_ms = (
+                    sum(self._lap_time_history) // len(self._lap_time_history)
+                    if self._lap_time_history
+                    else 0
+                )
+                self._strategy_report = self._strategy_advisor.compute(
+                    current_lap=d.current_lap,
+                    total_laps=d.total_laps,
+                    fuel_level=d.fuel_level,
+                    fuel_per_lap_avg=self._fuel_per_lap,
+                    last_lap_fuel=self._last_lap_fuel,
+                    avg_lap_time_ms=avg_lap_ms,
+                    avg_wear=self._stint.current_avg_wear,
+                    wear_per_lap=self._stint.wear_per_lap,
+                    tyre_wear_limit=self._config.tyre_wear_limit_pct,
+                    pit_buffer_laps=self._config.pit_buffer_laps,
+                    pit_loss_time_s=self._config.pit_loss_time_s,
+                )
         self._planned_status = self._planned_monitor.evaluate(
             current_lap=d.current_lap,
             avg_wear=self._stint.current_avg_wear,
@@ -662,6 +698,9 @@ class DashboardApp:
                         self._config.voice_alert_overtake = self._settings.voice_alert_overtake
                         self._config.voice_alert_laps_to_finish = self._settings.voice_alert_laps_to_finish
                         self._config.voice_alert_fuel_save = self._settings.voice_alert_fuel_save
+                        self._config.voice_alert_strategy_check_in = self._settings.voice_alert_strategy_check_in
+                        self._config.voice_alert_strategy_revised = self._settings.voice_alert_strategy_revised
+                        self._config.voice_alert_fuel_save_recommend = self._settings.voice_alert_fuel_save_recommend
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -712,7 +751,10 @@ class DashboardApp:
                         self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
                         self._config.voice_alert_overtake,
                         self._config.voice_alert_laps_to_finish,
-                        self._config.voice_alert_fuel_save)
+                        self._config.voice_alert_fuel_save,
+                        self._config.voice_alert_strategy_check_in,
+                        self._config.voice_alert_strategy_revised,
+                        self._config.voice_alert_fuel_save_recommend)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 
@@ -730,7 +772,7 @@ class DashboardApp:
                 if self._settings:
                     self._settings.draw(screen, font_md, font_sm, dt)
                 if self._strategy_panel:
-                    self._strategy_panel.draw(screen, font_md, font_sm, dt)
+                    self._strategy_panel.draw(screen, font_md, font_sm, dt, self._strategy_report)
                 if self._suffix_panel and self._suffix_panel.active:
                     self._suffix_panel.draw(screen, font_md, font_sm)
                 if self._help:

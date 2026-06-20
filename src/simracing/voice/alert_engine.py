@@ -11,6 +11,7 @@ from ..strategy.planned_strategy import (
 )
 from ..strategy.race_strategy import RaceStrategyEngine, StrategyResult
 from ..strategy.stint_tracker import StintTracker
+from ..strategy.strategy_advisor import StrategyAdvisor, StrategyReport
 from ..telemetry.models import TelemetryData
 from .templates import (
     _lap_time_text, _laps_text, corner_name, format_alert, format_alert_random,
@@ -40,6 +41,13 @@ class AlertEngine:
         self._last_fuel_alert_lap: int = -1          # gate: at most one fuel alert per lap
         self._race_report_fired: set[int] = set()    # checkpoints (35, 70) already reported
         self._fuel_save_announced: bool = False
+
+        # Strategy advisor (check-ins, revision alerts, fuel save)
+        self._advisor = StrategyAdvisor()
+        self._advisor_report: StrategyReport | None = None
+        self._check_in_fired: set[int] = set()       # laps where check-in already fired
+        self._last_revised_pit_lap: int = -1         # track when recommended pit changes
+
         self._apply_planned_strategy(config)
 
     def process(self, data: TelemetryData, fuel_per_lap: float) -> list[str]:
@@ -451,6 +459,72 @@ class AlertEngine:
                 if text:
                     alerts.append(text)
 
+        # ── Strategy advisor alerts ───────────────────────────────────────────
+        if data.total_laps > 0 and data.current_lap > 0 and not is_last_lap:
+            self._advisor_report = None  # computed below if data is sufficient
+            if fuel_per_lap > 0:
+                self._advisor_report = self._advisor.compute(
+                    current_lap=data.current_lap,
+                    total_laps=data.total_laps,
+                    fuel_level=data.fuel_level,
+                    fuel_per_lap_avg=fuel_per_lap,
+                    last_lap_fuel=fuel_per_lap,  # app passes avg; last handled in dashboard
+                    avg_lap_time_ms=data.last_lap_ms,
+                    avg_wear=self._stint.current_avg_wear,
+                    wear_per_lap=self._stint.wear_per_lap,
+                    tyre_wear_limit=cfg.tyre_wear_limit_pct,
+                    pit_buffer_laps=cfg.pit_buffer_laps,
+                    pit_loss_time_s=cfg.pit_loss_time_s,
+                )
+
+            ar = self._advisor_report
+            if ar is not None:
+                # ── Strategy check-in ─────────────────────────────────────────
+                if cfg.voice_alert_strategy_check_in and self._advisor.should_check_in(
+                    clap, data.total_laps, cfg.strategy_check_in_interval_laps, self._check_in_fired
+                ):
+                    self._check_in_fired.add(clap)
+                    if ar.fuel_delta >= 0 and ar.recommended_stops == 0:
+                        tmpl = "strategy_check_in_ok"
+                        text = format_alert(tmpl, lang,
+                                            laps=ar.laps_remaining)
+                    else:
+                        pit_lap = result.recommended_pit_lap if result else clap + max(1, int(ar.laps_to_fuel_out_avg) - 1)
+                        tmpl = "strategy_check_in"
+                        text = format_alert(tmpl, lang,
+                                            fuel_laps=ar.laps_to_fuel_out_avg,
+                                            pit_lap=pit_lap)
+                    if text:
+                        alerts.append(text)
+
+                # ── Strategy revised ──────────────────────────────────────────
+                if (cfg.voice_alert_strategy_revised
+                        and ar.strategy_health == "REVISE"
+                        and result is not None):
+                    new_pit = result.recommended_pit_lap
+                    if new_pit != self._last_revised_pit_lap:
+                        text = self._maybe_fire_interval(
+                            "strategy_revised", now, 60.0,
+                            format_alert("strategy_revised", lang,
+                                         new_lap=new_pit,
+                                         old_lap=self._last_revised_pit_lap if self._last_revised_pit_lap > 0 else new_pit),
+                        )
+                        if text:
+                            self._last_revised_pit_lap = new_pit
+                            alerts.append(text)
+
+                # ── Fuel save recommend ───────────────────────────────────────
+                if (cfg.voice_alert_fuel_save_recommend
+                        and 0 < ar.fuel_delta < cfg.fuel_save_delta_l
+                        and ar.fuel_save_laps > 0):
+                    text = self._maybe_fire_interval(
+                        f"fuel_save_rec_{clap}", now, 9999.0,
+                        format_alert("fuel_save_recommend", lang,
+                                     save_laps=ar.fuel_save_laps),
+                    )
+                    if text:
+                        alerts.append(text)
+
         return alerts
 
     @property
@@ -494,6 +568,9 @@ class AlertEngine:
         self._window_fuel_fired.clear()
         self._last_fuel_alert_lap = -1
         self._race_report_fired.clear()
+        self._advisor_report = None
+        self._check_in_fired.clear()
+        self._last_revised_pit_lap = -1
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s
