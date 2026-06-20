@@ -624,7 +624,11 @@ class DashboardApp:
                         self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
                         self._config.voice_alert_overtake,
                         self._config.voice_alert_laps_to_finish,
-                        self._config.voice_alert_fuel_save)
+                        self._config.voice_alert_fuel_save,
+                        self._config.voice_alert_strategy_check_in,
+                        self._config.voice_alert_strategy_revised,
+                        self._config.voice_alert_fuel_save_recommend,
+                        self._config.voice_alert_advisor_pit_window)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -709,6 +713,7 @@ class DashboardApp:
                         self._config.voice_alert_strategy_check_in = self._settings.voice_alert_strategy_check_in
                         self._config.voice_alert_strategy_revised = self._settings.voice_alert_strategy_revised
                         self._config.voice_alert_fuel_save_recommend = self._settings.voice_alert_fuel_save_recommend
+                        self._config.voice_alert_advisor_pit_window = self._settings.voice_alert_advisor_pit_window
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -762,7 +767,8 @@ class DashboardApp:
                         self._config.voice_alert_fuel_save,
                         self._config.voice_alert_strategy_check_in,
                         self._config.voice_alert_strategy_revised,
-                        self._config.voice_alert_fuel_save_recommend)
+                        self._config.voice_alert_fuel_save_recommend,
+                        self._config.voice_alert_advisor_pit_window)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

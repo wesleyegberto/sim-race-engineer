@@ -218,6 +218,16 @@ _SETTINGS_LEFT = [
     ("section", "VOICE", "voice-cmd"),
     ("item",  "Voice enabled",     "master toggle · enables or disables all voice alerts",         C_TEXT),
     ("item",  "Language · Test",   "EN = English · PT = Portuguese · Test plays a sample alert",  C_TEXT),
+
+    ("section", "CAR HEALTH ALERTS", "engine"),
+    ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
+    ("item",  "Tyre temp",         "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre inner temp",   "warn when any inner zone >110°C · wear indicator",            C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre pressure",     "warn below 160 kPa or above 250 kPa · once per lap",         C_RED, "tire-pressure"),
+
+    ("section", "TYRE WEAR ALERT", "tire-wheel"),
+    ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
+    ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
 ]
 
 _SETTINGS_RIGHT = [
@@ -240,16 +250,7 @@ _SETTINGS_RIGHT = [
     ("item",  "Check-in",           "periodic strategy briefing: fuel laps, recommended box lap · fires at 33%/66% of race (≥10 laps) or every 3 laps (short races)", C_ACCENT, "strategy"),
     ("item",  "Revised",            "fires when strategy health changes to REVISE: pit lap has shifted by >2 laps from plan", C_ORANGE, "strategy"),
     ("item",  "Fuel save+",         "fires when fuel delta is between 0 and fuel_save_delta_l (default 2 L): suggests lift-and-coast to extend range", C_ORANGE, "fuel"),
-
-    ("section", "CAR HEALTH ALERTS", "engine"),
-    ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
-    ("item",  "Tyre temp",         "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),
-    ("item",  "Tyre inner temp",   "warn when any inner zone >110°C · wear indicator",            C_ORANGE, "tire-wheel"),
-    ("item",  "Tyre pressure",     "warn below 160 kPa or above 250 kPa · once per lap",         C_RED, "tire-pressure"),
-
-    ("section", "TYRE WEAR ALERT", "tire-wheel"),
-    ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
-    ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
+    ("item",  "Pit window",         "fires 1–2 laps before advisor pit window opens, and once when the window is active: 'box window open, N laps to box'", C_ACCENT, "strategy"),
 ]
 
 _LAP_RECORD_LEFT = [

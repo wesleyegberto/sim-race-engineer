@@ -87,6 +87,7 @@ Each alert has an independent cooldown to avoid repetition.
 | Strategy check-in | Proactive fuel + box lap briefing — at 33%/66% (≥ 10 laps) or every 3 laps | once/lap |
 | Strategy revised | Pit lap shifted > 2 laps from ideal — prompts driver to adapt | 60 s |
 | Fuel save+ | Fuel delta 0–2 L — lift and coast to extend range | once/lap |
+| Advisor pit window | Approaching alert 1–2 laps before advisor window opens; entry alert when window is active | once/window |
 | Overtake | Position gained → encouragement; position lost → support | 15 s |
 
 All thresholds are configurable in `~/simracing/simracing.conf`.

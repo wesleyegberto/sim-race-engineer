@@ -51,6 +51,7 @@ class SettingsPanel:
         self._voice_alert_strategy_check_in = True
         self._voice_alert_strategy_revised = True
         self._voice_alert_fuel_save_recommend = True
+        self._voice_alert_advisor_pit_window = True
         self._recording_on_start = True
         self._voice_wear_thr_text = "10"
         self._active_field: str | None = None  # "ip" | "wear_thr"
@@ -127,6 +128,7 @@ class SettingsPanel:
         self._voice_chk_strategy_check_in   = pygame.Rect(field_x, alerts_y + 352, 18, 18)
         self._voice_chk_strategy_revised    = pygame.Rect(col2_x,  alerts_y + 352, 18, 18)
         self._voice_chk_fuel_save_recommend = pygame.Rect(field_x, alerts_y + 374, 18, 18)
+        self._voice_chk_advisor_pit_window  = pygame.Rect(col2_x,  alerts_y + 374, 18, 18)
 
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
@@ -164,6 +166,7 @@ class SettingsPanel:
         voice_alert_strategy_check_in: bool = True,
         voice_alert_strategy_revised: bool = True,
         voice_alert_fuel_save_recommend: bool = True,
+        voice_alert_advisor_pit_window: bool = True,
     ) -> None:
         self._ip_text = current_ip
         self._fuel_estimation = fuel_estimation
@@ -191,6 +194,7 @@ class SettingsPanel:
         self._voice_alert_strategy_check_in = voice_alert_strategy_check_in
         self._voice_alert_strategy_revised = voice_alert_strategy_revised
         self._voice_alert_fuel_save_recommend = voice_alert_fuel_save_recommend
+        self._voice_alert_advisor_pit_window = voice_alert_advisor_pit_window
         self.active = True
         self._active_field = None
         self._cursor_timer = 0
@@ -271,6 +275,7 @@ class SettingsPanel:
                 (self._voice_chk_strategy_check_in,   "_voice_alert_strategy_check_in"),
                 (self._voice_chk_strategy_revised,    "_voice_alert_strategy_revised"),
                 (self._voice_chk_fuel_save_recommend, "_voice_alert_fuel_save_recommend"),
+                (self._voice_chk_advisor_pit_window,  "_voice_alert_advisor_pit_window"),
             ):
                 if chk.collidepoint(pos) and self._voice_enabled:
                     setattr(self, attr, not getattr(self, attr))
@@ -488,6 +493,7 @@ class SettingsPanel:
             (self._voice_chk_strategy_check_in,   self._voice_alert_strategy_check_in,   "Check-in"),
             (self._voice_chk_strategy_revised,    self._voice_alert_strategy_revised,    "Revised"),
             (self._voice_chk_fuel_save_recommend, self._voice_alert_fuel_save_recommend, "Fuel save+"),
+            (self._voice_chk_advisor_pit_window,  self._voice_alert_advisor_pit_window,  "Pit window"),
         ):
             enabled = self._voice_enabled
             pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
@@ -615,6 +621,10 @@ class SettingsPanel:
     @property
     def voice_alert_fuel_save_recommend(self) -> bool:
         return self._voice_alert_fuel_save_recommend
+
+    @property
+    def voice_alert_advisor_pit_window(self) -> bool:
+        return self._voice_alert_advisor_pit_window
 
     @property
     def voice_tyre_wear_threshold_pct(self) -> float:

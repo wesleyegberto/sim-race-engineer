@@ -48,6 +48,8 @@ class AlertEngine:
         self._check_in_fired: set[int] = set()        # laps where check-in already fired
         self._last_revised_pit_lap: int = -1          # track when recommended pit changes
         self._last_revised_window: tuple[int, int] = (-1, -1)  # previous stop window
+        self._adv_win_approaching_fired: set[tuple[int, int]] = set()  # (win_idx, lap)
+        self._adv_win_entry_fired: set[int] = set()   # window indices that got "open" alert
 
         self._apply_planned_strategy(config)
 
@@ -539,6 +541,30 @@ class AlertEngine:
                     if text:
                         alerts.append(text)
 
+                # ── Advisor pit window approaching / open ─────────────────────
+                if cfg.voice_alert_advisor_pit_window:
+                    for idx, (open_lap, close_lap) in enumerate(ar.stop_windows):
+                        laps_to_open = open_lap - clap
+                        if 1 <= laps_to_open <= 2:
+                            key = (idx, clap)
+                            if key not in self._adv_win_approaching_fired:
+                                text = self._maybe_fire_interval(
+                                    f"adv_win_approaching_{idx}_{clap}", now, 9999.0,
+                                    format_alert("advisor_pit_approaching", lang,
+                                                 laps=laps_to_open),
+                                )
+                                if text:
+                                    self._adv_win_approaching_fired.add(key)
+                                    alerts.append(text)
+                        elif open_lap <= clap <= close_lap:
+                            if idx not in self._adv_win_entry_fired:
+                                laps_available = close_lap - clap + 1
+                                text = format_alert("advisor_pit_open", lang,
+                                                    laps=laps_available)
+                                if text:
+                                    self._adv_win_entry_fired.add(idx)
+                                    alerts.append(text)
+
         return alerts
 
     @property
@@ -586,6 +612,8 @@ class AlertEngine:
         self._check_in_fired.clear()
         self._last_revised_pit_lap = -1
         self._last_revised_window = (-1, -1)
+        self._adv_win_approaching_fired.clear()
+        self._adv_win_entry_fired.clear()
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s

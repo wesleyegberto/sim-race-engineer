@@ -79,6 +79,7 @@ class AppConfig:
         self.voice_alert_strategy_check_in: bool = True
         self.voice_alert_strategy_revised: bool = True
         self.voice_alert_fuel_save_recommend: bool = True
+        self.voice_alert_advisor_pit_window: bool = True
         self.voice_engine_temp_threshold: float = 105.0
         self.voice_tire_temp_threshold: float = 100.0
         self.voice_tire_inner_temp_threshold: float = 110.0
@@ -164,6 +165,7 @@ class AppConfig:
             "alert_strategy_check_in": str(self.voice_alert_strategy_check_in),
             "alert_strategy_revised": str(self.voice_alert_strategy_revised),
             "alert_fuel_save_recommend": str(self.voice_alert_fuel_save_recommend),
+            "alert_advisor_pit_window": str(self.voice_alert_advisor_pit_window),
             "engine_temp_threshold": str(self.voice_engine_temp_threshold),
             "tire_temp_threshold": str(self.voice_tire_temp_threshold),
             "tire_inner_temp_threshold": str(self.voice_tire_inner_temp_threshold),
@@ -226,6 +228,7 @@ class AppConfig:
         self.voice_alert_strategy_check_in = cp.getboolean(self._VOICE, "alert_strategy_check_in", fallback=True)
         self.voice_alert_strategy_revised = cp.getboolean(self._VOICE, "alert_strategy_revised", fallback=True)
         self.voice_alert_fuel_save_recommend = cp.getboolean(self._VOICE, "alert_fuel_save_recommend", fallback=True)
+        self.voice_alert_advisor_pit_window = cp.getboolean(self._VOICE, "alert_advisor_pit_window", fallback=True)
         self.voice_engine_temp_threshold = cp.getfloat(self._VOICE, "engine_temp_threshold", fallback=105.0)
         self.voice_tire_temp_threshold = cp.getfloat(self._VOICE, "tire_temp_threshold", fallback=100.0)
         self.voice_tire_inner_temp_threshold = cp.getfloat(self._VOICE, "tire_inner_temp_threshold", fallback=110.0)
