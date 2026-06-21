@@ -1,5 +1,6 @@
 """Race engineer strategy advisor: derives proactive strategy recommendations."""
 
+import math
 from dataclasses import dataclass
 
 from .planned_strategy import PlannedStrategy
@@ -56,13 +57,9 @@ class StrategyReport:
 
 def _check_in_laps(total_laps: int, interval: int) -> set[int]:
     """Return set of laps where a strategy check-in should fire."""
-    if total_laps <= 0:
+    if total_laps <= 0 or interval <= 0:
         return set()
-    if total_laps >= 10:
-        # Fire at ~33% and ~66% of the race
-        return {max(1, total_laps // 3), max(1, (total_laps * 2) // 3)}
-    # Short race: fire every `interval` laps
-    return {lap for lap in range(interval, total_laps, interval)}
+    return set(range(interval, total_laps, interval))
 
 
 class StrategyAdvisor:
@@ -119,10 +116,13 @@ class StrategyAdvisor:
             recommended_stops = 0
             stop_windows: list[tuple[int, int]] = []
         else:
-            stints_needed = int(-fuel_delta / (fuel_per_lap_avg * max(1, laps_to_fuel_out_avg))) + 1
+            refuel_capacity = fuel_capacity if fuel_capacity > 0 else fuel_level
+            stints_needed = math.ceil(-fuel_delta / refuel_capacity)
             recommended_stops = max(1, min(3, stints_needed))
+            # Use the more conservative fuel estimate to bound the first stop
+            fuel_out_lap = current_lap + int(min(laps_to_fuel_out_avg, laps_to_fuel_out_last))
             stop_windows = _compute_stop_windows(
-                current_lap, total_laps, recommended_stops, pit_buffer_laps
+                current_lap, total_laps, recommended_stops, pit_buffer_laps, fuel_out_lap
             )
 
         # Strategy health vs planned
@@ -132,6 +132,7 @@ class StrategyAdvisor:
             fuel_delta=fuel_delta,
             recommended_stops=recommended_stops,
             planned_strategy=planned_strategy,
+            stop_windows=stop_windows,
         )
 
         return StrategyReport(
@@ -185,18 +186,29 @@ def _compute_stop_windows(
     total_laps: int,
     num_stops: int,
     buffer_laps: int,
+    fuel_out_lap: int = 0,
 ) -> list[tuple[int, int]]:
-    """Distribute pit stops evenly across remaining laps."""
-    laps_remaining = max(0, total_laps - current_lap)
+    """Distribute pit stops evenly across remaining laps.
+
+    fuel_out_lap: if > 0, caps the first stop window so the car doesn't run
+    out of fuel before reaching it.
+    """
+    laps_remaining = max(0, total_laps - current_lap + 1)
     if num_stops <= 0 or laps_remaining <= 0:
         return []
-    segment = laps_remaining // (num_stops + 1)
+    segment = max(1, laps_remaining // (num_stops + 1))
     windows: list[tuple[int, int]] = []
     for i in range(1, num_stops + 1):
         target = current_lap + segment * i
         open_lap = max(current_lap + 1, target - buffer_laps)
         close_lap = min(total_laps - 1, target + buffer_laps)
-        windows.append((open_lap, close_lap))
+        if i == 1 and fuel_out_lap > 0:
+            # Must pit before running dry; leave 1-lap safety margin
+            fuel_cap = fuel_out_lap - 1
+            close_lap = min(close_lap, fuel_cap)
+            open_lap = min(open_lap, close_lap)
+        if open_lap <= close_lap:
+            windows.append((open_lap, close_lap))
     return windows
 
 
@@ -206,6 +218,7 @@ def _evaluate_health(
     fuel_delta: float,
     recommended_stops: int,
     planned_strategy: PlannedStrategy | None,
+    stop_windows: list[tuple[int, int]],
 ) -> tuple[str, int, str | None]:
     """Return (strategy_health, deviation_laps, deviation_alert)."""
     if fuel_delta < -5.0:
@@ -218,24 +231,29 @@ def _evaluate_health(
 
     next_stop = planned_strategy.next_stop(current_lap)
     if next_stop is None:
+        # item 4: 2-lap grace period so pit-detected telemetry lag doesn't cause false REVISE
+        missed_any = any(
+            not s.done and s.window_close < current_lap - 2
+            for s in planned_strategy.stops
+        )
+        if missed_any:
+            return "REVISE", 0, "Missed planned pit stop"
         return "ON_PLAN", 0, None
 
-    # Compare planned target vs recommended based on fuel
     planned_target = next_stop.target_lap
-    if recommended_stops == 0 and planned_strategy.stops:
-        # Can finish direct but user planned stops — minor deviation
-        deviation = planned_target - total_laps
-        if abs(deviation) <= 3:
-            return "ON_PLAN", 0, None
-        return "REVISE", abs(deviation), "May not need planned stops"
 
-    # Check if planned stop is within reasonable range
-    laps_remaining = max(0, total_laps - current_lap)
-    if laps_remaining > 0:
-        segment = laps_remaining // max(1, recommended_stops + 1)
-        ideal_next = current_lap + segment
-        deviation = abs(planned_target - ideal_next)
-        if deviation > 5:
-            return "REVISE", deviation, f"Planned lap {planned_target}, ideal ~{ideal_next}"
+    # item 3: only flag "may not need stops" after fuel average has stabilised (5+ laps)
+    if recommended_stops == 0 and current_lap >= 5:
+        return "REVISE", 0, "May not need planned stops"
+
+    # item 1: compare against advisor stop_windows (stable) instead of ad-hoc segment
+    # item 2: tolerance proportional to race length
+    tolerance = max(2, total_laps // 15)
+    if stop_windows:
+        adv_open, adv_close = stop_windows[0]
+        if planned_target < adv_open - tolerance or planned_target > adv_close + tolerance:
+            center = (adv_open + adv_close) // 2
+            deviation = abs(planned_target - center)
+            return "REVISE", deviation, f"Planned lap {planned_target}, ideal ~{center}"
 
     return "ON_PLAN", 0, None

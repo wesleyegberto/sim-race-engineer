@@ -50,6 +50,9 @@ class AlertEngine:
         self._last_revised_window: tuple[int, int] = (-1, -1)  # previous stop window
         self._adv_win_approaching_fired: set[tuple[int, int]] = set()  # (win_idx, lap)
         self._adv_win_entry_fired: set[int] = set()   # window indices that got "open" alert
+        self._prev_fuel_level: float = 0.0            # fuel at start of last completed lap
+        self._last_lap_fuel: float = 0.0              # fuel consumed on the last lap
+        self._lap_time_history: list[int] = []        # rolling last-5 lap times (ms)
 
         self._apply_planned_strategy(config)
 
@@ -66,6 +69,14 @@ class AlertEngine:
         # ── Lap events ────────────────────────────────────────────────────────
         lap = data.current_lap
         if self._prev_lap >= 1 and lap != self._prev_lap:
+            # Track per-lap fuel consumption
+            if self._prev_fuel_level > 0 and data.fuel_level < self._prev_fuel_level:
+                self._last_lap_fuel = self._prev_fuel_level - data.fuel_level
+            # Track rolling lap time history (last 5 laps)
+            if data.last_lap_ms > 0:
+                self._lap_time_history.append(data.last_lap_ms)
+                if len(self._lap_time_history) > 5:
+                    self._lap_time_history.pop(0)
             total: int = data.total_laps
 
             if cfg.voice_alert_final_lap and total > 0 and lap == total:
@@ -131,6 +142,7 @@ class AlertEngine:
                             alerts.append(report)
 
         self._prev_lap = lap
+        self._prev_fuel_level = data.fuel_level
         if data.best_lap_ms > 0:
             self._prev_best_lap_ms = data.best_lap_ms
 
@@ -212,7 +224,7 @@ class AlertEngine:
                     alerts.append(text)
 
         # ── Tire inner zone temp (proxy for wear) ─────────────────────────────
-        if cfg.voice_alert_tire_inner_temp and data.tires and self._stint.stint_laps > 0:
+        if cfg.voice_alert_tire_inner_temp and data.tires and data.tyre_wear_available and self._stint.stint_laps > 0:
             inner_threshold: float = cfg.voice_tire_inner_temp_threshold
             inner_temps = [t.inner_temp for t in data.tires]
             if any(t > inner_threshold for t in inner_temps):
@@ -374,7 +386,7 @@ class AlertEngine:
                         if pit_is_fuel:
                             self._last_fuel_alert_lap = clap
                         alerts.append(text)
-            elif 2 <= result.laps_to_pit <= 5 and result.pit_reason in ("TYRES", "FUEL+TYRES") and not is_last_lap:
+            elif 2 <= result.laps_to_pit <= 5 and result.pit_reason in ("TYRES", "FUEL+TYRES") and data.tyre_wear_available and not is_last_lap:
                 text = self._maybe_fire_interval(
                     f"strategy_warn_{clap}", now, 9999.0,
                     format_alert("strategy_tyres_warn", lang,
@@ -451,7 +463,7 @@ class AlertEngine:
                 if text:
                     alerts.append(text)
 
-            elif sa == "TYRE_WARNING":
+            elif sa == "TYRE_WARNING" and data.tyre_wear_available:
                 life_lap = int(data.current_lap + ps.tyre_life_remaining_laps)
                 text = self._maybe_fire_interval(
                     f"plan_tyre_warn_{sn}_{clap}", now, 9999.0,
@@ -466,13 +478,19 @@ class AlertEngine:
         if data.total_laps > 0 and data.current_lap > 0 and not is_last_lap:
             self._advisor_report = None  # computed below if data is sufficient
             if fuel_per_lap > 0:
+                avg_lap_ms = (
+                    int(sum(self._lap_time_history) / len(self._lap_time_history))
+                    if self._lap_time_history else 0
+                )
                 self._advisor_report = self._advisor.compute(
                     current_lap=data.current_lap,
                     total_laps=data.total_laps,
                     fuel_level=data.fuel_level,
+                    fuel_capacity=data.fuel_capacity,
                     fuel_per_lap_avg=fuel_per_lap,
-                    last_lap_fuel=fuel_per_lap,  # app passes avg; last handled in dashboard
-                    avg_lap_time_ms=data.last_lap_ms,
+                    last_lap_fuel=self._last_lap_fuel if self._last_lap_fuel > 0 else fuel_per_lap,
+                    avg_lap_time_ms=avg_lap_ms,
+                    lap_time_history=list(self._lap_time_history),
                     avg_wear=self._stint.current_avg_wear,
                     wear_per_lap=self._stint.wear_per_lap,
                     tyre_wear_limit=cfg.tyre_wear_limit_pct,
@@ -516,7 +534,13 @@ class AlertEngine:
                     new_pit = result.recommended_pit_lap
                     new_win = ar.stop_windows[0] if ar.stop_windows else (new_pit, new_pit)
                     if new_pit != self._last_revised_pit_lap:
-                        if self._last_revised_pit_lap > 0:
+                        if self._last_revised_pit_lap == -1:
+                            text = self._maybe_fire_interval(
+                                "strategy_first_revise", now, 60.0,
+                                format_alert("strategy_first_revise", lang,
+                                             new_window=pit_window_text(new_win[0], new_win[1], lang)),
+                            )
+                        else:
                             old_win = self._last_revised_window
                             text = self._maybe_fire_interval(
                                 "strategy_revised", now, 60.0,
@@ -524,8 +548,8 @@ class AlertEngine:
                                              new_window=pit_window_text(new_win[0], new_win[1], lang),
                                              old_window=pit_window_text(old_win[0], old_win[1], lang)),
                             )
-                            if text:
-                                alerts.append(text)
+                        if text:
+                            alerts.append(text)
                         self._last_revised_pit_lap = new_pit
                         self._last_revised_window = new_win
 
@@ -614,6 +638,9 @@ class AlertEngine:
         self._last_revised_window = (-1, -1)
         self._adv_win_approaching_fired.clear()
         self._adv_win_entry_fired.clear()
+        self._prev_fuel_level = 0.0
+        self._last_lap_fuel = 0.0
+        self._lap_time_history.clear()
 
     def _maybe_fire(self, key: str, now: float, text: str) -> str | None:
         interval: float = self._config.voice_min_interval_s

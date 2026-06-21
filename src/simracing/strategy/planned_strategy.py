@@ -59,6 +59,10 @@ class PlannedStrategyMonitor:
     def __init__(self) -> None:
         self._strategy: PlannedStrategy | None = None
 
+    @property
+    def strategy(self) -> "PlannedStrategy | None":
+        return self._strategy
+
     def set_strategy(self, strategy: PlannedStrategy | None) -> None:
         self._strategy = strategy
 

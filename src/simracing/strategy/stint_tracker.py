@@ -60,8 +60,8 @@ class StintTracker:
             self._wear_deltas = []
             return True
 
+        self.stint_laps += 1
         if wear_delta > 0:
-            self.stint_laps += 1
             self._wear_deltas.append(wear_delta)
             self.wear_per_lap = sum(self._wear_deltas) / len(self._wear_deltas)
 

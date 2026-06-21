@@ -408,6 +408,7 @@ class DashboardApp:
                     tyre_wear_limit=self._config.tyre_wear_limit_pct,
                     pit_buffer_laps=self._config.pit_buffer_laps,
                     pit_loss_time_s=self._config.pit_loss_time_s,
+                    planned_strategy=self._planned_monitor.strategy,
                     race_position=d.race_position,
                     cars_in_race=d.cars_in_race,
                     last_lap_ms=d.last_lap_ms,
@@ -1188,8 +1189,8 @@ class DashboardApp:
         stint = self._stint
         if stint.stint_laps > 0 or sr is not None:
             sep()
-            row("STINT", f"{stint.stint_laps} laps", icon=self._icon_pit_stop)
             if self._data and self._data.tyre_wear_available:
+                row("STINT", f"{stint.stint_laps} laps", icon=self._icon_pit_stop)
                 wear_pct = int(stint.current_avg_wear * 100)
                 wear_color = C_RED if wear_pct >= 85 else (C_ORANGE if wear_pct >= 70 else C_TEXT)
                 row("TYRES", f"{wear_pct}%", wear_color, icon=self._icon_pit_stop)
@@ -1202,6 +1203,16 @@ class DashboardApp:
                     auto_color = C_ORANGE
                 auto_val = "OK" if sr.can_finish_direct else f"lap {sr.recommended_pit_lap}"
                 row("EST PIT", auto_val, auto_color, icon=self._icon_pit_stop)
+
+                adv = self._strategy_report
+                if adv is not None and adv.stop_windows:
+                    w = adv.stop_windows[0]
+                    adv_val = f"L{w[0]}" if w[0] == w[1] else f"L{w[0]}–{w[1]}"
+                    health = adv.strategy_health
+                    adv_color = (C_RED if health == "CRITICAL"
+                                 else C_ORANGE if health == "REVISE"
+                                 else C_ACCENT)
+                    row("ADV WIN", adv_val, adv_color, icon=self._icon_pit_stop)
 
             if ps is not None and ps.next_stop is not None:
                 sa = ps.strategy_alert
