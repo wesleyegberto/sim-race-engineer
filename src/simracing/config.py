@@ -44,6 +44,7 @@ class AppConfig:
 
     _VOICE = "voice"
     _STRATEGY = "strategy"
+    _LLM = "llm"
 
     def __init__(self) -> None:
         self.device_ip: str = ""
@@ -109,6 +110,12 @@ class AppConfig:
         self.planned_stops: int = 0
         # Each window is (open_lap, close_lap); if open==close it's a single-lap stop.
         self.planned_stop_windows: list[tuple[int, int]] = []
+
+        # LLM
+        self.llm_backend: str = "openai"
+        self.llm_model: str = "gemma4:12b"
+        self.llm_api_key: str = ""
+        self.llm_base_url: str = "http://localhost:1234/v1"
 
         # Recording
         self.recording_on_start: bool = True
@@ -192,6 +199,12 @@ class AppConfig:
             "fuel_save_delta_l": str(self.fuel_save_delta_l),
             "lap_time_buffer": str(self.lap_time_buffer),
         }
+        cp[self._LLM] = {
+            "backend": self.llm_backend,
+            "model": self.llm_model,
+            "api_key": self.llm_api_key,
+            "base_url": self.llm_base_url,
+        }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
             cp.write(fh)
@@ -250,5 +263,9 @@ class AppConfig:
         self.strategy_check_in_interval_laps = cp.getint(self._STRATEGY, "strategy_check_in_interval_laps", fallback=3)
         self.fuel_save_delta_l = cp.getfloat(self._STRATEGY, "fuel_save_delta_l", fallback=2.0)
         self.lap_time_buffer = cp.getint(self._STRATEGY, "lap_time_buffer", fallback=3)
+        self.llm_backend = cp.get(self._LLM, "backend", fallback="openai")
+        self.llm_model = cp.get(self._LLM, "model", fallback="gemma4:12b")
+        self.llm_api_key = cp.get(self._LLM, "api_key", fallback="") or os.environ.get("LLM_API_KEY", "")
+        self.llm_base_url = cp.get(self._LLM, "base_url", fallback="http://localhost:1234/v1")
         self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")

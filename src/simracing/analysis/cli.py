@@ -48,8 +48,17 @@ def main() -> None:
 
     callbacks.set_data(laps)
 
+    try:
+        from simracing.config import AppConfig
+        _cfg = AppConfig()
+        llm_backend = _cfg.llm_backend
+        llm_model = _cfg.llm_model
+    except Exception:
+        llm_backend = "ollama"
+        llm_model = "gemma4:12b"
+
     app = Dash(__name__, title="SimRacing Analysis")
-    app.layout = create_layout(sorted(laps.keys()), args.path.name)
+    app.layout = create_layout(sorted(laps.keys()), args.path.name, llm_backend=llm_backend, llm_model=llm_model)
     callbacks.register(app)
 
     url = f"http://127.0.0.1:{args.port}"

@@ -170,6 +170,7 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
 
     clutch = struct.unpack_from("<f", buf, 0xF4)[0]
     handbrake = struct.unpack_from("<f", buf, 0x110)[0]
+    car_code = struct.unpack_from("<i", buf, 0x124)[0]
 
     # Tire detailed data: FL=0, FR=1, RL=2, RR=3
     rps_offsets  = [0xA4, 0xA8, 0xAC, 0xB0]
@@ -239,4 +240,5 @@ def parse(raw: bytes) -> Optional[TelemetryData]:
         lights_on=lights_on,
         high_beam=high_beam,
         packet_id=packet_id,
+        car_code=car_code,
     )

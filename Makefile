@@ -16,7 +16,7 @@ install: install-sys-deps
 	$(UV) venv $(VENV)
 	CFLAGS="-I$(SDL2_PREFIX)/include -I$(SDL2_PREFIX)/include/SDL2" \
 	LDFLAGS="-L$(SDL2_PREFIX)/lib" \
-	$(UV) pip install -e ".[dev,voice,analysis]"
+	$(UV) pip install -e ".[dev,voice,analysis,advisor]"
 
 run run-voice:
 	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simracing.main --voice

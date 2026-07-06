@@ -85,6 +85,9 @@ class TelemetryData:
     # Raw timestamp from the game packet (monotonic counter)
     packet_id: int = 0
 
+    # Car identifier
+    car_code: int = 0
+
     @property
     def speed_kmh(self) -> float:
         return self.speed_ms * 3.6

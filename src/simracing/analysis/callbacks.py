@@ -6,7 +6,6 @@ import pandas as pd
 # Module-level storage (single-user local tool — no concurrency issues)
 _ALL_LAPS: dict[int, pd.DataFrame] = {}
 
-
 def set_data(laps: dict[int, pd.DataFrame]) -> None:
     global _ALL_LAPS
     _ALL_LAPS = laps
@@ -45,8 +44,18 @@ def _is_trivial(dfs: dict[int, pd.DataFrame]) -> str:
     return ""
 
 
+def _car_name_from_df(df: pd.DataFrame) -> str:
+    from simracing.analysis.setup_advisor.aggregator import lookup_car_name
+
+    if "car_code" not in df.columns:
+        return ""
+    code = int(df["car_code"].dropna().iloc[0]) if len(df) > 0 else 0
+    name = lookup_car_name(code)
+    return f"🚗 {name}" if name != "Desconhecido" else ""
+
+
 def register(app) -> None:  # type: ignore[type-arg]
-    from dash import Input, Output
+    from dash import Input, Output, State, no_update
 
     from .charts import build_timeseries, build_track_map, build_tire_temps
 
@@ -58,7 +67,7 @@ def register(app) -> None:  # type: ignore[type-arg]
         Input("color-by", "value"),
         Input("track-axes", "value"),
     )
-    def update_charts(
+    def update_charts(  # type: ignore[return]
         selected_laps: list[int] | None,
         color_by: str,
         axes: str,
@@ -80,3 +89,100 @@ def register(app) -> None:  # type: ignore[type-arg]
             build_timeseries(dfs),
             build_tire_temps(dfs),
         )
+
+    # ── Setup Advisor callbacks ─────────────────────────────────────────────
+
+    @app.callback(
+        Output("advisor-lap-slider-container", "children"),
+        Output("advisor-car-display", "children"),
+        Input("main-tabs", "value"),
+    )
+    def update_advisor_info(tab: str):  # type: ignore[return]
+        from dash import dcc, html
+
+        if tab != "advisor-tab":
+            return no_update, no_update
+
+        if not _ALL_LAPS:
+            return html.Span("Nenhuma sessão carregada.", style={"color": "#666", "fontSize": "12px"}), ""
+
+        laps = sorted(_ALL_LAPS.keys())
+        marks = {n: str(n) for n in laps}
+        slider = dcc.RangeSlider(
+            id="advisor-lap-range",
+            min=laps[0],
+            max=laps[-1],
+            step=1,
+            value=[laps[0], laps[-1]],
+            marks=marks,
+            allowCross=False,
+        )
+        df_first = next(iter(_ALL_LAPS.values()))
+        car_display = _car_name_from_df(df_first)
+        return slider, car_display
+
+    @app.callback(
+        Output("advisor-report", "children"),
+        Input("advisor-run-btn", "n_clicks"),
+        State("advisor-lap-range", "value"),
+        State("advisor-track", "value"),
+        State("advisor-level", "value"),
+        State("advisor-backend", "value"),
+        State("advisor-model", "value"),
+        prevent_initial_call=True,
+    )
+    def run_advisor(  # type: ignore[return]
+        _n_clicks: int,
+        lap_range: list[int] | None,
+        track: str | None,
+        level: str,
+        backend: str,
+        model: str,
+    ) -> str:
+        from simracing.analysis.setup_advisor import aggregator
+        from simracing.analysis.setup_advisor import prompt_builder  # type: ignore[attr-defined]
+        from simracing.analysis.setup_advisor.aggregator import lookup_car_name
+        from simracing.config import AppConfig
+
+        if not _ALL_LAPS:
+            return "_Nenhuma sessão carregada._"
+        if not track:
+            return "_Selecione a pista antes de analisar._"
+
+        if lap_range:
+            lo, hi = int(lap_range[0]), int(lap_range[1])
+            laps_sel = {k: v for k, v in _ALL_LAPS.items() if lo <= k <= hi}
+        else:
+            laps_sel = _ALL_LAPS
+
+        df = pd.concat(laps_sel.values(), ignore_index=True) if laps_sel else pd.concat(_ALL_LAPS.values(), ignore_index=True)
+
+        car_code = 0
+        if "car_code" in df.columns and len(df) > 0:
+            car_code = int(df["car_code"].dropna().iloc[0])  # type: ignore[arg-type]
+        car_name = lookup_car_name(car_code)
+
+        stats = aggregator.compute(df, car_name=car_name)  # type: ignore[arg-type]
+
+        try:
+            cfg = AppConfig()
+            cfg.llm_backend = backend or cfg.llm_backend
+            cfg.llm_model = model or cfg.llm_model
+
+            prompt = prompt_builder.build(
+                stats, track=track, level=level or "basic", lang=cfg.voice_language
+            )
+
+            from simracing.analysis.setup_advisor.llm_client import create_client
+
+            client = create_client(cfg)
+            report = client.generate(prompt)
+        except ImportError as exc:
+            return (
+                f"**SDK não instalado:** {exc}\n\n"
+                "Instale com: `pip install 'simracing[advisor]'`"
+            )
+        except Exception as exc:
+            return f"**Erro ao chamar LLM:** {exc}"
+
+        return report

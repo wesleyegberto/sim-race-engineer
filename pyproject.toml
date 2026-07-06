@@ -27,6 +27,11 @@ analysis = [
     "plotly>=5.20",
     "dash>=2.17",
 ]
+advisor = [
+    "ollama>=0.4",
+    "anthropic>=0.30",
+    "openai>=1.0",
+]
 
 [project.scripts]
 simracing-engineer = "simracing.main:main"

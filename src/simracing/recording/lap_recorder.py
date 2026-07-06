@@ -50,6 +50,10 @@ Schema (one row per telemetry frame, ~60 Hz):
     full_brake_ticks      int
     throttle_and_brake_ticks int
     coasting_ticks        int
+    car_code              int    — GT7 car identifier (from first frame of lap)
+    tire_fl_pressure … tire_rr_pressure  float  — tyre pressure (kPa)
+    tire_fl_inner … tire_rr_inner        float  — inner tread temp (°C)
+    tire_fl_middle … tire_rr_middle      float  — middle tread temp (°C)
 """
 
 from __future__ import annotations
@@ -81,6 +85,7 @@ class LapData:
     session_type: str = "practice"      # "race" or "practice"
     total_laps_in_race: int = 0         # 0 = unlimited / time-based / practice
     cars_in_race: int = 0
+    car_code: int = 0
 
     # Per-frame lists (one entry per telemetry packet)
     tick:             list[int]   = field(default_factory=list)
@@ -117,6 +122,18 @@ class LapData:
     tcs_active:       list[bool]  = field(default_factory=list)
     asm_active:       list[bool]  = field(default_factory=list)
     rev_limiter:      list[bool]  = field(default_factory=list)
+    tire_fl_pressure: list[float] = field(default_factory=list)
+    tire_fr_pressure: list[float] = field(default_factory=list)
+    tire_rl_pressure: list[float] = field(default_factory=list)
+    tire_rr_pressure: list[float] = field(default_factory=list)
+    tire_fl_inner:    list[float] = field(default_factory=list)
+    tire_fr_inner:    list[float] = field(default_factory=list)
+    tire_rl_inner:    list[float] = field(default_factory=list)
+    tire_rr_inner:    list[float] = field(default_factory=list)
+    tire_fl_middle:   list[float] = field(default_factory=list)
+    tire_fr_middle:   list[float] = field(default_factory=list)
+    tire_rl_middle:   list[float] = field(default_factory=list)
+    tire_rr_middle:   list[float] = field(default_factory=list)
 
     # Aggregated counters
     full_throttle_ticks:      int = 0
@@ -168,6 +185,18 @@ class LapData:
         self.tcs_active.append(d.tcs_active)
         self.asm_active.append(d.asm_active)
         self.rev_limiter.append(d.rev_limiter)
+        self.tire_fl_pressure.append(t[0].pressure if len(t) > 0 else 0.0)
+        self.tire_fr_pressure.append(t[1].pressure if len(t) > 1 else 0.0)
+        self.tire_rl_pressure.append(t[2].pressure if len(t) > 2 else 0.0)
+        self.tire_rr_pressure.append(t[3].pressure if len(t) > 3 else 0.0)
+        self.tire_fl_inner.append(t[0].inner_temp if len(t) > 0 else 0.0)
+        self.tire_fr_inner.append(t[1].inner_temp if len(t) > 1 else 0.0)
+        self.tire_rl_inner.append(t[2].inner_temp if len(t) > 2 else 0.0)
+        self.tire_rr_inner.append(t[3].inner_temp if len(t) > 3 else 0.0)
+        self.tire_fl_middle.append(t[0].middle_temp if len(t) > 0 else 0.0)
+        self.tire_fr_middle.append(t[1].middle_temp if len(t) > 1 else 0.0)
+        self.tire_rl_middle.append(t[2].middle_temp if len(t) > 2 else 0.0)
+        self.tire_rr_middle.append(t[3].middle_temp if len(t) > 3 else 0.0)
 
         # Aggregated counters
         if d.throttle >= _FULL_THROTTLE:
@@ -233,6 +262,19 @@ class LapData:
             "full_brake_ticks":       [self.full_brake_ticks] * n,
             "throttle_and_brake_ticks": [self.throttle_and_brake_ticks] * n,
             "coasting_ticks":         [self.coasting_ticks] * n,
+            "car_code":               [self.car_code] * n,
+            "tire_fl_pressure":       self.tire_fl_pressure,
+            "tire_fr_pressure":       self.tire_fr_pressure,
+            "tire_rl_pressure":       self.tire_rl_pressure,
+            "tire_rr_pressure":       self.tire_rr_pressure,
+            "tire_fl_inner":          self.tire_fl_inner,
+            "tire_fr_inner":          self.tire_fr_inner,
+            "tire_rl_inner":          self.tire_rl_inner,
+            "tire_rr_inner":          self.tire_rr_inner,
+            "tire_fl_middle":         self.tire_fl_middle,
+            "tire_fr_middle":         self.tire_fr_middle,
+            "tire_rl_middle":         self.tire_rl_middle,
+            "tire_rr_middle":         self.tire_rr_middle,
         })
 
 
@@ -337,6 +379,7 @@ class LapRecorder:
                 session_type=session_type,
                 total_laps_in_race=d.total_laps,
                 cars_in_race=d.cars_in_race,
+                car_code=d.car_code,
             )
             self._prev_lap = lap_num
             log.info("LapRecorder — lap %d started", lap_num)
