@@ -40,8 +40,8 @@ _GT7_TRACKS = [
     "Laguna Seca",
     "Lake Louise",
     "Mount Panorama Motor Racing Circuit",
-    "Nürburgring Grand Prix Circuit",
-    "Nürburgring Nordschleife",
+    "Nurburgring Grand Prix Circuit",
+    "Nurburgring Nordschleife",
     "Red Bull Ring",
     "Sardegna Road Track",
     "Special Stage Route X",
@@ -57,8 +57,8 @@ _GT7_TRACKS = [
 _TRACK_OPTIONS = [{"label": t, "value": t} for t in _GT7_TRACKS]
 
 _LEVEL_OPTIONS = [
-    {"label": "Básico (pressão, câmber, diferencial)", "value": "basic"},
-    {"label": "Avançado (+ suspensão, freios, aero)", "value": "advanced"},
+    {"label": "Basic (pressure, camber, differential)", "value": "basic"},
+    {"label": "Advanced (+ suspension, brakes, aero)", "value": "advanced"},
 ]
 
 _BACKEND_OPTIONS = [
@@ -97,12 +97,12 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                     html.Div(
                         style={"marginBottom": "12px"},
                         children=[
-                            html.Label("Voltas a analisar:", style=_LABEL_STYLE),
+                            html.Label("Laps to analyze:", style=_LABEL_STYLE),
                             html.Div(
                                 id="advisor-lap-slider-container",
                                 children=[
                                     html.Span(
-                                        "Selecione uma sessão primeiro.",
+                                        "Select a session first.",
                                         style={"color": "#666", "fontSize": "12px"},
                                     )
                                 ],
@@ -116,11 +116,11 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                             html.Div(
                                 style={"flex": "2", "minWidth": "180px"},
                                 children=[
-                                    html.Label("Pista:", style=_LABEL_STYLE),
+                                    html.Label("Track:", style=_LABEL_STYLE),
                                     dcc.Dropdown(
                                         id="advisor-track",
                                         options=_TRACK_OPTIONS,
-                                        placeholder="Selecione a pista…",
+                                        placeholder="Select track…",
                                         clearable=False,
                                         style=_DROPDOWN_STYLE,
                                     ),
@@ -129,7 +129,7 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                             html.Div(
                                 style={"flex": "2", "minWidth": "200px"},
                                 children=[
-                                    html.Label("Nível de análise:", style=_LABEL_STYLE),
+                                    html.Label("Analysis level:", style=_LABEL_STYLE),
                                     dcc.RadioItems(
                                         id="advisor-level",
                                         options=_LEVEL_OPTIONS,
@@ -161,7 +161,7 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                             html.Div(
                                 style={"flex": "2", "minWidth": "160px"},
                                 children=[
-                                    html.Label("Modelo:", style=_LABEL_STYLE),
+                                    html.Label("Model:", style=_LABEL_STYLE),
                                     dcc.Input(
                                         id="advisor-model",
                                         type="text",
@@ -183,7 +183,7 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                     ),
                     # ── Run button ──────────────────────────────────────────
                     html.Button(
-                        "Analisar Setup",
+                        "Analyze Setup",
                         id="advisor-run-btn",
                         n_clicks=0,
                         style={
@@ -209,8 +209,8 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                             "color": "#ccaa00",
                         },
                         children=(
-                            "⚠ Sugestões baseadas em padrões estatísticos de telemetria. "
-                            "Aplique incrementalmente — teste uma mudança por vez."
+                            "⚠ Suggestions based on telemetry statistical patterns. "
+                            "Apply incrementally — test one change at a time."
                         ),
                     ),
                     # ── Report area ─────────────────────────────────────────
@@ -348,7 +348,7 @@ def create_layout(
                 style={"backgroundColor": _SURFACE},
                 children=[
                     dcc.Tab(
-                        label="Análise",
+                        label="Analysis",
                         value="analysis-tab",
                         style={"backgroundColor": _SURFACE, "color": "#888", "border": f"1px solid {_BORDER}"},
                         selected_style={"backgroundColor": _DARK, "color": _ACCENT, "border": f"1px solid {_BORDER}"},

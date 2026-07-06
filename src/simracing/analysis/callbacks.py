@@ -32,14 +32,14 @@ def _empty_fig(msg: str, height: int = 300):  # type: ignore[return]
 def _is_trivial(dfs: dict[int, pd.DataFrame]) -> str:
     """Return a warning string if the data has no meaningful variation, else ''."""
     if not dfs:
-        return "Nenhuma volta selecionada."
+        return "No lap selected."
     all_df = pd.concat(dfs.values(), ignore_index=True)
     max_t = all_df["lap_time_s"].max().item() if "lap_time_s" in all_df.columns else 0.0  # type: ignore[union-attr]
     max_spd = all_df["speed_kmh"].max().item() if "speed_kmh" in all_df.columns else 0.0  # type: ignore[union-attr]
     if max_t < 0.01 and max_spd < 1.0:
         return (
-            "Sessão sem dados de pilotagem — timer parado e carro estático.<br>"
-            "Selecione um parquet gravado durante uma volta no circuito."
+            "Session has no driving data — timer stopped and car stationary.<br>"
+            "Select a parquet recorded during a lap on track."
         )
     return ""
 
@@ -51,7 +51,7 @@ def _car_name_from_df(df: pd.DataFrame) -> str:
         return ""
     code = int(df["car_code"].dropna().iloc[0]) if len(df) > 0 else 0
     name = lookup_car_name(code)
-    return f"🚗 {name}" if name != "Desconhecido" else ""
+    return f"🚗 {name}" if name != "Unknown" else ""
 
 
 def register(app) -> None:  # type: ignore[type-arg]
@@ -104,7 +104,7 @@ def register(app) -> None:  # type: ignore[type-arg]
             return no_update, no_update
 
         if not _ALL_LAPS:
-            return html.Span("Nenhuma sessão carregada.", style={"color": "#666", "fontSize": "12px"}), ""
+            return html.Span("No session loaded.", style={"color": "#666", "fontSize": "12px"}), ""
 
         laps = sorted(_ALL_LAPS.keys())
         marks = {n: str(n) for n in laps}
@@ -145,9 +145,9 @@ def register(app) -> None:  # type: ignore[type-arg]
         from simracing.config import AppConfig
 
         if not _ALL_LAPS:
-            return "_Nenhuma sessão carregada._"
+            return "_No session loaded._"
         if not track:
-            return "_Selecione a pista antes de analisar._"
+            return "_Select a track before analyzing._"
 
         if lap_range:
             lo, hi = int(lap_range[0]), int(lap_range[1])
@@ -169,20 +169,22 @@ def register(app) -> None:  # type: ignore[type-arg]
             cfg.llm_backend = backend or cfg.llm_backend
             cfg.llm_model = model or cfg.llm_model
 
+            lang = cfg.voice_language
+            system = prompt_builder.build_system_prompt(lang)
             prompt = prompt_builder.build(
-                stats, track=track, level=level or "basic", lang=cfg.voice_language
+                stats, track=track, level=level or "basic", lang=lang
             )
 
             from simracing.analysis.setup_advisor.llm_client import create_client
 
             client = create_client(cfg)
-            report = client.generate(prompt)
+            report = client.generate(prompt, system=system)
         except ImportError as exc:
             return (
-                f"**SDK não instalado:** {exc}\n\n"
-                "Instale com: `pip install 'simracing[advisor]'`"
+                f"**SDK not installed:** {exc}\n\n"
+                "Install with: `pip install 'simracing[advisor]'`"
             )
         except Exception as exc:
-            return f"**Erro ao chamar LLM:** {exc}"
+            return f"**Error calling LLM:** {exc}"
 
         return report
