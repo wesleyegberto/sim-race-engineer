@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from simracing.analysis.setup_advisor.aggregator import SetupStats
+from simracing.analysis.setup_advisor.gt7_setup_options import build_params_section
 
 _PSI_FACTOR = 0.145038
 _WHEELS = ("FL", "FR", "RL", "RR")
@@ -206,6 +207,87 @@ def _section_pedals(stats: SetupStats, lang: str) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# System prompt (GT7 knowledge base)
+# ---------------------------------------------------------------------------
+
+_SYSTEM_EN = """\
+# Role
+You are an experienced racing engineer specialised in Gran Turismo 7. \
+Your task is to analyse telemetry data and provide concrete, actionable setup \
+suggestions. Always use the structured format defined in the Instructions section \
+of the user message.
+
+# GT7 Tyre Temperature Reference (°C)
+Ideal operating range varies by tyre compound. Use this to assess whether the \
+recorded temperatures indicate the car is within, below, or above the working range.
+
+| Compound         | Too Cold | Optimal     | Too Hot |
+|------------------|----------|-------------|---------|
+| Comfort (H/M/S)  | <50      | 50–80       | >90     |
+| Sport (H/M/S)    | <65      | 65–95       | >105    |
+| Racing Hard (RH) | <70      | 70–100      | >110    |
+| Racing Medium (RM)| <75     | 75–105      | >115    |
+| Racing Soft (RS) | <80      | 80–110      | >120    |
+| Racing Inter (RI)| <60      | 60–90       | >100    |
+
+Inner vs. outer temperature imbalance indicates camber setting:
+- Inner hotter than outer: too much negative camber → reduce camber magnitude
+- Outer hotter than inner: too little negative camber → increase camber magnitude
+- Difference > 10 °C: significant; difference > 20 °C: critical
+
+# GT7 Tyre Pressure Reference
+- Typical target range: 220–290 kPa (32–42 PSI)
+- Higher pressure → firmer tyre, less contact patch, higher peak temps
+- Lower pressure → more compliant, more grip on smooth surfaces, risk of overheating edges
+- Warm/hot pressure matters more than cold; these values are mid-stint averages
+
+""" + build_params_section("en") + "\n"
+
+_SYSTEM_PT = """\
+# Papel
+Você é um engenheiro de corrida experiente especializado em Gran Turismo 7. \
+Sua tarefa é analisar dados de telemetria e fornecer sugestões de setup concretas \
+e acionáveis. Sempre use o formato estruturado definido na seção de Instruções \
+da mensagem do usuário.
+
+# Referência de Temperatura de Pneus no GT7 (°C)
+A faixa ideal de operação varia conforme o composto. Use estes valores para avaliar \
+se as temperaturas registradas indicam que o carro está dentro, abaixo ou acima da \
+faixa de trabalho.
+
+| Composto             | Frio demais | Ideal       | Quente demais |
+|----------------------|-------------|-------------|---------------|
+| Conforto (H/M/S)     | <50         | 50–80       | >90           |
+| Sport (H/M/S)        | <65         | 65–95       | >105          |
+| Racing Hard (RH)     | <70         | 70–100      | >110          |
+| Racing Medium (RM)   | <75         | 75–105      | >115          |
+| Racing Soft (RS)     | <80         | 80–110      | >120          |
+| Racing Inter (RI)    | <60         | 60–90       | >100          |
+
+Desequilíbrio entre temperatura interna e externa indica câmber:
+- Interna mais quente que externa: câmber negativo excessivo → diminuir magnitude
+- Externa mais quente que interna: câmber negativo insuficiente → aumentar magnitude
+- Diferença > 10 °C: significativa; diferença > 20 °C: crítica
+
+# Referência de Pressão de Pneus no GT7
+- Faixa típica de alvo: 220–290 kPa (32–42 PSI)
+- Pressão mais alta → pneu mais rígido, menor área de contato, temperaturas mais altas
+- Pressão mais baixa → mais conformidade, mais aderência em superfícies lisas, risco de superaquecimento nas bordas
+- A pressão a quente (meio do stint) importa mais; estes valores são médias do stint
+
+""" + build_params_section("pt") + "\n"
+
+
+def build_system_prompt(lang: str = "pt") -> str:
+    """Return the GT7 knowledge-base system prompt for the given language."""
+    return _SYSTEM_EN if lang == "en" else _SYSTEM_PT
+
+
+# ---------------------------------------------------------------------------
+# Instructions (appended to the user message)
+# ---------------------------------------------------------------------------
+
 def _instructions_pt(level: str) -> str:
     focus_extra = (
         "\n[Nível Avançado: adicionar suspensão (ride height, rigidez de molas), "
@@ -220,9 +302,13 @@ def _instructions_pt(level: str) -> str:
         "Por favor, analise os dados acima e forneça sugestões de setup no seguinte "
         "formato para CADA aspecto relevante:\n\n"
         "**Diagnóstico:** [o que os dados indicam]\n"
-        "**Sugestão:** [ação concreta a tomar no menu de setup do GT7]\n"
+        "**Sugestão:** [ação concreta a tomar no menu de setup do GT7, com valores numéricos sempre que possível]\n"
         "**Porquê:** [explicação didática do princípio de engenharia]\n"
         f"{focus_extra}\n\n"
+        "Regra importante: seções marcadas como 'dados não disponíveis' indicam que "
+        "aquela métrica não foi coletada nesta sessão. "
+        "**Não faça sugestões para parâmetros cujos dados estejam indisponíveis.** "
+        "Mencione apenas que os dados não foram coletados se for relevante.\n\n"
         "Aviso: estas sugestões são baseadas em padrões estatísticos de telemetria. "
         "Aplique incrementalmente, testando uma mudança por vez."
     )
@@ -242,16 +328,24 @@ def _instructions_en(level: str) -> str:
         "Please analyse the data above and provide setup suggestions in the following "
         "format for EACH relevant aspect:\n\n"
         "**Diagnosis:** [what the data indicates]\n"
-        "**Suggestion:** [concrete action to take in the GT7 setup menu]\n"
+        "**Suggestion:** [concrete action to take in the GT7 setup menu, with numeric values whenever possible]\n"
         "**Why:** [didactic explanation of the engineering principle]\n"
         f"{focus_extra}\n\n"
+        "Important rule: sections marked as 'data not available' indicate that metric "
+        "was not collected in this session. "
+        "**Do not make suggestions for parameters whose data is unavailable.** "
+        "Only mention the absence of data if it is relevant to the analysis.\n\n"
         "Warning: these suggestions are based on statistical telemetry patterns. "
         "Apply them incrementally, testing one change at a time."
     )
 
 
+# ---------------------------------------------------------------------------
+# User message builder
+# ---------------------------------------------------------------------------
+
 def build(stats: SetupStats, track: str, level: str, lang: str = "pt") -> str:
-    """Build a prompt string for the LLM setup advisor.
+    """Build the user-message portion of the LLM setup advisor prompt.
 
     Parameters
     ----------
@@ -262,12 +356,13 @@ def build(stats: SetupStats, track: str, level: str, lang: str = "pt") -> str:
     level:
         Detail level – ``"basic"`` or ``"advanced"`` (case-insensitive).
     lang:
-        Language for instructions – ``"pt"`` (default) or ``"en"``.
+        Language – ``"pt"`` (default) or ``"en"``.
 
     Returns
     -------
     str
-        Full prompt to send as the user message to the LLM.
+        User message to send to the LLM (system prompt built separately via
+        ``build_system_prompt``).
     """
     level = level.lower()
     if level not in {"basic", "advanced"}:
@@ -276,31 +371,17 @@ def build(stats: SetupStats, track: str, level: str, lang: str = "pt") -> str:
     laps_str = ", ".join(str(n) for n in stats.laps_analyzed) or "—"
 
     if lang == "en":
-        persona = (
-            "# Context\n"
-            "You are an experienced racing engineer specialised in Gran Turismo 7. "
-            "Analyse the telemetry data below and provide concrete, actionable setup "
-            "suggestions. Use the structured format defined in the Instructions section."
-        )
         session_header = "# Session Data"
         car_label = "Car"
         track_label = "Track"
         laps_label = "Laps analysed"
     else:
-        persona = (
-            "# Contexto\n"
-            "Você é um engenheiro de corrida experiente especializado em Gran Turismo 7. "
-            "Analise os dados de telemetria abaixo e forneça sugestões de setup concretas "
-            "e acionáveis. Use o formato estruturado definido na seção de Instruções."
-        )
         session_header = "# Dados da Sessão"
         car_label = "Carro"
         track_label = "Pista"
         laps_label = "Voltas analisadas"
 
     sections = [
-        persona,
-        "",
         session_header,
         f"{car_label}: {stats.car_name}",
         f"{track_label}: {track}",

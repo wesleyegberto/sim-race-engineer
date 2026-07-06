@@ -1,7 +1,7 @@
 import pytest
 
 from simracing.analysis.setup_advisor.aggregator import SetupStats
-from simracing.analysis.setup_advisor.prompt_builder import build
+from simracing.analysis.setup_advisor.prompt_builder import build, build_system_prompt
 
 
 @pytest.fixture
@@ -119,3 +119,44 @@ def test_case_insensitive_level(full_stats: SetupStats) -> None:
 def test_invalid_level_raises(full_stats: SetupStats) -> None:
     with pytest.raises(ValueError):
         build(full_stats, "Monza", "expert")
+
+
+# ---------------------------------------------------------------------------
+# build_system_prompt
+# ---------------------------------------------------------------------------
+
+def test_system_prompt_pt_contains_gt7_reference() -> None:
+    result = build_system_prompt("pt")
+    assert "Referência de Temperatura" in result
+    assert "Parâmetros de Setup" in result
+    assert "Racing" in result  # tyre compound table
+
+
+def test_system_prompt_en_contains_gt7_reference() -> None:
+    result = build_system_prompt("en")
+    assert "Tyre Temperature Reference" in result
+    assert "GT7 Setup Parameters" in result
+    assert "Racing" in result
+
+
+def test_system_prompt_pt_contains_pressure_range() -> None:
+    result = build_system_prompt("pt")
+    assert "220" in result and "290" in result  # kPa range
+
+
+def test_system_prompt_en_contains_pressure_range() -> None:
+    result = build_system_prompt("en")
+    assert "220" in result and "290" in result
+
+
+def test_system_prompt_contains_camber_and_toe() -> None:
+    for lang in ("pt", "en"):
+        result = build_system_prompt(lang)
+        assert "amber" in result or "Câmber" in result  # pt or en spelling
+        assert "oe" in result  # Toe / Convergência
+
+
+def test_build_does_not_contain_persona(full_stats: SetupStats) -> None:
+    result = build(full_stats, "Monza", "basic")
+    assert "engenheiro" not in result.lower()
+    assert "racing engineer" not in result.lower()
