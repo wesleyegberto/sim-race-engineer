@@ -3,18 +3,49 @@
 import argparse
 import asyncio
 import logging
+import logging.handlers
 import queue
+import sys
 import threading
+from pathlib import Path
 
 from .config import AppConfig
 from .dashboard.app import DashboardApp
 from .telemetry.gt7 import GT7TelemetryProvider
 from .telemetry.models import TelemetryData
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-)
+_LOG_DIR = Path.home() / "simracing"
+_LOG_FILE = _LOG_DIR / "simracing.log"
+_FMT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+
+
+def _setup_logging(debug: bool = False) -> None:
+    _LOG_DIR.mkdir(parents=True, exist_ok=True)
+    level = logging.DEBUG if debug else logging.INFO
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    console = logging.StreamHandler()
+    console.setFormatter(logging.Formatter(_FMT))
+    root.addHandler(console)
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        _LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+    )
+    file_handler.setFormatter(logging.Formatter(_FMT))
+    root.addHandler(file_handler)
+
+    def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
+        if args.exc_type is SystemExit or args.exc_value is None:
+            return
+        logging.getLogger(__name__).critical(
+            "Unhandled exception in thread %s", args.thread,
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+
+    threading.excepthook = _thread_excepthook
+
+
 log = logging.getLogger(__name__)
 
 # Connection status literals
@@ -122,7 +153,7 @@ class TelemetryController:
         except asyncio.CancelledError:
             pass
         except Exception:
-            pass
+            log.exception("Unexpected error in telemetry thread")
         finally:
             self._loop.close()
             if self.status not in (STATUS_ERROR, STATUS_DISCONNECTED):
@@ -140,9 +171,19 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+    _setup_logging(debug=args.debug)
+    log.info("Starting simracing dashboard (log: %s)", _LOG_FILE)
 
+    try:
+        _run_app(args)
+    except KeyboardInterrupt:
+        log.info("Interrupted by user")
+    except Exception:
+        log.critical("Fatal error — app crashed", exc_info=True)
+        sys.exit(1)
+
+
+def _run_app(args: argparse.Namespace) -> None:
     config = AppConfig()
     if args.device_ip:
         config.device_ip = args.device_ip
