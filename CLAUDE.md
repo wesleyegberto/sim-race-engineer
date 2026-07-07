@@ -52,6 +52,10 @@ Entry point: `src/simracing/main.py` — loads config, starts telemetry, launche
 | `voice/` | `VoiceService` — Piper TTS alerts; each alert has its own cooldown |
 | `analysis/` | Dash/Plotly web viewer for post-session lap review (`cli.py` is entry point) |
 
+## Language
+
+All commit messages and code comments must be written in English.
+
 ## Key Conventions
 
 ### Configuration
