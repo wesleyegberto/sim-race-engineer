@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -118,6 +117,34 @@ class TestOllamaClientGenerate:
         model_arg = call_kwargs.kwargs.get("model") or call_kwargs.args[0]
         assert model_arg == "llama3"
 
+    def test_generate_with_system_prepends_system_message(self) -> None:
+        mock_ollama = MagicMock()
+        mock_client_instance = MagicMock()
+        mock_ollama.Client.return_value = mock_client_instance
+        mock_client_instance.chat.return_value = {"message": {"content": "OK"}}
+
+        with patch.dict(sys.modules, {"ollama": mock_ollama}):
+            client = OllamaClient(base_url="http://x", model="m")
+            client.generate("user prompt", system="you are an engineer")
+
+        messages = mock_client_instance.chat.call_args.kwargs["messages"]
+        assert messages[0] == {"role": "system", "content": "you are an engineer"}
+        assert messages[1] == {"role": "user", "content": "user prompt"}
+
+    def test_generate_without_system_sends_only_user_message(self) -> None:
+        mock_ollama = MagicMock()
+        mock_client_instance = MagicMock()
+        mock_ollama.Client.return_value = mock_client_instance
+        mock_client_instance.chat.return_value = {"message": {"content": "OK"}}
+
+        with patch.dict(sys.modules, {"ollama": mock_ollama}):
+            client = OllamaClient(base_url="http://x", model="m")
+            client.generate("user only")
+
+        messages = mock_client_instance.chat.call_args.kwargs["messages"]
+        assert len(messages) == 1
+        assert messages[0]["role"] == "user"
+
     def test_generate_raises_import_error_when_sdk_missing(self) -> None:
         with patch.dict(sys.modules, {"ollama": None}):  # type: ignore[dict-item]
             client = OllamaClient(base_url="http://x", model="m")
@@ -185,6 +212,28 @@ class TestAnthropicClientGenerate:
         call_kwargs = mock_api.messages.create.call_args
         model_arg = call_kwargs.kwargs.get("model")
         assert model_arg == "claude-opus-4-5"
+
+    def test_generate_with_system_passes_system_kwarg(self) -> None:
+        mock_anthropic = self._make_mock_anthropic("OK")
+
+        with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
+            client = AnthropicClient(api_key="k", model="claude-3-5-sonnet-20241022")
+            client.generate("user msg", system="you are an engineer")
+
+        mock_api = mock_anthropic.Anthropic.return_value
+        call_kwargs = mock_api.messages.create.call_args.kwargs
+        assert call_kwargs.get("system") == "you are an engineer"
+
+    def test_generate_without_system_omits_system_kwarg(self) -> None:
+        mock_anthropic = self._make_mock_anthropic("OK")
+
+        with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
+            client = AnthropicClient(api_key="k", model="claude-3-5-sonnet-20241022")
+            client.generate("user msg")
+
+        mock_api = mock_anthropic.Anthropic.return_value
+        call_kwargs = mock_api.messages.create.call_args.kwargs
+        assert "system" not in call_kwargs
 
     def test_generate_raises_import_error_when_sdk_missing(self) -> None:
         with patch.dict(sys.modules, {"anthropic": None}):  # type: ignore[dict-item]

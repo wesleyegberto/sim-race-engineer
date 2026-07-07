@@ -11,8 +11,8 @@ class LLMClientBase(ABC):
     """Abstract base for LLM clients."""
 
     @abstractmethod
-    def generate(self, prompt: str) -> str:
-        """Send prompt and return generated text."""
+    def generate(self, prompt: str, system: str | None = None) -> str:
+        """Send prompt (and optional system message) and return generated text."""
         ...
 
 
@@ -23,7 +23,7 @@ class OllamaClient(LLMClientBase):
         self.base_url = base_url
         self.model = model
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, system: str | None = None) -> str:
         try:
             import ollama  # type: ignore[import]
         except ImportError:
@@ -31,11 +31,13 @@ class OllamaClient(LLMClientBase):
                 "Instale o pacote ollama: uv pip install -e '.[advisor]'"
             )
 
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
         client = ollama.Client(host=self.base_url)
-        response = client.chat(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        response = client.chat(model=self.model, messages=messages)
         return response["message"]["content"]
 
 
@@ -46,7 +48,7 @@ class AnthropicClient(LLMClientBase):
         self.api_key = api_key
         self.model = model
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, system: str | None = None) -> str:
         try:
             import anthropic  # type: ignore[import]
         except ImportError:
@@ -55,11 +57,15 @@ class AnthropicClient(LLMClientBase):
             )
 
         client = anthropic.Anthropic(api_key=self.api_key)
-        msg = client.messages.create(
-            model=self.model,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        kwargs: dict = {
+            "model": self.model,
+            "max_tokens": 2048,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = system
+
+        msg = client.messages.create(**kwargs)
         return msg.content[0].text
 
 
@@ -77,7 +83,7 @@ class OpenAICompatClient(LLMClientBase):
         self.api_key = api_key or "local"
         self.model = model
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, system: str | None = None) -> str:
         try:
             from openai import OpenAI  # type: ignore[import]
         except ImportError:
@@ -85,10 +91,15 @@ class OpenAICompatClient(LLMClientBase):
                 "Instale o pacote openai: uv pip install -e '.[advisor]'"
             )
 
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
         client = OpenAI(base_url=self.base_url, api_key=self.api_key)
         response = client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=2048,
         )
         return response.choices[0].message.content
