@@ -5,6 +5,7 @@ import logging
 import os
 import queue
 import subprocess
+import sys
 import tempfile
 import threading
 import urllib.request
@@ -66,6 +67,22 @@ class TTSService:
 
     def start(self) -> None:
         """Download model if needed, load it, and start playback thread."""
+        if getattr(sys, 'frozen', False) and not os.environ.get('ESPEAK_DATA_PATH'):
+            # Candidate paths: _MEIPASS (Resources/) or ../Resources/ relative to exe
+            _candidates = []
+            _meipass = getattr(sys, '_MEIPASS', None)
+            if _meipass:
+                _candidates.append(os.path.join(_meipass, 'piper', 'espeak-ng-data'))
+            _exe_dir = os.path.dirname(sys.executable)
+            _candidates.append(os.path.join(_exe_dir, 'piper', 'espeak-ng-data'))
+            _candidates.append(os.path.join(_exe_dir, '..', 'Resources', 'piper', 'espeak-ng-data'))
+            for _cand in _candidates:
+                _cand = os.path.normpath(_cand)
+                if os.path.isdir(_cand):
+                    os.environ['ESPEAK_DATA_PATH'] = _cand
+                    log.info("Bundle espeak-ng data: %s", _cand)
+                    break
+
         try:
             from piper.voice import PiperVoice  # type: ignore[import]
         except ImportError:

@@ -65,6 +65,11 @@ from pathlib import Path
 
 from ..telemetry.models import TelemetryData
 
+
+def _flush_log() -> None:
+    for h in logging.getLogger().handlers:
+        h.flush()
+
 log = logging.getLogger(__name__)
 
 _SAVE_DIR = Path.home() / "simracing" / "laps"
@@ -394,7 +399,11 @@ class LapRecorder:
         filename = f"lap_{lap.lap_number:02d}{suffix}.parquet"
         path = self._session_dir / filename
         try:
+            log.info("Saving lap %d — building dataframe (%d frames)", lap.lap_number, lap.num_frames())
+            _flush_log()
             df = lap.to_dataframe()
+            log.info("Saving lap %d — writing parquet to %s", lap.lap_number, path)
+            _flush_log()
             df.to_parquet(path, index=False, engine="pyarrow", compression="snappy")
             log.info(
                 "Lap %d saved → %s  (%d frames, %.1f s)",

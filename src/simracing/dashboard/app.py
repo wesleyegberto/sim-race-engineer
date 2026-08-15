@@ -638,12 +638,20 @@ class DashboardApp:
         font_sm  = pygame.font.SysFont("monospace", 14)
 
         self._running = True
-        signal.signal(signal.SIGINT, lambda *_: setattr(self, "_running", False))
+
+        def _handle_signal(signum, _):
+            log.info("Received signal %s — stopping", signum)
+            self._running = False
+
+        signal.signal(signal.SIGINT, _handle_signal)
+        signal.signal(signal.SIGTERM, _handle_signal)
+
         while self._running:
             dt = clock.tick(FPS)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    log.info("Received pygame QUIT event — stopping")
                     self._running = False
                     continue
 
@@ -723,6 +731,7 @@ class DashboardApp:
                     continue
 
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    log.info("ESC pressed — stopping")
                     self._running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self._conn_btn.collidepoint(event.pos):

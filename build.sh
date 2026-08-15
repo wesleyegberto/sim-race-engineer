@@ -67,6 +67,7 @@ python -m PyInstaller \
   --hidden-import "pyarrow" \
   --hidden-import "pyarrow.vendored.version" \
   --collect-all "pygame" \
+  --collect-all "piper" \
   --exclude-module "pyarrow.tests" \
   --exclude-module "pygame.tests" \
   --exclude-module "pygame.examples" \
