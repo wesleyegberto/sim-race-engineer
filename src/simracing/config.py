@@ -53,7 +53,7 @@ class AppConfig:
         # Voice alerts
         self.voice_enabled: bool = False
         self.voice_language: str = "en"
-        self.voice_en: str = "en_US-lessac-medium"
+        self.voice_en: str = "en_US-ryan-medium"
         self.voice_pt: str = "pt_BR-faber-medium"
         self.voice_volume: float = 0.8
         self.voice_min_interval_s: float = 15.0
@@ -214,7 +214,7 @@ class AppConfig:
         self.fuel_estimation = cp.get(self._SECTION, "fuel_estimation", fallback="average")
         self.voice_enabled = cp.getboolean(self._VOICE, "enabled", fallback=False)
         self.voice_language = cp.get(self._VOICE, "language", fallback="en")
-        self.voice_en = cp.get(self._VOICE, "voice_en", fallback="en_US-lessac-medium")
+        self.voice_en = cp.get(self._VOICE, "voice_en", fallback="en_US-ryan-medium")
         self.voice_pt = cp.get(self._VOICE, "voice_pt", fallback="pt_BR-faber-medium")
         self.voice_volume = cp.getfloat(self._VOICE, "volume", fallback=0.8)
         self.voice_min_interval_s = cp.getfloat(self._VOICE, "min_interval_s", fallback=15.0)

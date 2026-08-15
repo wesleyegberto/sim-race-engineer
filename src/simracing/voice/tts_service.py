@@ -17,11 +17,11 @@ log = logging.getLogger(__name__)
 _VOICES_DIR = Path.home() / "simracing" / "piper"
 
 _MODEL_URLS: dict[str, tuple[str, str]] = {
-    "en_US-lessac-medium": (
+    "en_US-ryan-medium": (
         "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
-        "/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+        "/en/en_US/ryan/medium/en_US-ryan-medium.onnx",
         "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
-        "/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
+        "/en/en_US/ryan/medium/en_US-ryan-medium.onnx.json",
     ),
     "pt_BR-faber-medium": (
         "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
