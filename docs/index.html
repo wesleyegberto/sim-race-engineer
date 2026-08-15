@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sim Race Engineer — Real-Time Telemetry Dashboard for GT7</title>
+  <meta name="description" content="Open-source real-time telemetry dashboard for Gran Turismo 7. Voice alerts, race strategy, lap recording, and post-session analysis." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="../img/icon-1.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:     #e10600;
+      --red-dim: #9a0400;
+      --bg:      #0b0b0b;
+      --bg2:     #111111;
+      --bg3:     #181818;
+      --border:  #222222;
+      --text:    #e8e8e8;
+      --muted:   #777;
+      --accent:  #ff4433;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(11,11,11,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+    .nav-logo {
+      font-weight: 700; font-size: 1rem; letter-spacing: .02em;
+      color: var(--text); text-decoration: none;
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 6px; display: block; }
+    .nav-logo span { color: var(--red); }
+    .nav-links { display: flex; gap: 1.5rem; list-style: none; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: .875rem;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--red); color: #fff !important;
+      padding: .35rem .9rem; border-radius: 6px;
+      font-weight: 600 !important; font-size: .8rem !important;
+      transition: background .2s !important;
+    }
+    .nav-cta:hover { background: var(--accent) !important; color: #fff !important; }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      padding: 2rem 2rem 5rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(225,6,0,.18), transparent 70%);
+      pointer-events: none;
+    }
+    .hero-tags {
+      display: flex; align-items: center; justify-content: center;
+      flex-wrap: wrap; gap: .5rem;
+      margin-bottom: 1.5rem;
+    }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .72rem; font-weight: 600; letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: .3rem .8rem; border-radius: 99px;
+    }
+    .hero-tag-primary {
+      color: var(--red);
+      background: rgba(225,6,0,.1); border: 1px solid rgba(225,6,0,.25);
+    }
+    .hero-tag-active {
+      color: #e8e8e8;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+    }
+    .hero-tag-inactive {
+      color: #444;
+      background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06);
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 4rem);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -.03em;
+      max-width: 800px; margin: 0 auto 1.2rem;
+    }
+    .hero h1 em { font-style: normal; color: var(--red); }
+    .hero p {
+      font-size: 1.125rem; color: var(--muted);
+      max-width: 620px; margin: 0 auto 2.5rem;
+      line-height: 1.7;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .65rem 1.5rem; border-radius: 8px;
+      font-size: .925rem; font-weight: 600; text-decoration: none;
+      transition: all .2s; cursor: pointer; border: none;
+    }
+    .btn-primary { background: var(--red); color: #fff; }
+    .btn-primary:hover { background: var(--accent); transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: #444; background: var(--bg3); }
+
+    .hero-img {
+      margin: 3rem auto 0;
+      max-width: 1000px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 100px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .hero-img img { width: 100%; display: block; }
+
+    /* ── SECTIONS ── */
+    section { padding: 5rem 2rem; }
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    .section-label {
+      font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--red);
+      margin-bottom: .75rem;
+    }
+    h2 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 800; letter-spacing: -.02em;
+      margin-bottom: 1rem;
+    }
+    .section-desc {
+      font-size: 1.05rem; color: var(--muted);
+      max-width: 580px; line-height: 1.7; margin-bottom: 3rem;
+    }
+
+    /* ── FEATURE GRID ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: #333; transform: translateY(-2px); }
+    .feature-icon {
+      width: 40px; height: 40px;
+      background: rgba(225,6,0,.12);
+      border: 1px solid rgba(225,6,0,.2);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; margin-bottom: 1rem;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: .5rem; }
+    .feature-card p { font-size: .875rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── SPLIT LAYOUT ── */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+    .split.reverse { direction: rtl; }
+    .split.reverse > * { direction: ltr; }
+    @media (max-width: 768px) {
+      .split, .split.reverse { grid-template-columns: 1fr; direction: ltr; gap: 2.5rem; }
+    }
+    .split-img {
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(0,0,0,.6);
+    }
+    .split-img img { width: 100%; display: block; }
+
+    /* ── TABLE ── */
+    .data-table {
+      width: 100%; border-collapse: collapse;
+      font-size: .85rem; margin-top: 1.5rem;
+    }
+    .data-table th {
+      text-align: left; padding: .6rem 1rem;
+      font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: .65rem 1rem;
+      border-bottom: 1px solid rgba(34,34,34,.6);
+      color: var(--text);
+      vertical-align: top;
+    }
+    .data-table td:first-child { font-weight: 600; white-space: nowrap; }
+    .data-table td:last-child { color: var(--muted); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,.02); }
+    .badge {
+      display: inline-block;
+      font-size: .7rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+      padding: .15rem .5rem; border-radius: 4px;
+      background: rgba(225,6,0,.15); color: var(--red);
+      border: 1px solid rgba(225,6,0,.2);
+    }
+
+    /* ── ALERTS GRID ── */
+    .alerts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: .75rem;
+    }
+    .alert-pill {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      font-size: .825rem;
+    }
+    .alert-pill strong { display: block; font-weight: 600; margin-bottom: .2rem; }
+    .alert-pill span { color: var(--muted); font-size: .775rem; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: flex; flex-wrap: wrap; gap: 2rem;
+      padding: 2.5rem 3rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 4rem;
+    }
+    .stat { flex: 1; min-width: 140px; }
+    .stat-value {
+      font-size: 2rem; font-weight: 800;
+      color: var(--red); line-height: 1;
+    }
+    .stat-label { font-size: .8rem; color: var(--muted); margin-top: .3rem; }
+
+    /* ── ROADMAP ── */
+    .roadmap-done { color: #4ade80; }
+    .roadmap-pending { color: var(--muted); }
+    .check { margin-right: .4rem; }
+
+    /* ── SETUP ── */
+    .code-block {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .85rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .code-block .comment { color: var(--muted); }
+    .code-block .cmd { color: #93c5fd; }
+    .code-block .arg { color: #fbbf24; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── HIGHLIGHT BOX ── */
+    .highlight-box {
+      background: rgba(225,6,0,.06);
+      border: 1px solid rgba(225,6,0,.2);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.5rem;
+      font-size: .9rem;
+      color: var(--text);
+    }
+    .highlight-box strong { color: var(--red); }
+
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .nav-links { display: none; }
+      section { padding: 3.5rem 1.25rem; }
+      .stats-bar { padding: 1.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <img src="../img/icon-1.png" alt="Sim Race Engineer logo" />
+    Sim Race<span>&nbsp;Engineer</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#dashboard">Dashboard</a></li>
+    <li><a href="#voice">Voice</a></li>
+    <li><a href="#strategy">Strategy</a></li>
+    <li><a href="#analysis">Analysis</a></li>
+    <li><a href="#setup">Setup</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <img src="../img/icon.png" alt="Sim Race Engineer" style="width:160px; height:160px; border-radius:28px; margin: 0 auto 1.5rem; display:block;" />
+  <div class="hero-tags">
+    <span class="hero-tag hero-tag-primary">&#9679; Real-Time Telemetry</span>
+    <span class="hero-tag hero-tag-active">Gran Turismo 7</span>
+    <span class="hero-tag hero-tag-inactive">Assetto Corsa Competizione</span>
+    <span class="hero-tag hero-tag-inactive">F1</span>
+  </div>
+  <h1>Your <em>Pit Wall Engineer</em>,<br/>on your second screen</h1>
+  <p>
+    Sim Race Engineer connects to GT7 via UDP and gives you the live data,
+    voice alerts, and race strategy that the game never shows you.
+  </p>
+  <div class="hero-actions">
+    <a href="#setup" class="btn btn-primary">
+      Quick Setup ↓
+    </a>
+  </div>
+  <div class="hero-img">
+    <img src="../img/dashboard-print-1.png" alt="Sim Race Engineer dashboard showing telemetry data for Gran Turismo 7" />
+  </div>
+</header>
+
+<hr class="divider" />
+
+<!-- OVERVIEW STATS -->
+<section id="overview">
+  <div class="container">
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value">~60 Hz</div>
+        <div class="stat-label">Telemetry sampling rate</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">27+</div>
+        <div class="stat-label">Voice alert types</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Languages (EN / PT)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Planned pit stops</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">Parquet</div>
+        <div class="stat-label">Lap data format</div>
+      </div>
+    </div>
+
+    <div class="section-label">What it does</div>
+    <h2>Everything your engineer would tell you — automated</h2>
+    <p class="section-desc">
+      Four tightly integrated modules that work together to turn raw UDP packets
+      into actionable driving feedback, in real time.
+    </p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#9671;</div>
+        <h3>Live Dashboard</h3>
+        <p>Speed, RPM, tyres, G-forces, slip angle, suspension, TCS/ASM — all on one screen.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9749;</div>
+        <h3>Voice Communication</h3>
+        <p>Offline Piper TTS calls out fuel, tyre health, thermals, and lap pace — no internet needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9651;</div>
+        <h3>Race Strategy</h3>
+        <p>Auto pit-stop calculator updated every lap from live fuel and tyre wear data.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9642;</div>
+        <h3>Lap Recording</h3>
+        <p>Every lap saved automatically as Apache Parquet at ~60 Hz. No manual action required.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9741;</div>
+        <h3>Post-Session Analysis</h3>
+        <p>Interactive Plotly Dash viewer with track map, tyre temps, and pedal traces.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9881;</div>
+        <h3>Fully Configurable</h3>
+        <p>Every threshold, alert, and toggle lives in a single <code>.conf</code> file. No recompile needed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- DASHBOARD -->
+<section id="dashboard">
+  <div class="container">
+    <div class="split">
+      <div>
+        <div class="section-label">Dashboard</div>
+        <h2>All the data GT7 hides from you</h2>
+        <p class="section-desc" style="margin-bottom:0">
+          Each widget is designed to be read at a glance — tyre state, weight transfer,
+          electronic interventions, and fuel level are visible the moment you need them.
+        </p>
+        <table class="data-table" style="margin-top:1.5rem">
+          <thead><tr><th>Widget</th><th>Data</th></tr></thead>
+          <tbody>
+            <tr><td>Speed &amp; RPM</td><td>Current speed (km/h) and revs with colour-coded zones</td></tr>
+            <tr><td>RPM bar</td><td>Full-width strip for at-a-glance shift timing</td></tr>
+            <tr><td>Pedal bars</td><td>Clutch · Brake · Throttle (0–100%)</td></tr>
+            <tr><td>G-meter</td><td>Lateral + longitudinal G-force as circular trace</td></tr>
+            <tr><td>Slip angle</td><td>Oversteer/understeer bar — green / orange / red</td></tr>
+            <tr><td>Tyre tiles</td><td>Per-corner surface temp with hot/optimal/cold zones</td></tr>
+            <tr><td>Wheel slip</td><td>Orange border = wheelspin · Red = lockup</td></tr>
+            <tr><td>Suspension</td><td>Per-corner travel bar showing load distribution</td></tr>
+            <tr><td>Status strip</td><td>TCS · ASM · REV limiter · Handbrake · OIL! · H₂O!</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="split-img">
+        <img src="../img/dashboard-print-1.png" alt="Dashboard screenshot" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- VOICE -->
+<section id="voice">
+  <div class="container">
+    <div class="split reverse">
+      <div>
+        <div class="section-label">Voice Communication</div>
+        <h2>Your engineer speaks — you drive</h2>
+        <p class="section-desc" style="margin-bottom:1.5rem">
+          Offline Piper TTS. No cloud, no latency. Available in English and Portuguese.
+          Each alert has an independent cooldown so you never get spammed.
+        </p>
+        <div class="highlight-box">
+          <strong>"Box box box."</strong> · <strong>"Fuel critical — less than one lap remaining."</strong>
+          · <strong>"Rear right overheating."</strong> — The kind of radio calls real engineers make.
+        </div>
+      </div>
+      <div class="split-img">
+        <img src="../img/voice-communication-1.png" alt="Voice communication settings panel" />
+      </div>
+    </div>
+
+    <div style="margin-top:3.5rem">
+      <p class="section-label">All alert types</p>
+      <div class="alerts-grid">
+        <div class="alert-pill"><strong>Lap completed</strong><span>Lap counter changes, no new best</span></div>
+        <div class="alert-pill"><strong>Best lap</strong><span>New personal best set</span></div>
+        <div class="alert-pill"><strong>Final lap</strong><span>Entering the last lap of a race</span></div>
+        <div class="alert-pill"><strong>Lap delta</strong><span>&gt; 3 s off best · fires once after halfway</span></div>
+        <div class="alert-pill"><strong>Fuel low</strong><span>Fuel &lt; 20% · laps remaining named</span></div>
+        <div class="alert-pill"><strong>Fuel critical</strong><span>Fuel &lt; 10%</span></div>
+        <div class="alert-pill"><strong>Fuel &lt; 1 lap</strong><span>Highest-priority fuel alert</span></div>
+        <div class="alert-pill"><strong>Pit window</strong><span>"Box box box" — 2–4 laps remaining</span></div>
+        <div class="alert-pill"><strong>Water temp</strong><span>Coolant &gt; 105 °C · 20 s cooldown</span></div>
+        <div class="alert-pill"><strong>Oil temp</strong><span>Oil &gt; 130 °C · 20 s cooldown</span></div>
+        <div class="alert-pill"><strong>Tyre temp</strong><span>Surface &gt; 100 °C · names hot corners</span></div>
+<div class="alert-pill"><strong>Pressure low</strong><span>&lt; 160 kPa · once per lap</span></div>
+        <div class="alert-pill"><strong>Pressure high</strong><span>&gt; 250 kPa · once per lap</span></div>
+        <div class="alert-pill"><strong>Strategy check-in</strong><span>Fuel + box lap at 33% / 66% of race</span></div>
+        <div class="alert-pill"><strong>Strategy revised</strong><span>Pit lap shifted &gt; 2 laps from ideal</span></div>
+        <div class="alert-pill"><strong>Fuel save</strong><span>Margin &lt; 1.5 laps — lift and coast</span></div>
+        <div class="alert-pill"><strong>Fuel save+</strong><span>Delta 0–2 L — extend range</span></div>
+        <div class="alert-pill"><strong>Planned: approaching</strong><span>"Pit in N lap(s)" — 2 laps early</span></div>
+        <div class="alert-pill"><strong>Planned: box now</strong><span>"Box this lap. On strategy."</span></div>
+        <div class="alert-pill"><strong>Planned: missed</strong><span>Auto-reschedules if fuel allows</span></div>
+        <div class="alert-pill"><strong>Laps to go</strong><span>Countdown at 5, 4, 3, 2, 1 (≥ 10 lap races)</span></div>
+        <div class="alert-pill"><strong>Advisor pit window</strong><span>1–2 laps before window opens</span></div>
+        <div class="alert-pill"><strong>Overtake</strong><span>Position gained / lost · 15 s cooldown</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- STRATEGY -->
+<section id="strategy">
+  <div class="container">
+    <div class="section-label">Race Strategy</div>
+    <h2>Pit stop timing — calculated every lap</h2>
+    <p class="section-desc">
+      Three layers of strategy logic so you can go from "just drive" to a fully configured
+      multi-stop plan with live reschedule support.
+    </p>
+
+    <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom:3rem">
+      <div class="feature-card">
+        <div class="feature-icon">&#9679;</div>
+        <h3>Auto Strategy</h3>
+        <p>Recalculates every lap from live fuel rate and tyre wear. Tells you whether you can finish, and when to pit if you can't.</p>
+        <table class="data-table" style="margin-top:1rem">
+          <tbody>
+            <tr><td>Laps to fuel out</td><td>Fuel ÷ avg fuel/lap</td></tr>
+            <tr><td>Laps to tyre limit</td><td>Until wear &gt; threshold (default 80%)</td></tr>
+            <tr><td>Recommended pit lap</td><td>Earliest safe stop + 1-lap buffer</td></tr>
+            <tr><td>Pit reason</td><td><span class="badge">FUEL</span> <span class="badge">TYRES</span> <span class="badge">FUEL+TYRES</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9650;</div>
+        <h3>Planned Strategy</h3>
+        <p>Set up to 3 user-defined pit stops. The engineer calls the approach, the box lap, and reschedules automatically if you miss the window.</p>
+        <table class="data-table" style="margin-top:1rem">
+          <tbody>
+            <tr><td>Approaching</td><td>2 laps before planned stop</td></tr>
+            <tr><td>Box now</td><td>On the planned stop lap</td></tr>
+            <tr><td>Tyre warning</td><td>Tyres won't last to planned stop</td></tr>
+            <tr><td>Missed</td><td>Auto-reschedules to earliest safe lap</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9652;</div>
+        <h3>Strategy Advisor</h3>
+        <p>Proactive briefings with fuel delta, recommended stop count, and evenly distributed optimal pit windows — updated every lap.</p>
+        <table class="data-table" style="margin-top:1rem">
+          <tbody>
+            <tr><td>Strategy health</td><td><span class="badge">ON_PLAN</span> <span class="badge">REVISE</span> <span class="badge">CRITICAL</span></td></tr>
+            <tr><td>Stop windows</td><td>Evenly distributed optimal pit laps</td></tr>
+            <tr><td>Check-in</td><td>At 33% / 66% of race distance</td></tr>
+            <tr><td>Fuel save+</td><td>When delta is 0–2 L — lift &amp; coast</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ANALYSIS -->
+<section id="analysis">
+  <div class="container">
+    <div class="split">
+      <div>
+        <div class="section-label">Post-Session Analysis</div>
+        <h2>Explore every lap in your browser</h2>
+        <p class="section-desc" style="margin-bottom:1.5rem">
+          After a session, click <strong>Analyse</strong> in the app header to open a file picker.
+          Select any <code>lap_NN.parquet</code> file — the interactive viewer opens in your browser automatically.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1.5rem">
+          <div class="feature-card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem">
+            <div style="color:var(--red); font-size:1.1rem">&#9654;</div>
+            <div><strong>Click Analyse</strong> in the app header</div>
+          </div>
+          <div class="feature-card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem">
+            <div style="color:var(--red); font-size:1.1rem">&#9654;</div>
+            <div>Select a <code>lap_NN.parquet</code> file from <code>~/simracing_laps/</code></div>
+          </div>
+          <div class="feature-card" style="padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem">
+            <div style="color:var(--red); font-size:1.1rem">&#9654;</div>
+            <div>Browser opens with the interactive viewer — compare laps, spot consistency issues, find time gains</div>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Chart</th><th>Data</th></tr></thead>
+          <tbody>
+            <tr><td>Track map</td><td>Racing line from XYZ data, coloured by speed or TCS/ASM</td></tr>
+            <tr><td>Tyre temps</td><td>Surface temp per corner across the lap, all laps overlaid</td></tr>
+            <tr><td>Timeseries</td><td>Throttle · Brake · Gear · Speed · Slip — shared time axis</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="split-img" style="margin-bottom:1rem">
+          <img src="../img/lap-analysis-1.png" alt="Lap analysis track map view" />
+        </div>
+        <div class="split-img">
+          <img src="../img/lap-analysis-2.png" alt="Lap analysis timeseries charts" />
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:3.5rem">
+      <div class="section-label">Lap Recording</div>
+      <h2>~60 Hz. Every lap. Automatically.</h2>
+      <p class="section-desc">
+        Sessions and laps are saved as Apache Parquet (Snappy) the moment you go green.
+        No buttons, no manual action.
+      </p>
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr))">
+        <div class="feature-card">
+          <h3>Per-frame data</h3>
+          <p>Speed · RPM · gear · throttle · brake · clutch · position (XYZ) · velocity · G-forces · slip angle</p>
+        </div>
+        <div class="feature-card">
+          <h3>Thermal &amp; wear</h3>
+          <p>Tyre surface + inner/mid/outer temps · tyre pressure · suspension travel · water temp · oil temp</p>
+        </div>
+        <div class="feature-card">
+          <h3>Per-lap summary</h3>
+          <p>Lap time · fuel used · fuel avg · pedal counters — appended at lap change</p>
+        </div>
+        <div class="feature-card">
+          <h3>Storage</h3>
+          <p><code>~/simracing_laps/&lt;YYYY-MM-DDTHHMMSS&gt;/lap_NN.parquet</code> · toggle via REC button</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- SETUP -->
+<section id="setup">
+  <div class="container">
+    <div class="section-label">Setup</div>
+    <h2>Running in under 2 minutes</h2>
+    <p class="section-desc">macOS app bundle — no Python, no terminal required.</p>
+
+    <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 2.5rem">
+      <div class="feature-card" style="display:flex; gap:1rem; align-items:flex-start; padding:1.5rem">
+        <div style="font-size:1.5rem; line-height:1; color:var(--red); font-weight:800; min-width:2rem">1</div>
+        <div>
+          <h3 style="margin-bottom:.4rem">Download the app</h3>
+          <p>Grab <strong>SimRaceEngineer.app.zip</strong> from the
+            <a href="https://github.com/wesleyegberto/simracing-engineer/releases/latest" style="color:var(--red)">latest release ↗</a>,
+            unzip, and move to <code>/Applications</code>.
+          </p>
+        </div>
+      </div>
+      <div class="feature-card" style="display:flex; gap:1rem; align-items:flex-start; padding:1.5rem">
+        <div style="font-size:1.5rem; line-height:1; color:var(--red); font-weight:800; min-width:2rem">2</div>
+        <div>
+          <h3 style="margin-bottom:.4rem">Enable GT7 telemetry</h3>
+          <p>In Gran Turismo 7:<br/>
+            <strong>Options → Machine Settings<br/>→ Send Vehicle Data → On</strong><br/>
+            PS5 and Mac must be on the same network.
+          </p>
+        </div>
+      </div>
+      <div class="feature-card" style="display:flex; gap:1rem; align-items:flex-start; padding:1.5rem">
+        <div style="font-size:1.5rem; line-height:1; color:var(--red); font-weight:800; min-width:2rem">3</div>
+        <div>
+          <h3 style="margin-bottom:.4rem">Enter your PS5 IP</h3>
+          <p>On first launch the Settings panel opens automatically. Enter your PS5's IP address and click <strong>Save</strong>.
+            The app remembers it for future sessions.
+          </p>
+        </div>
+      </div>
+      <div class="feature-card" style="display:flex; gap:1rem; align-items:flex-start; padding:1.5rem">
+        <div style="font-size:1.5rem; line-height:1; color:var(--red); font-weight:800; min-width:2rem">4</div>
+        <div>
+          <h3 style="margin-bottom:.4rem">Start a session in GT7</h3>
+          <p>The dashboard comes alive the moment you enter a car. Voice alerts and lap recording start automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-bottom:.75rem">Required configuration</div>
+    <table class="data-table" style="margin-top:0; margin-bottom:2rem">
+      <thead><tr><th>Setting</th><th>Where</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>PS5 IP address</td>
+          <td>App Settings → General</td>
+          <td>Find it on PS5: <strong>Settings → Network → View Connection Status</strong></td>
+        </tr>
+        <tr>
+          <td>GT7 telemetry output</td>
+          <td>GT7 in-game</td>
+          <td><strong>Options → Machine Settings → Send Vehicle Data → On</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="highlight-box">
+      <strong>Voice alerts</strong> — Piper TTS voice models (~200 MB) download automatically from HuggingFace on first launch into <code>~/simracing/piper/</code>. English and Portuguese supported. No manual step required.
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="container">
+    <div class="section-label">Roadmap</div>
+    <h2>What's shipped &amp; what's next</h2>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="section-label roadmap-done">&#10003; Completed</div>
+        <table class="data-table" style="margin-top:.75rem">
+          <tbody>
+            <tr><td>G-Meter (lateral + longitudinal)</td></tr>
+            <tr><td>Wheel slip per tyre</td></tr>
+            <tr><td>TCS / ASM / REV / Handbrake strip</td></tr>
+            <tr><td>Slip angle / oversteer indicator</td></tr>
+            <tr><td>Suspension travel per corner</td></tr>
+            <tr><td>Fuel rate + laps remaining</td></tr>
+            <tr><td>Voice alerts (Piper TTS)</td></tr>
+            <tr><td>Race strategy engine</td></tr>
+            <tr><td>Lap recording (Parquet)</td></tr>
+            <tr><td>Post-session Dash viewer</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-card">
+        <div class="section-label roadmap-pending">&#9675; Pending</div>
+        <table class="data-table" style="margin-top:.75rem">
+          <thead><tr><th>Game</th><th>Protocol</th></tr></thead>
+          <tbody>
+            <tr><td>Assetto Corsa Competizione</td><td>UDP JSON · port 9000</td></tr>
+            <tr><td>F1</td><td>Codemasters UDP</td></tr>
+            <tr><td>iRacing</td><td>SDK shared memory (Windows)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    Built by <a href="https://github.com/wesleyegberto">Wesley Egberto</a> ·
+    Open source on <a href="https://github.com/wesleyegberto/simracing-engineer">GitHub</a>
+  </p>
+  <p style="margin-top:.5rem; font-size:.78rem">
+    GT7 telemetry protocol research by
+    <a href="https://github.com/Bornhall/gt7telemetry">Bornhall</a> and
+    <a href="https://github.com/snipem/monako">snipem</a>
+  </p>
+</footer>
+
+</body>
+</html>
