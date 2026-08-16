@@ -82,3 +82,16 @@ Each alert in `VoiceService` is gated by a per-alert enabled flag in `AppConfig`
 2. Wiring in `dashboard/widgets/settings_panel.py`
 3. Entry in the Voice Alerts tab of `dashboard/widgets/help_panel.py` (UI Guide)
 4. Documentation in `README.md`
+
+### PyInstaller build — bundling data files
+The build is driven by `build.sh` (not `SimRaceEngineer.spec`, which is auto-generated and discarded). Any non-Python file that code accesses via `Path(__file__).parent / "filename"` at runtime **must** be declared in `build.sh` with `--add-data`:
+
+```
+--add-data "src/simracing/path/to/file:simracing/path/to"
+```
+
+Format: `source_path:dest_dir_inside_bundle` (colon-separated on macOS/Linux).
+
+Current data files bundled:
+- `src/simracing/img` → `simracing/img`
+- `src/simracing/analysis/setup_advisor/gt7_cars.json` → `simracing/analysis/setup_advisor`

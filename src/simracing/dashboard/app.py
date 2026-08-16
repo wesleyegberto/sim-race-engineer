@@ -72,6 +72,64 @@ def _fmt_lap(ms: int) -> str:
     return f"{m}:{s:02d}.{ms_r:03d}"
 
 
+def _kill_port(port: int) -> None:
+    """Kill any process listening on *port* so a fresh server can bind it."""
+    import signal
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.3):
+            pass
+    except OSError:
+        return  # nothing listening — nothing to do
+
+    try:
+        import subprocess as _sp
+        result = _sp.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True, text=True,
+        )
+        for pid_str in result.stdout.split():
+            try:
+                import os
+                os.kill(int(pid_str), signal.SIGTERM)
+                log.info("Killed stale analysis server (pid=%s, port=%d)", pid_str, port)
+            except (ProcessLookupError, ValueError):
+                pass
+    except Exception:
+        pass  # best-effort only
+
+
+class _AnalysisThread:
+    """Popen-compatible wrapper for an in-process Dash server thread.
+
+    Used when running inside a PyInstaller bundle where sys.executable is the
+    app binary itself and cannot be used to spawn a Python subprocess.
+    """
+
+    def __init__(self, path: Path, port: int = 8050) -> None:
+        import threading
+
+        self._thread = threading.Thread(
+            target=self._run, args=(path, port), daemon=True, name="analysis-server"
+        )
+        self._thread.start()
+        self.pid: int | None = self._thread.ident
+
+    def _run(self, path: Path, port: int) -> None:
+        try:
+            from simracing.analysis.cli import run_server
+            run_server(path, port)
+        except Exception:
+            log.exception("Analysis server error")
+
+    def poll(self) -> int | None:
+        return None if self._thread.is_alive() else 0
+
+    def terminate(self) -> None:
+        pass  # daemon thread exits with the process
+
+
 class DashboardApp:
     def __init__(
         self,
@@ -250,16 +308,26 @@ class DashboardApp:
             log_path = Path.home() / "simracing" / "analysis.log"
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
+            # Kill any stale analysis server left over from a previous session.
+            _kill_port(8050)
+
             script = shutil.which("simracing-analyze")
-            cmd = (
-                [script, path, "--no-browser"]
-                if script
-                else [sys.executable, "-m", "simracing.analysis.cli", path, "--no-browser"]
-            )
-            log_file = open(log_path, "w")  # noqa: SIM115
-            self._analysis_proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
-            log.info("Analysis viewer launching for %s (pid=%d, log=%s)",
-                     path, self._analysis_proc.pid, log_path)
+            if script:
+                log_file = open(log_path, "w")  # noqa: SIM115
+                self._analysis_proc = subprocess.Popen(
+                    [script, path, "--no-browser"], stdout=log_file, stderr=log_file
+                )
+            elif hasattr(sys, "_MEIPASS"):
+                # PyInstaller bundle: sys.executable is the app binary, not Python.
+                self._analysis_proc = _AnalysisThread(Path(path))
+            else:
+                log_file = open(log_path, "w")  # noqa: SIM115
+                self._analysis_proc = subprocess.Popen(
+                    [sys.executable, "-m", "simracing.analysis.cli", path, "--no-browser"],
+                    stdout=log_file, stderr=log_file,
+                )
+            log.info("Analysis viewer launching for %s (pid=%s)",
+                     path, self._analysis_proc.pid)
 
             def _open_when_ready() -> None:
                 import socket

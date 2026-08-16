@@ -93,33 +93,41 @@ def register(app) -> None:  # type: ignore[type-arg]
     # ── Setup Advisor callbacks ─────────────────────────────────────────────
 
     @app.callback(
-        Output("advisor-lap-slider-container", "children"),
+        Output("advisor-no-session-msg", "style"),
+        Output("advisor-lap-range-wrapper", "style"),
+        Output("advisor-lap-range", "min"),
+        Output("advisor-lap-range", "max"),
+        Output("advisor-lap-range", "marks"),
+        Output("advisor-lap-range", "value"),
         Output("advisor-car-display", "children"),
         Input("main-tabs", "value"),
     )
     def update_advisor_info(tab: str):  # type: ignore[return]
-        from dash import dcc, html
-
         if tab != "advisor-tab":
-            return no_update, no_update
+            return (no_update,) * 7
+
+        _HIDDEN = {"display": "none"}
 
         if not _ALL_LAPS:
-            return html.Span("No session loaded.", style={"color": "#666", "fontSize": "12px"}), ""
+            return (
+                {"color": "#666", "fontSize": "12px"},
+                _HIDDEN,
+                0, 1, {0: "0", 1: "1"}, [0, 1],
+                "",
+            )
 
         laps = sorted(_ALL_LAPS.keys())
         marks = {n: str(n) for n in laps}
-        slider = dcc.RangeSlider(
-            id="advisor-lap-range",
-            min=laps[0],
-            max=laps[-1],
-            step=1,
-            value=[laps[0], laps[-1]],
-            marks=marks,
-            allowCross=False,
-        )
         df_first = next(iter(_ALL_LAPS.values()))
-        car_display = _car_name_from_df(df_first)
-        return slider, car_display
+        return (
+            _HIDDEN,
+            {},
+            laps[0],
+            laps[-1],
+            marks,
+            [laps[0], laps[-1]],
+            _car_name_from_df(df_first),
+        )
 
     @app.callback(
         Output("advisor-report", "children"),

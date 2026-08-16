@@ -62,6 +62,7 @@ python -m PyInstaller \
   ${ICON_FLAG} \
   --paths "src" \
   --add-data "src/simracing/img:simracing/img" \
+  --add-data "src/simracing/analysis/setup_advisor/gt7_cars.json:simracing/analysis/setup_advisor" \
   --collect-submodules "Crypto" \
   --hidden-import "pandas" \
   --hidden-import "pyarrow" \

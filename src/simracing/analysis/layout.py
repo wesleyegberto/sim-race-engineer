@@ -103,8 +103,26 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                                 children=[
                                     html.Span(
                                         "Select a session first.",
+                                        id="advisor-no-session-msg",
                                         style={"color": "#666", "fontSize": "12px"},
-                                    )
+                                    ),
+                                    # Slider lives in the initial layout so State("advisor-lap-range")
+                                    # is always valid for the client-side renderer.
+                                    # dcc.RangeSlider (Dash 4) does not accept a `style` prop,
+                                    # so visibility is controlled via the wrapper div.
+                                    html.Div(
+                                        id="advisor-lap-range-wrapper",
+                                        style={"display": "none"},
+                                        children=[
+                                            dcc.RangeSlider(
+                                                id="advisor-lap-range",
+                                                min=0, max=1, step=1,
+                                                value=[0, 1],
+                                                marks={0: "0", 1: "1"},
+                                                allowCross=False,
+                                            ),
+                                        ],
+                                    ),
                                 ],
                             ),
                         ],
@@ -201,7 +219,7 @@ def _advisor_tab(llm_backend: str, llm_model: str) -> dcc.Tab:
                     # ── Warning card ────────────────────────────────────────
                     html.Div(
                         style={
-                            "border": f"1px solid #554400",
+                            "border": "1px solid #554400",
                             "backgroundColor": "#221a00",
                             "padding": "8px 12px",
                             "marginBottom": "16px",

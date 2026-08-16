@@ -6,6 +6,40 @@ import sys
 from pathlib import Path
 
 
+def run_server(path: Path, port: int = 8050) -> None:
+    """Launch the Dash viewer in-process (blocking). Used directly by the bundled .app."""
+    from dash import Dash
+
+    from . import callbacks
+    from .layout import create_layout
+    from .loader import lap_quality, load_parquet
+
+    _, laps = load_parquet(path)
+    for lap_n, lap_df in sorted(laps.items()):
+        q = lap_quality(lap_df)
+        if not q["timer_active"] and not q["car_moving"]:
+            sys.stderr.write(
+                f"[AVISO] Lap {lap_n}: timer parado + carro estático "
+                f"({q['rows']} frames) — dados sem pilotagem real.\n"
+            )
+
+    callbacks.set_data(laps)
+
+    try:
+        from simracing.config import AppConfig
+        _cfg = AppConfig()
+        llm_backend = _cfg.llm_backend
+        llm_model = _cfg.llm_model
+    except Exception:
+        llm_backend = "ollama"
+        llm_model = "gemma4:12b"
+
+    app = Dash(__name__, title="SimRacing Analysis", suppress_callback_exceptions=True)
+    app.layout = create_layout(sorted(laps.keys()), path.name, llm_backend=llm_backend, llm_model=llm_model)
+    callbacks.register(app)
+    app.run(host="127.0.0.1", port=port, debug=False)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="simracing-analyze",
@@ -21,7 +55,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        from dash import Dash
+        from dash import Dash  # noqa: F401
     except ImportError:
         print(
             "dash is not installed.\n"
@@ -30,13 +64,13 @@ def main() -> None:
         )
         sys.exit(1)
 
-    from .loader import load_parquet, lap_quality
-    from .layout import create_layout
     from . import callbacks
+    from .layout import create_layout
+    from .loader import lap_quality, load_parquet
 
     print(f"Loading {args.path} …", end=" ", flush=True)
-    df, laps = load_parquet(args.path)
-    print(f"{len(df):,} frames across {len(laps)} lap(s).")
+    _, laps = load_parquet(args.path)
+    print(f"{len(laps)} lap(s).")
 
     for lap_n, lap_df in sorted(laps.items()):
         q = lap_quality(lap_df)
@@ -57,7 +91,9 @@ def main() -> None:
         llm_backend = "ollama"
         llm_model = "gemma4:12b"
 
-    app = Dash(__name__, title="SimRacing Analysis")
+    from dash import Dash
+
+    app = Dash(__name__, title="SimRacing Analysis", suppress_callback_exceptions=True)
     app.layout = create_layout(sorted(laps.keys()), args.path.name, llm_backend=llm_backend, llm_model=llm_model)
     callbacks.register(app)
 
