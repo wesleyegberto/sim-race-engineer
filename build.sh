@@ -5,7 +5,7 @@ set -euo pipefail
 
 APP_NAME="SimRaceEngineer"
 ENTRY="simracing_launcher.py"
-ICON="src/simracing/img/engineer.png"
+ICON="img/icon-1.png"
 OUT_DIR="dist"
 
 # ── Parse args ────────────────────────────────────────────────────────────────

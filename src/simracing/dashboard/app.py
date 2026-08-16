@@ -574,7 +574,7 @@ class DashboardApp:
                 surf.fill(tint, special_flags=pygame.BLEND_RGB_MAX)
             return surf
 
-        self._icon = _load_icon("engineer.png", 32, C_TEXT)
+        self._icon = _load_icon("icon-1.png", 32)
         self._icon_settings = _load_icon("settings.png", 18, C_TEXT)
         self._icon_info = _load_icon("info.png", 18, C_TEXT)
         self._icon_close = _load_icon("close.png", 16)
@@ -666,6 +666,9 @@ class DashboardApp:
     def run(self) -> None:
         pygame.init()
         pygame.display.set_caption("Race Engineer")
+        icon_path = _IMG_DIR / "icon-1.png"
+        if icon_path.exists():
+            pygame.display.set_icon(pygame.image.load(str(icon_path)))
         screen = pygame.display.set_mode((WIN_W, WIN_H))
         clock = pygame.time.Clock()
 
