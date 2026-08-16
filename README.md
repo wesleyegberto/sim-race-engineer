@@ -1,5 +1,7 @@
 # Sim Race Engineer
 
+<img src="./img/icon.png" width="250" />
+
 **Sim Race Engineer** is a real-time telemetry dashboard for sim racing.
 It connects to Gran Turismo 7 (for now) via UDP and displays live driving data on a second screen or overlay,
 giving the driver the kind of feedback and voice communication a real motorsport engineer would provide from the pit wall.
