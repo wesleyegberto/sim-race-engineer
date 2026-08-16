@@ -230,7 +230,7 @@ class StrategyPanel:
                 screen.blit(surf, (open_f.x + 6, open_f.y + (open_f.height - surf.get_height()) // 2))
 
                 # Separator "—"
-                dash = font_sm.render("—", True, C_DIM)
+                dash = font_sm.render("-", True, C_DIM)
                 screen.blit(dash, (open_f.right + 4,
                                    open_f.y + (open_f.height - dash.get_height()) // 2))
 
@@ -247,7 +247,7 @@ class StrategyPanel:
                     o = int(self._open_texts[i]) if self._open_texts[i] else 0
                     c = int(self._close_texts[i]) if self._close_texts[i] else o
                     tgt = (o + max(o, c)) // 2 if o > 0 else 0
-                    tgt_str = f"→ {tgt}" if tgt > 0 else ""
+                    tgt_str = f"> {tgt}" if tgt > 0 else ""
                 except ValueError:
                     tgt_str = ""
                 if tgt_str:
@@ -262,7 +262,7 @@ class StrategyPanel:
             # Advisor window suggestion (read-only, from StrategyAdvisor)
             if report is not None and i < len(report.stop_windows):
                 adv_open, adv_close = report.stop_windows[i]
-                adv_str = f"Adv: {adv_open}–{adv_close}" if adv_open != adv_close else f"Adv: {adv_open}"
+                adv_str = f"Adv: {adv_open}-{adv_close}" if adv_open != adv_close else f"Adv: {adv_open}"
                 adv_color = C_ACCENT if enabled else C_HEALTH_REVISE
                 adv_surf = font_sm.render(adv_str, True, adv_color)
                 screen.blit(adv_surf, (self._card.right - 110,
@@ -353,15 +353,15 @@ class StrategyPanel:
             if ms > 0:
                 lap_str = f"{ms // 60000}:{(ms % 60000) // 1000:02d}.{(ms % 1000) // 100}"
             else:
-                lap_str = "—"
+                lap_str = "--"
             _row("Avg lap time:", lap_str, 3)
             last_fuel = report.last_lap_fuel
-            last_fuel_str = f"{last_fuel:.2f} L" if last_fuel > 0 else "—"
+            last_fuel_str = f"{last_fuel:.2f} L" if last_fuel > 0 else "--"
             _row("Last lap fuel:", last_fuel_str, 4)
-            stops_str = str(report.recommended_stops) if report.recommended_stops >= 0 else "—"
+            stops_str = str(report.recommended_stops) if report.recommended_stops >= 0 else "--"
             _row("Recommended stops:", stops_str, 5)
         else:
-            no_data = font_sm.render("No data yet — race in progress", True, C_DIM)
+            no_data = font_sm.render("No data yet - race in progress", True, C_DIM)
             screen.blit(no_data, (fx, fa_y + 14))
 
         # Buttons

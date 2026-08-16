@@ -1287,7 +1287,7 @@ class DashboardApp:
                 adv = self._strategy_report
                 if adv is not None and adv.stop_windows:
                     w = adv.stop_windows[0]
-                    adv_val = f"L{w[0]}" if w[0] == w[1] else f"L{w[0]}–{w[1]}"
+                    adv_val = f"L{w[0]}" if w[0] == w[1] else f"L{w[0]}-{w[1]}"
                     health = adv.strategy_health
                     adv_color = (C_RED if health == "CRITICAL"
                                  else C_ORANGE if health == "REVISE"
@@ -1307,7 +1307,7 @@ class DashboardApp:
                 if stop.window_open == stop.window_close:
                     strat_val = f"L{stop.target_lap}"
                 else:
-                    strat_val = f"L{stop.window_open}–{stop.window_close}"
+                    strat_val = f"L{stop.window_open}-{stop.window_close}"
                 row("STRATEGY", strat_val, user_color, icon=self._icon_pit_stop)
                 life_laps = ps.tyre_life_remaining_laps
                 laps_remaining = max(0, d.total_laps - d.current_lap + 1) if d.total_laps > 0 else 0
