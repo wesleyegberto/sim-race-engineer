@@ -3,7 +3,7 @@
 ## Architecture
 
 ```
-simracing/
+simraceengineer/
 ├── telemetry/
 │   ├── models.py           ← TelemetryData + TireData (game-agnostic)
 │   ├── provider.py         ← TelemetryProvider (ABC)
@@ -22,12 +22,12 @@ simracing/
 │   ├── planned_strategy.py ← PlannedStrategyMonitor: tracks user-defined stops by lap
 │   └── stint_tracker.py    ← StintTracker: wear rate per lap, tyre change detection
 ├── analysis/
-│   ├── cli.py              ← Entry point `simracing-analyze` (launches Dash server)
+│   ├── cli.py              ← Entry point `sim-race-analyze` (launches Dash server)
 │   ├── loader.py           ← Reads session.parquet / lap_*.parquet into DataFrames
 │   ├── layout.py           ← Dash layout: lap selector, chart grid
 │   ├── charts.py           ← Plotly figure builders (speed, throttle, brakes, tyres…)
 │   └── callbacks.py        ← Dash callbacks: lap selection → chart update
-├── config.py               ← AppConfig (INI read/write, ~/simracing/simracing.conf)
+├── config.py               ← AppConfig (INI read/write, ~/sim-race-engineer/sim-race.conf)
 └── dashboard/
     ├── app.py              ← pygame event loop + layout
     └── widgets/
@@ -63,13 +63,13 @@ simracing/
 | Library | Version | Why |
 |---|---|---|
 | `plotly` | ≥ 5.20 | Interactive charts (zoom, hover) for lap analysis. |
-| `dash` | ≥ 2.17 | Local web server for the post-session viewer. Launched via `simracing-analyze`. |
+| `dash` | ≥ 2.17 | Local web server for the post-session viewer. Launched via `sim-race-analyze`. |
 
 ### Dev
 
 | Library | Why |
 |---|---|
-| `hatchling` | Build backend; packages `src/simracing` as a wheel. |
+| `hatchling` | Build backend; packages `src/simraceengineer` as a wheel. |
 | `ruff` | Linting + formatting in a single tool. |
 | `pytest` + `pytest-asyncio` | Unit tests; `asyncio_mode=auto` for coroutines. |
 
@@ -95,10 +95,10 @@ Each lap is written to `lap_<N>.parquet` immediately on crossing the finish line
 `VoiceService` uses `queue.SimpleQueue` drained by a daemon thread. The pygame event loop never blocks on audio synthesis. Alerts with the same `key` are rate-limited by `_maybe_fire_interval` to prevent spam.
 
 ### Analysis viewer decoupled from dashboard
-`simracing-analyze` is an independent process that reads recorded Parquet files. There is no real-time communication with the dashboard. This keeps the dashboard free of Dash/Plotly dependencies and allows running the viewer on a separate machine.
+`sim-race-analyze` is an independent process that reads recorded Parquet files. There is no real-time communication with the dashboard. This keeps the dashboard free of Dash/Plotly dependencies and allows running the viewer on a separate machine.
 
 ### INI config
-`AppConfig` uses `configparser` (stdlib) — no extra dependency. File lives at `~/simracing/simracing.conf` and is created with defaults on first run.
+`AppConfig` uses `configparser` (stdlib) — no extra dependency. File lives at `~/sim-race-engineer/sim-race.conf` and is created with defaults on first run.
 
 ## Pending — Linux and Windows Support
 
@@ -117,7 +117,7 @@ Each lap is written to `lap_<N>.parquet` immediately on crossing the finish line
 `main.py` registers `signal.SIGTERM` and `signal.SIGINT`. On Windows, `SIGTERM` is not reliably supported by Python. Use `signal.SIGBREAK` or `atexit` as a fallback.
 
 ### Config and data paths
-`Path.home() / "simracing"` works on all three platforms. No changes needed.
+`Path.home() / "sim-race-engineer"` works on all three platforms. No changes needed.
 
 ### pygame-ce on Linux
 Requires `libsdl2-dev` installed via the system package manager. Document in the installation README.

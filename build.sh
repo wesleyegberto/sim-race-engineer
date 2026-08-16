@@ -4,7 +4,8 @@
 set -euo pipefail
 
 APP_NAME="SimRaceEngineer"
-ENTRY="simracing_launcher.py"
+APP_DISPLAY_NAME="Sim Race Engineer"
+ENTRY="sim_race_launcher.py"
 ICON="img/icon-1.png"
 OUT_DIR="dist"
 
@@ -51,18 +52,18 @@ if [[ -f "$ICON" ]]; then
 fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
-ICON_FLAG=""
-[[ -n "${ICNS_PATH:-}" && -f "$ICNS_PATH" ]] && ICON_FLAG="--icon=${ICNS_PATH}"
+ICON_ARGS=()
+[[ -n "${ICNS_PATH:-}" && -f "$ICNS_PATH" ]] && ICON_ARGS=("--icon=${ICNS_PATH}")
 
 python -m PyInstaller \
   --name "${APP_NAME}" \
   --windowed \
   --onedir \
   --noconfirm \
-  ${ICON_FLAG} \
+  "${ICON_ARGS[@]}" \
   --paths "src" \
-  --add-data "src/simracing/img:simracing/img" \
-  --add-data "src/simracing/analysis/setup_advisor/gt7_cars.json:simracing/analysis/setup_advisor" \
+  --add-data "src/simraceengineer/img:simraceengineer/img" \
+  --add-data "src/simraceengineer/analysis/setup_advisor/gt7_cars.json:simraceengineer/analysis/setup_advisor" \
   --collect-submodules "Crypto" \
   --hidden-import "pandas" \
   --hidden-import "pyarrow" \
@@ -76,6 +77,13 @@ python -m PyInstaller \
   --distpath "${OUT_DIR}" \
   --workpath "build" \
   "${ENTRY}"
+
+# ── Set display name in Info.plist ───────────────────────────────────────────
+PLIST="${OUT_DIR}/${APP_NAME}.app/Contents/Info.plist"
+if [[ -f "$PLIST" ]]; then
+  plutil -replace CFBundleName        -string "${APP_DISPLAY_NAME}" "$PLIST"
+  plutil -replace CFBundleDisplayName -string "${APP_DISPLAY_NAME}" "$PLIST"
+fi
 
 # ── Cleanup temp icon files ───────────────────────────────────────────────────
 rm -rf build_tmp

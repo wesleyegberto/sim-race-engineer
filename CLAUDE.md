@@ -15,7 +15,7 @@ make run-voice DEVICE_IP=192.168.1.x
 make run-debug DEVICE_IP=192.168.1.x
 
 # Run post-session lap analysis web viewer
-make run-analysis SESSION_DIR=~/simracing_laps/<session-folder>
+make run-analysis SESSION_DIR=~/sim-race-engineer/laps/<session-folder>
 
 # Lint
 make lint
@@ -33,15 +33,15 @@ Single test file: `.venv/bin/pytest tests/path/to/test_file.py`
 
 Python 3.11+, `pygame-ce` for the UI, `uv` for dependency management.
 
-Entry point: `src/simracing/main.py` — loads config, starts telemetry, launches dashboard.
+Entry point: `src/simraceengineer/main.py` — loads config, starts telemetry, launches dashboard.
 
 **Runtime flow:**
-1. `AppConfig` (`config.py`) — reads `~/simracing/simracing.conf`, env vars, CLI args
+1. `AppConfig` (`config.py`) — reads `~/sim-race-engineer/sim-race.conf`, env vars, CLI args
 2. `TelemetryController` — runs GT7 UDP receiver on a daemon thread with asyncio event loop
 3. `GT7TelemetryProvider` decrypts/parses packets → pushes `TelemetryData` into a bounded `queue.Queue`
 4. `DashboardApp` (`dashboard/app.py`) — pygame main loop, consumes queue each frame
 
-**Source packages under `src/simracing/`:**
+**Source packages under `src/simraceengineer/`:**
 
 | Package | Responsibility |
 |---------|---------------|
@@ -60,7 +60,7 @@ All commit messages and code comments must be written in English.
 
 ### Configuration
 Every configurable threshold/toggle lives in `AppConfig` (`config.py`) and must also:
-1. Map to a `[simracing]` key in `~/simracing/simracing.conf`
+1. Map to a `[sim-race]` key in `~/sim-race-engineer/sim-race.conf`
 2. Have a corresponding control in `dashboard/widgets/settings_panel.py`
 3. Be documented in the Settings tab of `dashboard/widgets/help_panel.py` (UI Guide)
 
@@ -84,14 +84,14 @@ Each alert in `VoiceService` is gated by a per-alert enabled flag in `AppConfig`
 4. Documentation in `README.md`
 
 ### PyInstaller build — bundling data files
-The build is driven by `build.sh` (not `SimRaceEngineer.spec`, which is auto-generated and discarded). Any non-Python file that code accesses via `Path(__file__).parent / "filename"` at runtime **must** be declared in `build.sh` with `--add-data`:
+The build is driven by `build.sh` (not `Sim Race Engineer.spec`, which is auto-generated and discarded). Any non-Python file that code accesses via `Path(__file__).parent / "filename"` at runtime **must** be declared in `build.sh` with `--add-data`:
 
 ```
---add-data "src/simracing/path/to/file:simracing/path/to"
+--add-data "src/simraceengineer/path/to/file:simraceengineer/path/to"
 ```
 
 Format: `source_path:dest_dir_inside_bundle` (colon-separated on macOS/Linux).
 
 Current data files bundled:
-- `src/simracing/img` → `simracing/img`
-- `src/simracing/analysis/setup_advisor/gt7_cars.json` → `simracing/analysis/setup_advisor`
+- `src/simraceengineer/img` → `simraceengineer/img`
+- `src/simraceengineer/analysis/setup_advisor/gt7_cars.json` → `simraceengineer/analysis/setup_advisor`

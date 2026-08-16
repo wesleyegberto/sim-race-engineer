@@ -11,4 +11,4 @@ fi
 
 export SIMRACING_DEVICE_IP="${SIMRACING_DEVICE_IP:-${1:-}}"
 
-exec "$VENV/bin/python" -m simracing.main --voice # --debug
+exec "$VENV/bin/python" -m simraceengineer.main --voice # --debug

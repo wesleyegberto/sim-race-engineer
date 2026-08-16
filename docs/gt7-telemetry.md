@@ -269,7 +269,7 @@ The following data is **not** transmitted by the GT7 UDP protocol:
 
 | File | Responsibility |
 |---|---|
-| `src/simracing/telemetry/gt7/parser.py` | Salsa20 decryption + 296-byte packet parsing |
-| `src/simracing/telemetry/gt7/receiver.py` | UDP socket + heartbeat loop |
-| `src/simracing/telemetry/models.py` | `TelemetryData` — game-agnostic data model |
-| `src/simracing/telemetry/provider.py` | `TelemetryProvider` ABC |
+| `src/simraceengineer/telemetry/gt7/parser.py` | Salsa20 decryption + 296-byte packet parsing |
+| `src/simraceengineer/telemetry/gt7/receiver.py` | UDP socket + heartbeat loop |
+| `src/simraceengineer/telemetry/models.py` | `TelemetryData` — game-agnostic data model |
+| `src/simraceengineer/telemetry/provider.py` | `TelemetryProvider` ABC |

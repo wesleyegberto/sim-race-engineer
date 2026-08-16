@@ -2,7 +2,7 @@
 
 import pytest
 
-from simracing.strategy.strategy_advisor import (
+from simraceengineer.strategy.strategy_advisor import (
     StrategyAdvisor,
     StrategyReport,
     _check_in_laps,
@@ -117,7 +117,7 @@ def test_evaluate_health_needs_stop_no_plan():
 
 
 def test_evaluate_health_missed_stop_becomes_revise():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     stop = PlannedStop(stop_number=1, window_open=8, window_close=10)
     plan = PlannedStrategy(stops=[stop])
     # current_lap=14: window_close(10) < current_lap-2(12) → missed (grace period=2)
@@ -127,7 +127,7 @@ def test_evaluate_health_missed_stop_becomes_revise():
 
 
 def test_evaluate_health_missed_stop_grace_period():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     stop = PlannedStop(stop_number=1, window_open=8, window_close=10)
     plan = PlannedStrategy(stops=[stop])
     # current_lap=12: window_close(10) == current_lap-2(10) → not missed yet
@@ -136,7 +136,7 @@ def test_evaluate_health_missed_stop_grace_period():
 
 
 def test_evaluate_health_unnecessary_stop_always_revise():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     # recommended_stops=0 but user has stop planned near end of race
     stop = PlannedStop(stop_number=1, window_open=18, window_close=19)
     plan = PlannedStrategy(stops=[stop])
@@ -146,7 +146,7 @@ def test_evaluate_health_unnecessary_stop_always_revise():
 
 
 def test_evaluate_health_unnecessary_stop_too_early_no_revise():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     # recommended_stops=0 on lap 3 — fuel avg unstable, should NOT trigger REVISE
     stop = PlannedStop(stop_number=1, window_open=18, window_close=19)
     plan = PlannedStrategy(stops=[stop])
@@ -155,7 +155,7 @@ def test_evaluate_health_unnecessary_stop_too_early_no_revise():
 
 
 def test_evaluate_health_planned_within_advisor_window():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     # advisor window [9,11], planned stop target=10 → ON_PLAN
     stop = PlannedStop(stop_number=1, window_open=10, window_close=10)
     plan = PlannedStrategy(stops=[stop])
@@ -164,7 +164,7 @@ def test_evaluate_health_planned_within_advisor_window():
 
 
 def test_evaluate_health_planned_outside_advisor_window():
-    from simracing.strategy.planned_strategy import PlannedStop, PlannedStrategy
+    from simraceengineer.strategy.planned_strategy import PlannedStop, PlannedStrategy
     # advisor window [8,10], planned target=18, tolerance=max(2,20//15)=2 → REVISE
     stop = PlannedStop(stop_number=1, window_open=18, window_close=18)
     plan = PlannedStrategy(stops=[stop])

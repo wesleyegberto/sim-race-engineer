@@ -96,13 +96,13 @@ Offline spoken alerts via **Piper TTS** in **English** and **Portuguese (PT-BR)*
 | Tyre projection | Estimated lap at which wear threshold will be reached |
 | Stop window | Earliest and latest safe pit lap balancing fuel and tyres |
 
-Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/simracing/simracing.conf`.
+Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/sim-race-engineer/sim-race.conf`.
 
 ### Lap Recording
 
 Telemetry saved automatically as **Apache Parquet** (Snappy compressed) at ~60 Hz. No manual action required — recording starts with the session.
 
-- **Location:** `~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet`
+- **Location:** `~/sim-race-engineer/laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet`
 - **Per-frame fields:** speed · RPM · gear · throttle · brake · clutch · handbrake · position (XYZ) · velocity · G-forces · slip angle · tyre temps (surface + inner/mid/outer) · tyre pressure · suspension travel · water temp · oil temp · fuel level · turbo boost
 - **Per-lap summary:** lap time · fuel used · fuel average · pedal counters
 - **Extras:** `session.parquet` (all laps concatenated) written at session end; incomplete lap saved on exit
@@ -113,7 +113,7 @@ Telemetry saved automatically as **Apache Parquet** (Snappy compressed) at ~60 H
 Interactive browser UI (Dash + Plotly) for comparing laps after a session.
 
 ```bash
-sim-analysis ~/simracing_laps/<session-folder>
+sim-analysis ~/sim-race-engineer/laps/<session-folder>
 ```
 
 | Chart | Data |
@@ -138,7 +138,7 @@ Press **?** (info button in the header) to open a 3-tab reference panel:
 
 ### Settings
 
-All thresholds and toggles live in `~/simracing/simracing.conf` and are also accessible via the Settings panel (**C** key) without restarting the app. Configurable options include: device IP, fuel estimation method (last lap vs. rolling average), voice language, per-alert enable/disable, temperature thresholds, tyre wear limit, pit buffer laps, and LLM provider.
+All thresholds and toggles live in `~/sim-race-engineer/sim-race.conf` and are also accessible via the Settings panel (**C** key) without restarting the app. Configurable options include: device IP, fuel estimation method (last lap vs. rolling average), voice language, per-alert enable/disable, temperature thresholds, tyre wear limit, pit buffer laps, and LLM provider.
 
 ### Distribution
 

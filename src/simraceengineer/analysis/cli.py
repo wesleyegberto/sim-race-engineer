@@ -1,4 +1,4 @@
-"""CLI entry point: simracing-analyze <path.parquet> [--port N] [--no-browser]"""
+"""CLI entry point: sim-race-analyze <path.parquet> [--port N] [--no-browser]"""
 from __future__ import annotations
 
 import argparse
@@ -26,7 +26,7 @@ def run_server(path: Path, port: int = 8050) -> None:
     callbacks.set_data(laps)
 
     try:
-        from simracing.config import AppConfig
+        from simraceengineer.config import AppConfig
         _cfg = AppConfig()
         llm_backend = _cfg.llm_backend
         llm_model = _cfg.llm_model
@@ -42,7 +42,7 @@ def run_server(path: Path, port: int = 8050) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="simracing-analyze",
+        prog="sim-race-analyze",
         description="Interactive web viewer for SimRacing session/lap parquet files.",
     )
     parser.add_argument("path", type=Path, help="Path to session.parquet or lap_NN.parquet")
@@ -83,7 +83,7 @@ def main() -> None:
     callbacks.set_data(laps)
 
     try:
-        from simracing.config import AppConfig
+        from simraceengineer.config import AppConfig
         _cfg = AppConfig()
         llm_backend = _cfg.llm_backend
         llm_model = _cfg.llm_model

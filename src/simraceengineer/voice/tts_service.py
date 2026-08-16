@@ -14,7 +14,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-_VOICES_DIR = Path.home() / "simracing" / "piper"
+_VOICES_DIR = Path.home() / "sim-race-engineer" / "piper"
 
 _MODEL_URLS: dict[str, tuple[str, str]] = {
     "en_US-ryan-medium": (
@@ -87,7 +87,7 @@ class TTSService:
             from piper.voice import PiperVoice  # type: ignore[import]
         except ImportError:
             log.warning("piper-tts not installed — voice alerts disabled. "
-                        "Install with: pip install 'simracing-engineer[voice]'")
+                        "Install with: pip install 'sim-race-engineer[voice]'")
             return
 
         try:

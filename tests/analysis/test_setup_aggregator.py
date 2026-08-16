@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 
-from simracing.analysis.setup_advisor.aggregator import lookup_car_name, compute, SetupStats
+from simraceengineer.analysis.setup_advisor.aggregator import lookup_car_name, compute, SetupStats
 
 
 def test_known_car_code_returns_name() -> None:
@@ -24,7 +24,7 @@ def test_absent_code_returns_desconhecido() -> None:
 
 
 def test_cache_is_shared_between_calls() -> None:
-    from simracing.analysis.setup_advisor import aggregator
+    from simraceengineer.analysis.setup_advisor import aggregator
 
     aggregator._cars = None  # reset cache
     result1 = lookup_car_name(24)

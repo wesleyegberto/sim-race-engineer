@@ -255,7 +255,7 @@ _SETTINGS_RIGHT = [
 
 _LAP_RECORD_LEFT = [
     ("section", "FILE STORAGE", "time"),
-    ("item",  "Location",              "~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",       C_TEXT),
+    ("item",  "Location",              "~/sim-race-engineer/laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet",       C_TEXT),
     ("item",  "session.parquet",       "all laps merged · auto-created at session end",              C_ACCENT),
     ("item",  "Format",                "Parquet · Snappy · ~60 Hz · auto-saved on lap change",       C_TEXT),
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release.sh — Build and publish a GitHub release for SimRaceEngineer
+# release.sh — Build and publish a GitHub release for Sim Race Engineer
 # Usage: ./release.sh [--skip-build] [--draft] [--notes "message"]
 set -euo pipefail
 

@@ -60,7 +60,7 @@ ERROR_BAR_H = 22
 
 # In a PyInstaller bundle __file__ is inside a temp dir; assets land in sys._MEIPASS.
 _BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
-_IMG_DIR = _BASE / "simracing" / "img" if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent / "img"
+_IMG_DIR = _BASE / "simraceengineer" / "img" if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent / "img"
 
 
 def _fmt_lap(ms: int) -> str:
@@ -118,7 +118,7 @@ class _AnalysisThread:
 
     def _run(self, path: Path, port: int) -> None:
         try:
-            from simracing.analysis.cli import run_server
+            from simraceengineer.analysis.cli import run_server
             run_server(path, port)
         except Exception:
             log.exception("Analysis server error")
@@ -271,7 +271,7 @@ class DashboardApp:
             webbrowser.open("http://127.0.0.1:8050")
             return
 
-        laps_dir = Path.home() / "simracing" / "laps"
+        laps_dir = Path.home() / "sim-race-engineer" / "laps"
 
         def _pick_and_launch() -> None:
             if sys.platform == "darwin":
@@ -305,13 +305,13 @@ class DashboardApp:
             if not path:
                 return
 
-            log_path = Path.home() / "simracing" / "analysis.log"
+            log_path = Path.home() / "sim-race-engineer" / "analysis.log"
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Kill any stale analysis server left over from a previous session.
             _kill_port(8050)
 
-            script = shutil.which("simracing-analyze")
+            script = shutil.which("sim-race-analyze")
             if script:
                 log_file = open(log_path, "w")  # noqa: SIM115
                 self._analysis_proc = subprocess.Popen(
@@ -323,7 +323,7 @@ class DashboardApp:
             else:
                 log_file = open(log_path, "w")  # noqa: SIM115
                 self._analysis_proc = subprocess.Popen(
-                    [sys.executable, "-m", "simracing.analysis.cli", path, "--no-browser"],
+                    [sys.executable, "-m", "simraceengineer.analysis.cli", path, "--no-browser"],
                     stdout=log_file, stderr=log_file,
                 )
             log.info("Analysis viewer launching for %s (pid=%s)",
@@ -665,7 +665,7 @@ class DashboardApp:
 
     def run(self) -> None:
         pygame.init()
-        pygame.display.set_caption("Race Engineer")
+        pygame.display.set_caption("Sim Race Engineer")
         icon_path = _IMG_DIR / "icon-1.png"
         if icon_path.exists():
             pygame.display.set_icon(pygame.image.load(str(icon_path)))
@@ -984,7 +984,7 @@ class DashboardApp:
 
         _title = self._surf_title
         if _title is None:
-            _title = font_md.render("RACE ENGINEER", True, C_TEXT)
+            _title = font_md.render("SIM RACE ENGINEER", True, C_TEXT)
             self._surf_title = _title
         screen.blit(_title, (icon_x + 32 + 10, (HEADER_H - _title.get_height()) // 2))
 

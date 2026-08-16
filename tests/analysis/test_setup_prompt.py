@@ -1,7 +1,7 @@
 import pytest
 
-from simracing.analysis.setup_advisor.aggregator import SetupStats
-from simracing.analysis.setup_advisor.prompt_builder import build, build_system_prompt
+from simraceengineer.analysis.setup_advisor.aggregator import SetupStats
+from simraceengineer.analysis.setup_advisor.prompt_builder import build, build_system_prompt
 
 
 @pytest.fixture

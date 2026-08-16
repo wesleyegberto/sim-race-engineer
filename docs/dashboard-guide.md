@@ -55,7 +55,7 @@ Opened via the **⚙** button in the header.
 
 | Option | Description |
 |--------|-------------|
-| **Device IP** | IP address of the PS5 (or PC running GT7). Persisted to `~/simracing.conf`. |
+| **Device IP** | IP address of the PS5 (or PC running GT7). Persisted to `~/sim-race-engineer/sim-race.conf`. |
 | **Record automatically on start** | When enabled, lap recording begins as soon as a session starts, without requiring manual action. Default: on. |
 
 Settings are saved on **Save** and take effect immediately.
@@ -356,7 +356,7 @@ The analytical information (G-meter, slip angle, suspension, tire temps) is mean
 
 1. Enable the **GT7 telemetry output** in the game: `Settings → GT7 SIM Racing Telemetry → Enabled`.
 2. Note the IP address of the PS5.
-3. Launch Race Engineer and enter the IP via **⚙ Settings** (or set `SIMRACING_DEVICE_IP` env var, or edit `~/simracing.conf`).
+3. Launch Race Engineer and enter the IP via **⚙ Settings** (or set `SIMRACING_DEVICE_IP` env var, or edit `~/sim-race-engineer/sim-race.conf`).
 4. Start a race or time trial — data starts flowing immediately.
 
 The app listens on UDP port **33740** by default.
@@ -380,7 +380,7 @@ Race Engineer automatically records every lap to disk — no manual action requi
 ### Where files are saved
 
 ```
-~/simracing_laps/
+~/sim-race-engineer/laps/
 └── <YYYY-MM-DDTHHMMSS>/        ← session folder, created when recording starts
     ├── lap_01.parquet
     ├── lap_02.parquet
@@ -428,7 +428,7 @@ Files use **Apache Parquet** with **Snappy** compression. Each file contains one
 ```python
 import pandas as pd
 
-df = pd.read_parquet("~/simracing_laps/2026-06-13T143022/lap_01.parquet")
+df = pd.read_parquet("~/sim-race-engineer/laps/2026-06-13T143022/lap_01.parquet")
 print(df.columns.tolist())
 print(f"Lap time: {df['lap_finish_ms'].iloc[-1] / 1000:.3f}s")
 print(f"Fuel used: {df['fuel_used'].iloc[-1]:.2f} L")

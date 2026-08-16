@@ -1,7 +1,7 @@
-"""App configuration: reads/writes ~/simracing.conf.
+"""App configuration: reads/writes ~/sim-race-engineer/sim-race.conf.
 
 Priority for device_ip:
-  1. ~/simracing.conf  [simracing] device_ip
+  1. ~/sim-race-engineer/sim-race.conf  [sim-race] device_ip
   2. Environment variable SIMRACING_DEVICE_IP
   3. Empty string (triggers settings dialog on startup)
 """
@@ -38,9 +38,9 @@ def _parse_stop_windows(raw: str) -> list[tuple[int, int]]:
 
 
 class AppConfig:
-    PATH = Path.home() / "simracing" / "simracing.conf"
+    PATH = Path.home() / "sim-race-engineer" / "sim-race.conf"
     ENV_VAR = "SIMRACING_DEVICE_IP"
-    _SECTION = "simracing"
+    _SECTION = "sim-race"
 
     _VOICE = "voice"
     _STRATEGY = "strategy"

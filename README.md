@@ -92,7 +92,7 @@ Each alert has an independent cooldown to avoid repetition.
 | Advisor pit window | Approaching alert 1–2 laps before advisor window opens; entry alert when window is active | once/window |
 | Overtake | Position gained → encouragement; position lost → support | 15 s |
 
-All thresholds are configurable in `~/simracing/simracing.conf`.
+All thresholds are configurable in `~/sim-race-engineer/sim-race.conf`.
 Each alert can be individually enabled or disabled in the in-app Settings panel.
 
 ### Race Strategy
@@ -119,7 +119,7 @@ Real-time strategy engine that computes pit stop recommendations from live fuel 
 | Missed | Stop lap passed without pitting — auto-reschedules to earliest safe lap if fuel allows |
 
 Pit entry is detected automatically and marks the corresponding stop as done.
-Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/simracing/simracing.conf`.
+Tyre wear limit and pit buffer are configurable in the Strategy panel and `~/sim-race-engineer/sim-race.conf`.
 
 **Strategy Advisor** — proactive race engineer logic, computed every lap:
 
@@ -139,7 +139,7 @@ The advisor fires three voice alerts:
 - **Revised**: when health flips to `REVISE` and the optimal pit lap moves > 2 laps.
 - **Fuel save+**: when fuel delta is between 0 and `fuel_save_delta_l` (default 2 L).
 
-Advisor config keys in `~/simracing/simracing.conf` under `[strategy]`:
+Advisor config keys in `~/sim-race-engineer/sim-race.conf` under `[strategy]`:
 
 | Key | Default | Effect |
 |-----|---------|--------|
@@ -155,7 +155,7 @@ No manual action required — recording starts with the session and stops at rac
 
 | What | Detail |
 |------|--------|
-| Location | `~/simracing_laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet` |
+| Location | `~/sim-race-engineer/laps/<YYYY-MM-DDTHHMMSS>/lap_NN.parquet` |
 | Per-frame | Speed · RPM · gear · throttle · brake · clutch · handbrake |
 | Per-frame | Position (XYZ) · velocity · G-forces · slip angle |
 | Per-frame | Tyre temps (surface + inner/mid/outer) · tyre pressure · suspension |
@@ -175,7 +175,7 @@ After a session, run the web viewer to explore recorded laps interactively in th
 | Timeseries | Throttle · Brake · Gear · Speed · Slip angle — shared time axis across laps |
 
 ```bash
-sim-analysis ~/simracing_laps/<session-folder>
+sim-analysis ~/sim-race-engineer/laps/<session-folder>
 ```
 
 ---
@@ -202,7 +202,7 @@ Installs all dependencies: dashboard, voice communication, and lap analysis view
 
 ### Piper TTS models
 
-Downloaded automatically from HuggingFace on first launch (~200 MB per voice) into `~/simracing/piper/`.
+Downloaded automatically from HuggingFace on first launch (~200 MB per voice) into `~/sim-race-engineer/piper/`.
 No manual step required.
 
 ---
@@ -214,7 +214,7 @@ sh run.sh
 ```
 
 On first launch, the Settings panel opens automatically. Enter the device IP address and save.
-The IP is persisted to `~/simracing/simracing.conf` and reused on subsequent launches.
+The IP is persisted to `~/sim-race-engineer/sim-race.conf` and reused on subsequent launches.
 
 ```bash
 # Or pass the IP directly

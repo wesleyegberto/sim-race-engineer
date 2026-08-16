@@ -45,7 +45,7 @@ Extend the telemetry layer to support additional sim racing titles beyond GT7.
 | **iRacing** | iRacing SDK shared memory | Windows only, requires `pyirsdk` |
 
 **Implementation notes:**
-- Each game gets its own `simracing/telemetry/<game>/parser.py` + `receiver.py`
+- Each game gets its own `simraceengineer/telemetry/<game>/parser.py` + `receiver.py`
 - All parsers output a common `TelemetryData` object — dashboard requires no changes
 - Game auto-detection or manual selection in Settings panel
 - Some fields (e.g. suspension travel, angular velocity) may not be available in all titles and should fall back gracefully to zero / hidden widget

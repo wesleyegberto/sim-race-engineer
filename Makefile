@@ -19,13 +19,13 @@ install: install-sys-deps
 	$(UV) pip install -e ".[dev,voice,analysis,advisor]"
 
 run run-voice:
-	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simracing.main --voice
+	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simraceengineer.main --voice
 
 run-debug:
-	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simracing.main --debug
+	SIMRACING_DEVICE_IP=$(DEVICE_IP) $(PYTHON) -m simraceengineer.main --debug
 
 run-analysis:
-	$(PYTHON) -m simracing.analysis.cli $(SESSION_DIR)
+	$(PYTHON) -m simraceengineer.analysis.cli $(SESSION_DIR)
 
 lint:
 	$(VENV)/bin/ruff check src/

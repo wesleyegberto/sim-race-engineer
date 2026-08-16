@@ -14,8 +14,8 @@ from .dashboard.app import DashboardApp
 from .telemetry.gt7 import GT7TelemetryProvider
 from .telemetry.models import TelemetryData
 
-_LOG_DIR = Path.home() / "simracing"
-_LOG_FILE = _LOG_DIR / "simracing.log"
+_LOG_DIR = Path.home() / "sim-race-engineer"
+_LOG_FILE = _LOG_DIR / "sim-race.log"
 _FMT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
 
 
@@ -172,7 +172,7 @@ def main() -> None:
     args = parser.parse_args()
 
     _setup_logging(debug=args.debug)
-    log.info("Starting simracing dashboard (log: %s)", _LOG_FILE)
+    log.info("Starting sim-race dashboard (log: %s)", _LOG_FILE)
 
     try:
         _run_app(args)

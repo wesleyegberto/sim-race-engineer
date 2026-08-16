@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from simracing.analysis.setup_advisor.aggregator import SetupStats
-from simracing.analysis.setup_advisor.gt7_setup_options import build_params_section
+from simraceengineer.analysis.setup_advisor.aggregator import SetupStats
+from simraceengineer.analysis.setup_advisor.gt7_setup_options import build_params_section
 
 _PSI_FACTOR = 0.145038
 _WHEELS = ("FL", "FR", "RL", "RR")

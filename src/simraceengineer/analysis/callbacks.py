@@ -45,7 +45,7 @@ def _is_trivial(dfs: dict[int, pd.DataFrame]) -> str:
 
 
 def _car_name_from_df(df: pd.DataFrame) -> str:
-    from simracing.analysis.setup_advisor.aggregator import lookup_car_name
+    from simraceengineer.analysis.setup_advisor.aggregator import lookup_car_name
 
     if "car_code" not in df.columns:
         return ""
@@ -147,10 +147,10 @@ def register(app) -> None:  # type: ignore[type-arg]
         backend: str,
         model: str,
     ) -> str:
-        from simracing.analysis.setup_advisor import aggregator
-        from simracing.analysis.setup_advisor import prompt_builder  # type: ignore[attr-defined]
-        from simracing.analysis.setup_advisor.aggregator import lookup_car_name
-        from simracing.config import AppConfig
+        from simraceengineer.analysis.setup_advisor import aggregator
+        from simraceengineer.analysis.setup_advisor import prompt_builder  # type: ignore[attr-defined]
+        from simraceengineer.analysis.setup_advisor.aggregator import lookup_car_name
+        from simraceengineer.config import AppConfig
 
         if not _ALL_LAPS:
             return "_No session loaded._"
@@ -183,14 +183,14 @@ def register(app) -> None:  # type: ignore[type-arg]
                 stats, track=track, level=level or "basic", lang=lang
             )
 
-            from simracing.analysis.setup_advisor.llm_client import create_client
+            from simraceengineer.analysis.setup_advisor.llm_client import create_client
 
             client = create_client(cfg)
             report = client.generate(prompt, system=system)
         except ImportError as exc:
             return (
                 f"**SDK not installed:** {exc}\n\n"
-                "Install with: `pip install 'simracing[advisor]'`"
+                "Install with: `pip install 'sim-race-engineer[advisor]'`"
             )
         except Exception as exc:
             return f"**Error calling LLM:** {exc}"

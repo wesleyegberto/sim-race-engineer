@@ -7,13 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from simracing.analysis.setup_advisor.llm_client import (
+from simraceengineer.analysis.setup_advisor.llm_client import (
     AnthropicClient,
     LLMClientBase,
     OllamaClient,
     create_client,
 )
-from simracing.config import AppConfig
+from simraceengineer.config import AppConfig
 
 
 # ---------------------------------------------------------------------------

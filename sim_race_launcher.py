@@ -6,7 +6,7 @@ from pathlib import Path
 
 # With --windowed (console=False) stdout/stderr are /dev/null. Write startup
 # errors to a file so crashes before logging is configured are not silent.
-_EARLY_LOG = Path.home() / "simracing" / "startup_crash.log"
+_EARLY_LOG = Path.home() / "sim-race-engineer" / "startup_crash.log"
 
 
 def _write_early_crash(msg: str) -> None:
@@ -32,7 +32,7 @@ if os.path.isdir(_src) and _src not in sys.path:
     sys.path.insert(0, _src)
 
 try:
-    from simracing.main import main  # noqa: E402
+    from simraceengineer.main import main  # noqa: E402
 except Exception:
     _write_early_crash("Import failed:\n" + traceback.format_exc())
     sys.exit(1)
