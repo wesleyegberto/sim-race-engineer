@@ -44,17 +44,19 @@ FPS = 60
 HEADER_H = 52
 RPM_BAR_Y = HEADER_H + 10
 
-C_BG = (14, 14, 18)
-C_HEADER = (20, 20, 26)
-C_TEXT = (230, 230, 230)
-C_DIM = (100, 100, 110)
-C_ACCENT = (80, 140, 220)
-C_GREEN = (60, 200, 80)
-C_ORANGE = (255, 165, 0)
-C_RED = (220, 60, 60)
-C_SEPARATOR = (45, 45, 55)
-C_BTN_GEAR = (38, 38, 50)
-C_BTN_GEAR_HOVER = (55, 55, 70)
+from .colors import (  # noqa: E402
+    C_ACCENT,
+    C_BG,
+    C_BTN_GEAR,
+    C_BTN_GEAR_HOVER,
+    C_DIM,
+    C_GREEN,
+    C_HEADER,
+    C_ORANGE,
+    C_RED,
+    C_SEPARATOR,
+    C_TEXT,
+)
 
 ERROR_BAR_H = 22
 

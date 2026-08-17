@@ -2,23 +2,31 @@
 
 import pygame
 
-C_OVERLAY = (0, 0, 0, 185)
-C_CARD = (22, 22, 30)
-C_TITLE_BAR = (28, 28, 42)
-C_BORDER = (60, 60, 80)
-C_DIVIDER = (42, 42, 55)
-C_TITLE = (230, 230, 230)
-C_SECTION = (80, 140, 220)
-C_TEXT = (200, 200, 210)
-C_DIM = (95, 95, 108)
-C_ACCENT = (80, 140, 220)
-C_ORANGE = (255, 165, 0)
-C_SPIN = (255, 140, 0)
-C_LOCK = (220, 40, 40)
-C_RED = (210, 55, 55)
-C_GREEN = (60, 200, 80)
-C_YELLOW = (240, 210, 0)
-C_LIGHT = (190, 200, 255)
+from simraceengineer.dashboard.colors import (
+    C_ACCENT,
+    C_BORDER,
+    C_DIVIDER,
+    C_GREEN,
+    C_LIGHT,
+    C_LOCK,
+    C_MODAL_BG,
+    C_MODAL_HEADER,
+    C_ORANGE,
+    C_OVERLAY,
+    C_SPIN,
+    C_YELLOW,
+)
+
+# Semantic aliases for modal context
+C_CARD = C_MODAL_BG
+C_SECTION = C_ACCENT
+C_TITLE_BAR = C_MODAL_HEADER
+
+# Modal-specific tones that intentionally differ from the global dashboard palette
+C_TITLE = (230, 230, 230)   # bright white for title bar text
+C_TEXT = (200, 200, 210)    # slightly dimmer than global C_TEXT for overlay readability
+C_DIM = (95, 95, 108)       # dimmer variant for secondary descriptions
+C_RED = (210, 55, 55)       # slightly softer red for indicator labels
 
 # fmt: off
 _LEFT = [
@@ -65,7 +73,7 @@ _RIGHT = [
 ]
 # fmt: on
 
-_TAB_LABELS = ["UI GUIDE", "DASHBOARD", "VOICE ALERTS", "SETTINGS", "LAP RECORD"]
+_TAB_LABELS = ["OVERVIEW", "DASHBOARD", "VOICE ALERTS", "SETTINGS", "LAP RECORD"]
 
 # fmt: off
 _VOICE_LEFT = [
@@ -300,7 +308,7 @@ _LAP_RECORD_RIGHT = [
 ]
 # fmt: on
 
-_FOOTER = "Press ESC or click anywhere to close"
+_FOOTER = "Press ESC or click outside the card to close"
 
 _CARD_X, _CARD_Y = 44, 58       # card sits just below the header
 _CARD_W, _CARD_H = 1192, 730    # bottom ≈ 788, leaves margin on 800px screen
@@ -309,9 +317,9 @@ _COL_GAP = 28
 _TITLE_H = 44
 _ITEM_NAME_H = 18   # advance per name line (14pt ≈ 17-18px)
 _ITEM_DESC_H = 18   # advance per description line
-_ITEM_GAP = 1       # gap between items
-_SECTION_PRE_GAP = 6
-_SECTION_UNDER_H = 5
+_ITEM_GAP = 4       # gap between items
+_SECTION_PRE_GAP = 10
+_SECTION_UNDER_H = 7
 _FEATURE_CARD_H = 90  # height of each HOW IT WORKS card
 _FEATURE_CARD_GAP = 16
 
@@ -352,9 +360,14 @@ class HelpPanel:
         self.active = True
 
     def handle_event(self, event: pygame.event.Event) -> str | None:
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            self.active = False
-            return "closed"
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.active = False
+                return "closed"
+            if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                delta = -1 if event.key == pygame.K_LEFT else 1
+                self._active_tab = (self._active_tab + delta) % len(_TAB_LABELS)
+                return None
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for i, tab_rect in enumerate(self._tab_rects):
                 if tab_rect.collidepoint(event.pos):
@@ -393,7 +406,7 @@ class HelpPanel:
         )
         _t = self._surf_title
         if _t is None:
-            _t = font_md.render("APP GUIDE", True, C_TITLE)
+            _t = font_md.render("SIM RACE ENGINEER", True, C_TITLE)
             self._surf_title = _t
         surface.blit(_t, _t.get_rect(midleft=(_CARD_X + _PAD, _CARD_Y + _TITLE_H // 2)))
 
@@ -441,15 +454,24 @@ class HelpPanel:
             )
             content_y += 10
 
+        _footer_top = _CARD_Y + _CARD_H - 28
+        content_clip = pygame.Rect(
+            _CARD_X + 1, content_y, _CARD_W - 2, _footer_top - content_y
+        )
+        prev_clip = surface.get_clip()
+        surface.set_clip(content_clip)
+
         self._draw_column(surface, font_sm, self._col_left_x, content_y, left_entries, icons)
 
         div_x = self._col_right_x - _COL_GAP // 2
         pygame.draw.line(
             surface, C_DIVIDER,
             (div_x, content_y - 4),
-            (div_x, _CARD_Y + _CARD_H - 28), 1,
+            (div_x, _footer_top), 1,
         )
         self._draw_column(surface, font_sm, self._col_right_x, content_y, right_entries, icons)
+
+        surface.set_clip(prev_clip)
 
         _ftr = self._surf_footer
         if _ftr is None:
@@ -523,7 +545,13 @@ class HelpPanel:
                     line = word
             if line:
                 lines.append(line)
-            for dl in lines[:2]:
+            _MAX_DESC_LINES = 2
+            if len(lines) > _MAX_DESC_LINES:
+                last = lines[_MAX_DESC_LINES - 1]
+                while font_sm.size(last + "…")[0] > desc_max_w and len(last) > 1:
+                    last = last[:-1]
+                lines = lines[:_MAX_DESC_LINES - 1] + [last + "…"]
+            for dl in lines:
                 ds = font_sm.render(dl, True, C_DIM)
                 surface.blit(ds, (tx, ty))
                 ty += ds.get_height() + 1
