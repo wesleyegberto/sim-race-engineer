@@ -96,14 +96,15 @@ def draw_tires(
     suspension_heights: list | None = None,  # 4 floats in metres
     wear_pcts: list | None = None,          # 4 floats, 0=new tyre … 1=bald
     suspension_icon: pygame.Surface | None = None,
+    wear_icon: pygame.Surface | None = None,
 ) -> None:
     """Draw a 2×2 grid of tire tiles centered at (cx, cy).
 
     When slip_ratios is provided, tile borders reflect slip state.
     When suspension_heights is provided, narrow vertical bars are drawn
-    on the outer side of each tile (left for FL/RL, right for FR/RR).
+    on the inner side of each tile (between the two columns).
     When wear_pcts is provided, narrow vertical bars are drawn on the
-    inner side of each tile showing remaining rubber (fills from bottom).
+    outer side of each tile showing remaining rubber (fills from bottom).
     """
     positions = [
         (cx - tile_w - gap // 2, cy - tile_h - gap // 2),   # FL
@@ -143,7 +144,7 @@ def draw_tires(
             t_txt = font.render(f"{temp:.0f}°", True, C_TEXT)
             surface.blit(t_txt, t_txt.get_rect(center=(tx + tile_w // 2, ty + tile_h // 2 + 4)))
 
-        # Suspension travel bar (outer side)
+        # Suspension travel bar (inner side — between the two columns)
         if suspension_heights and i < len(suspension_heights):
             sus_h = suspension_heights[i]
             pct = max(0.0, min(1.0, 1.0 - sus_h / _SUS_MAX))  # 1=compressed, 0=extended
@@ -177,7 +178,11 @@ def draw_tires(
                 fill_rect = pygame.Rect(bx, ty + tile_h - filled_h, _WEAR_BAR_W, filled_h)
                 pygame.draw.rect(surface, _wear_color(wear), fill_rect, border_radius=2)
             pygame.draw.rect(surface, _WEAR_BORDER, bg_rect, 1, border_radius=2)
-            # Wheel icon: outer ring + center dot above the bar
-            icx = bx + _WEAR_BAR_W // 2
-            pygame.draw.circle(surface, _ICON_COLOR, (icx, ty - 6), 3, 1)
-            pygame.draw.circle(surface, _ICON_COLOR, (icx, ty - 6), 1)
+            # Wear icon above the bar
+            if wear_icon:
+                iw, ih = wear_icon.get_size()
+                surface.blit(wear_icon, (bx + (_WEAR_BAR_W - iw) // 2, ty - ih - 2))
+            else:
+                icx = bx + _WEAR_BAR_W // 2
+                pygame.draw.circle(surface, _ICON_COLOR, (icx, ty - 6), 3, 1)
+                pygame.draw.circle(surface, _ICON_COLOR, (icx, ty - 6), 1)

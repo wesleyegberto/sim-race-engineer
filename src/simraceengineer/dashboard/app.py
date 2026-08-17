@@ -584,6 +584,7 @@ class DashboardApp:
         self._icon_wheel = _load_icon("steering-wheel.png", 15, C_DIM)
         self._icon_suspension = _load_icon("suspension.png", 15, C_DIM)
         self._icon_suspension_bar = _load_icon("suspension.png", 10, (140, 140, 155))
+        self._icon_wear_bar = _load_icon("wheel.png", 10, (140, 140, 155))
         self._icon_gearbox = _load_icon("gearbox.png", 16, C_DIM)
         self._icon_gearbox_lg = _load_icon("gearbox.png", 40, C_DIM)
         self._icon_turbo = _load_icon("turbo.png", 15, C_DIM)
@@ -956,7 +957,8 @@ class DashboardApp:
                    slip_ratios=self._slip_ratios,
                    suspension_heights=[t.suspension_height for t in d.tires],
                    wear_pcts=self._wear_pcts if self._data and self._data.tyre_wear_available else None,
-                   suspension_icon=self._icon_suspension_bar)
+                   suspension_icon=self._icon_suspension_bar,
+                   wear_icon=self._icon_wear_bar)
 
         draw_g_meter(screen, cx=160, cy=615, radius=55,
                      lat_g=self._g_lat, lon_g=self._g_lon, font=font_sm)

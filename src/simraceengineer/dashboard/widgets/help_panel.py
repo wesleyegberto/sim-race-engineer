@@ -97,15 +97,15 @@ _VOICE_LEFT = [
      "2–4 laps of fuel remain in a race · 'Box box box'",
      C_ACCENT, "fuel"),
     ("item", "Fuel < 1 lap",
-     "less than 1 lap of fuel · highest priority fuel alert",
+     "less than 1 lap of fuel · highest priority fuel alert · always active · no toggle",
      C_RED, "fuel"),
 
     ("section", "STRATEGY", "strategy"),
     ("item", "Strategy: pit window",
-     "in pit window, can't finish · 'Box box box + reason'",
+     "in pit window, can't finish · 'Box box box + reason' · toggle: voice_alert_strategy in config file",
      C_ACCENT, "strategy"),
     ("item", "Strategy: tyres",
-     "2–5 laps to pit · tyres degrading · plan ahead",
+     "2–5 laps to pit · tyres degrading · plan ahead · toggle: voice_alert_strategy in config file",
      C_ORANGE, "tire-wheel"),
 ]
 
@@ -137,7 +137,7 @@ _VOICE_RIGHT = [
 
     ("section", "PLANNED PIT", "pit-stop"),
     ("item", "Approaching",
-     "'Pit in N lap(s)' · fires 2 laps before planned stop",
+     "'Pit in N lap(s)' · fires 2 laps before planned stop · toggle: voice_alert_strategy in config file",
      C_ACCENT, "pit-stop"),
     ("item", "Box now",
      "'Box this lap. On strategy' · on the planned stop lap",

@@ -433,7 +433,7 @@ class SettingsPanel:
             (self._voice_chk_engine_temp,      self._voice_alert_engine_temp,      "Engine temp"),
             (self._voice_chk_oil_temp,        self._voice_alert_oil_temp,        "Oil temp"),
             (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
-            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Tyre wear"),
+            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Inner temp"),
             (self._voice_chk_tire_pressure,   self._voice_alert_tire_pressure,   "Tyre pres."),
             (self._voice_chk_overtake,        self._voice_alert_overtake,        "Overtake"),
         ):
