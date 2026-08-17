@@ -422,6 +422,8 @@ class HelpPanel:
         else:
             x_surf = font_sm.render("X", True, C_TITLE)
             surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
+        if self._close_btn.collidepoint(mouse) or any(t.collidepoint(mouse) for t in self._tab_rects):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
         _header_by_tab = [_APP_HEADER, None,   None,          None,            None]
         _left_by_tab   = [_APP_LEFT,  _LEFT,   _VOICE_LEFT,  _SETTINGS_LEFT,  _LAP_RECORD_LEFT]

@@ -511,6 +511,13 @@ class SettingsPanel:
                        C_BTN_SAVE if not self._btn_save.collidepoint(mouse) else C_BTN_HOVER)
         self._draw_btn(screen, font_sm, self._btn_cancel, "Cancel",
                        C_BTN_CANCEL if not self._btn_cancel.collidepoint(mouse) else (80, 80, 95))
+        _btns = [
+            self._fuel_btn_last, self._fuel_btn_avg,
+            self._voice_btn_en, self._voice_btn_pt, self._voice_btn_test,
+            self._btn_save, self._btn_cancel,
+        ]
+        if any(b.collidepoint(mouse) for b in _btns):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
     def _draw_btn(self, screen, font, rect: pygame.Rect, text: str, color: tuple) -> None:
         pygame.draw.rect(screen, color, rect, border_radius=6)

@@ -372,6 +372,8 @@ class StrategyPanel:
                        C_BTN_CLEAR if not self._btn_clear.collidepoint(mouse) else (120, 60, 60))
         self._draw_btn(screen, font_sm, self._btn_cancel, "Cancel",
                        C_BTN_CANCEL if not self._btn_cancel.collidepoint(mouse) else (80, 80, 95))
+        if any(b.collidepoint(mouse) for b in [self._btn_save, self._btn_clear, self._btn_cancel]):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
     # ── Properties ────────────────────────────────────────────────────────────
 

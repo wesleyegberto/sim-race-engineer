@@ -131,3 +131,5 @@ class SuffixInputPanel:
         pygame.draw.rect(screen, cancel_bg, self._btn_cancel, border_radius=6)
         cancel_lbl = font_sm.render("Cancel", True, C_TEXT)
         screen.blit(cancel_lbl, cancel_lbl.get_rect(center=self._btn_cancel.center))
+        if self._hover_save or self._hover_cancel:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)

@@ -862,6 +862,7 @@ class DashboardApp:
                     log.exception("Error processing telemetry frame")
 
             try:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                 screen.fill(C_BG)
                 self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
                 if self._settings:
@@ -1155,6 +1156,13 @@ class DashboardApp:
         else:
             gear_sym = font_md.render("S", True, C_TEXT)
             screen.blit(gear_sym, gear_sym.get_rect(center=self._gear_btn.center))
+
+        _header_btns = [
+            self._conn_btn, self._rec_btn, self._suffix_btn,
+            self._analysis_btn, self._strategy_btn, self._gear_btn, self._help_btn,
+        ]
+        if any(b.collidepoint(mouse) for b in _header_btns):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
     def _draw_indicators(self, screen, font: pygame.font.Font, d: TelemetryData) -> None:
         """Status chip strip between RPM bar and main gauges."""
