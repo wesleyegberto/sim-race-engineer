@@ -65,7 +65,7 @@ _RIGHT = [
 ]
 # fmt: on
 
-_TAB_LABELS = ["APP GUIDE", "DASHBOARD", "VOICE ALERTS", "SETTINGS", "LAP RECORD"]
+_TAB_LABELS = ["UI GUIDE", "DASHBOARD", "VOICE ALERTS", "SETTINGS", "LAP RECORD"]
 
 # fmt: off
 _VOICE_LEFT = [
@@ -195,14 +195,14 @@ _APP_LEFT = [
     ("item",  "OFF   (red)",      "no device IP configured — open Settings to set one",          C_RED),
 
     ("section", "RECORDING", "rec-button"),
-    ("item",  "REC",              "rec = start · pause = pause · resumes same session",          C_RED, "rec-button"),
     ("item",  "Session name",      "set folder name · green = name set · locked while recording", C_TEXT, "pencil"),
+    ("item",  "REC",              "rec = start · pause = pause · resumes same session",          C_RED, "rec-button"),
 ]
 
 _APP_RIGHT = [
     ("section", "HEADER BUTTONS", "panel-cluster"),
-    ("item",  "Analysis",         "opens file picker → select session.parquet → browser at :8050", C_ACCENT, "lap-analysis"),
     ("item",  "Strategy",         "configure planned pit stops · green background when stops are set", C_GREEN, "strategy"),
+    ("item",  "Analysis",         "opens file picker → select session.parquet → browser at :8050", C_ACCENT, "lap-analysis"),
     ("item",  "Help",             "opens this guide",                                            C_TEXT, "info"),
     ("item",  "Settings",         "opens the settings panel",                                    C_TEXT, "settings"),
 ]
@@ -393,7 +393,7 @@ class HelpPanel:
         )
         _t = self._surf_title
         if _t is None:
-            _t = font_md.render("RACE ENGINEER  —  UI GUIDE", True, C_TITLE)
+            _t = font_md.render("APP GUIDE", True, C_TITLE)
             self._surf_title = _t
         surface.blit(_t, _t.get_rect(midleft=(_CARD_X + _PAD, _CARD_Y + _TITLE_H // 2)))
 
