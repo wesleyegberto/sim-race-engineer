@@ -1,6 +1,6 @@
 # Sim Race Engineer
 
-<img src="./img/icon.png" width="250" />
+<img src="./docs/img/icon.png" width="250" />
 
 **Sim Race Engineer** is a real-time telemetry dashboard for sim racing.
 It connects to Gran Turismo 7 (for now) via UDP and displays live driving data on a second screen or overlay,
@@ -12,7 +12,7 @@ The dashboard is designed to help drivers improve lap times by making tyre state
 G-forces, fuel consumption, and electronic interventions immediately visible — information that is
 buried inside the game's menus or simply not shown at all.
 
-![](./img/dashboard-print-1.png)
+![](./docs/img/dashboard-print-1.png)
 
 **Voice Communication**
 
@@ -21,7 +21,7 @@ tyre health, engine thermals, lap pace, and pit-stop timing — in English or Po
 The strategy engine automatically computes when to pit based on fuel and tyre life,
 and can follow a pre-configured stop plan with approach warnings and reschedule notifications.
 
-![](img/voice-communication-1.png)
+![](docs/img/voice-communication-1.png)
 
 **Session Record Analysis**
 
@@ -29,9 +29,17 @@ After each session, an interactive web viewer lets you analyse every recorded la
 Lap times, fuel consumption, tyre temperatures, G-forces, and pedal traces are plotted with Plotly Dash,
 making it easy to compare stints, spot consistency issues, and identify where time is gained or lost.
 
-![](img/lap-analysis-1.png)
+![](docs/img/lap-analysis-1.png)
 
-![](img/lap-analysis-2.png)
+![](docs/img/lap-analysis-2.png)
+
+
+### AI Setup Advisor
+
+The Lap Analysis viewer includes a **Setup Advisor** tab powered by an LLM.
+It reads telemetry from the selected laps and produces concrete car setup recommendations in the format used by the GT7 setup menu.
+
+![alt text](docs/img/setup-advisor.png)
 
 ---
 
@@ -78,6 +86,7 @@ Each alert has an independent cooldown to avoid repetition.
 | Tyre wear % | Stint avg wear hits each 10% block above threshold | once/bucket |
 | Pressure low | Any tyre < 160 kPa | once/lap |
 | Pressure high | Any tyre > 250 kPa | once/lap |
+| Race report | At 35% and 70% of the race: position + laps remaining + avg tyre wear; follow-up if one corner leads in wear | once/checkpoint |
 | Strategy: pit window | Auto strategy: in pit window, can't finish · reason named | once/lap |
 | Strategy: tyres | Tyres degrading · 2–5 laps to projected mandatory pit | once/lap |
 | Planned: approaching | 2 laps before planned stop · "Pit in N lap(s)" | once |
@@ -166,7 +175,7 @@ Recording can be toggled mid-session via the **REC** button in the header.
 
 ### Lap Analysis — Post-Session Viewer
 
-After a session, run the web viewer to explore recorded laps interactively in the browser.
+After a session, explore recorded laps interactively in the browser.
 
 | Chart | Data |
 |-------|------|
@@ -174,9 +183,52 @@ After a session, run the web viewer to explore recorded laps interactively in th
 | Tyre temperatures | Surface temp per corner across the lap, overlaid for all selected laps |
 | Timeseries | Throttle · Brake · Gear · Speed · Slip angle — shared time axis across laps |
 
+**From the dashboard** — click the graph icon in the header. A file picker opens pointing to
+`~/sim-race-engineer/laps/`; select any session folder or individual `lap_NN.parquet` file.
+The viewer launches at `http://127.0.0.1:8050` and the icon turns green while it is running.
+Clicking again while it is active reopens the browser tab.
+
+**From the command line** (running from source):
+
 ```bash
-sim-analysis ~/sim-race-engineer/laps/<session-folder>
+# Via Makefile
+make analysis ~/sim-race-engineer/laps/<session-folder>
+make analysis ~/sim-race-engineer/laps/<session-folder>/lap_03.parquet
+
+# Or with the venv activated
+source .venv/bin/activate
+sim-race-analyze ~/sim-race-engineer/laps/<session-folder>
+sim-race-analyze <path> --port 8080      # custom port
+sim-race-analyze <path> --no-browser     # skip auto-opening the browser
 ```
+
+### Setup Advisor — AI Car Setup Suggestions
+
+The Lap Analysis viewer includes a **Setup Advisor** tab powered by an LLM.
+It reads telemetry from the selected laps and produces concrete car setup recommendations in the format used by the GT7 setup menu.
+
+| Input | Detail |
+|-------|--------|
+| Tyre temperatures | Surface + inner/mid/outer per corner — diagnoses camber, pressure, and load imbalance |
+| G-forces | Lateral load distribution — hints at aero, suspension balance |
+| Slip angle | Oversteer/understeer tendency |
+| Electronics | TCS and ASM intervention rate — suggests differential and traction tuning |
+| Pedal trace | Full-throttle, full-brake, coasting, and overlap ticks |
+
+Two analysis levels are available in the UI:
+- **Basic** — tyre pressure, camber (inner/outer temp imbalance), differential, TCS
+- **Advanced** — adds suspension (ride height, spring stiffness), brake balance, aerodynamics
+
+**LLM backends** — configure in `~/sim-race-engineer/sim-race.conf` under `[llm]`:
+
+| Key | Default | Options |
+|-----|---------|---------|
+| `backend` | `openai` | `ollama` · `anthropic` · `openai` |
+| `model` | `gemma4:12b` | Any model name supported by the backend |
+| `api_key` | _(empty)_ | Required for Anthropic; use any string for local servers |
+| `base_url` | `http://localhost:1234/v1` | Ollama: `http://localhost:11434` · LM Studio: `http://localhost:1234/v1` |
+
+`openai` backend is compatible with any OpenAI-format server: LM Studio, LocalAI, vLLM, etc.
 
 ---
 
@@ -198,7 +250,17 @@ Press **?** (info button in the header) to open the UI Guide — a 3-tab referen
 make install
 ```
 
-Installs all dependencies: dashboard, voice communication, and lap analysis viewer.
+Installs the core dashboard and all optional extras (voice, analysis, advisor).
+
+To install only specific extras:
+
+```bash
+uv pip install -e '.'                  # core dashboard only
+uv pip install -e '.[voice]'           # + Piper TTS voice alerts
+uv pip install -e '.[analysis]'        # + post-session lap analysis viewer
+uv pip install -e '.[advisor]'         # + AI setup advisor (Ollama / Anthropic / OpenAI)
+uv pip install -e '.[voice,analysis,advisor]'  # everything
+```
 
 ### Piper TTS models
 
@@ -218,10 +280,10 @@ The IP is persisted to `~/sim-race-engineer/sim-race.conf` and reused on subsequ
 
 ```bash
 # Or pass the IP directly
-sim-dashboard --device-ip 192.168.1.100
+sim-race-engineer --device-ip 192.168.1.100
 
 # Or via environment variable
-SIMRACING_DEVICE_IP=192.168.1.100 sim-dashboard
+SIMRACING_DEVICE_IP=192.168.1.100 sim-race-engineer
 ```
 
 The PS5 must be on the same network. Enable telemetry output in GT7:

@@ -1,4 +1,4 @@
-.PHONY: install install-sys-deps run run-voice run-debug run-analysis lint test build clean
+.PHONY: install install-sys-deps run run-voice run-debug run-analysis analysis lint test build clean
 
 VENV    := .venv
 PYTHON  := $(VENV)/bin/python
@@ -26,6 +26,12 @@ run-debug:
 
 run-analysis:
 	$(PYTHON) -m simraceengineer.analysis.cli $(SESSION_DIR)
+
+analysis:
+	$(PYTHON) -m simraceengineer.analysis.cli $(filter-out $@,$(MAKECMDGOALS))
+
+%:
+	@:
 
 lint:
 	$(VENV)/bin/ruff check src/
