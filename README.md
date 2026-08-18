@@ -215,6 +215,8 @@ It reads telemetry from the selected laps and produces concrete car setup recomm
 | Electronics | TCS and ASM intervention rate — suggests differential and traction tuning |
 | Pedal trace | Full-throttle, full-brake, coasting, and overlap ticks |
 
+The advisor report language follows the voice language configured in Settings (English or Portuguese).
+
 Two analysis levels are available in the UI:
 - **Basic** — tyre pressure, camber (inner/outer temp imbalance), differential, TCS
 - **Advanced** — adds suspension (ride height, spring stiffness), brake balance, aerodynamics
