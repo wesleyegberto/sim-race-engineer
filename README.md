@@ -232,6 +232,27 @@ Two analysis levels are available in the UI:
 
 `openai` backend is compatible with any OpenAI-format server: LM Studio, LocalAI, vLLM, etc.
 
+### Airflow Simulation — Fan Microcontroller (Setup)
+
+Optional integration with a hobby microcontroller (Arduino-class board) driving frontal fans over
+USB serial, for physical wind feedback proportional to in-game speed. See the
+[Microcontroller hardware guide](docs/hardware/microcontroller.md) for wiring and firmware.
+
+This release adds the connectivity setup in the Settings panel:
+
+| Control | Behaviour |
+|---------|-----------|
+| **Enable airflow simulation** | Master toggle · requires an app restart to take effect |
+| **Serial Port** | Auto-fills when exactly one serial port is detected; left blank (or with 0/2+ ports found) it stays editable for manual entry (e.g. `/dev/tty.usbserial-1420`, `COM3`) |
+| **Test Connection** | Sends `PING` to the device over the configured port and reports success once it replies `PONG`, without blocking the dashboard for more than a couple of seconds |
+
+Once connected, fan intensity tracks car speed in real time: duty cycle scales linearly from 0%
+at a standstill to 100% at the car's top speed (`speed_max_kmh` from telemetry, so each car's
+own top speed sets the curve — no manual tuning needed), falls back to a fixed reference top
+speed for cars that don't report one, and drops to 0 immediately whenever the game is paused, in
+a menu, or in a replay. Commands to the microcontroller are throttled to ~10 per second and only
+resent when the duty cycle actually changes, to keep the serial link lightweight.
+
 ---
 
 ## In-App Help
@@ -252,7 +273,7 @@ Press **?** (info button in the header) to open the UI Guide — a 3-tab referen
 make install
 ```
 
-Installs the core dashboard and all optional extras (voice, analysis, advisor).
+Installs the core dashboard and all optional extras (voice, analysis, advisor, microcontroller).
 
 To install only specific extras:
 
@@ -261,7 +282,8 @@ uv pip install -e '.'                  # core dashboard only
 uv pip install -e '.[voice]'           # + Piper TTS voice alerts
 uv pip install -e '.[analysis]'        # + post-session lap analysis viewer
 uv pip install -e '.[advisor]'         # + AI setup advisor (Ollama / Anthropic / OpenAI)
-uv pip install -e '.[voice,analysis,advisor]'  # everything
+uv pip install -e '.[microcontroller]' # + airflow simulation (pyserial)
+uv pip install -e '.[voice,analysis,advisor,microcontroller]'  # everything
 ```
 
 ### Piper TTS models
@@ -297,6 +319,13 @@ The PS5 must be on the same network. Enable telemetry output in GT7:
 
 [Roadmap for this project](docs/roadmap.md)
 
+
+---
+
+## Hardware
+
+[Microcontroller hardware guide](docs/hardware/microcontroller.md) — wiring diagram, parts list (BOM),
+and reference Arduino firmware for the fan-based wind feedback rig.
 
 ---
 

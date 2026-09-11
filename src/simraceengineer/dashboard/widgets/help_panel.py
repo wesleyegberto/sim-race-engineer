@@ -63,6 +63,7 @@ _RIGHT = [
     ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT, "headlight"),
     ("item",  "OIL",               "oil temperature critical — above 130°C",                                    C_RED, "oil"),
     ("item",  "WATER",             "water temperature critical — above 105°C",                                  C_RED, "coolant"),
+    ("item",  "FAN",               "airflow simulation microcontroller connected · shown only when the feature is enabled · dim if the cable/serial link drops mid-session", C_GREEN),
 
     ("section", "INFO PANEL (right)", "race-pos"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
@@ -236,6 +237,11 @@ _SETTINGS_LEFT = [
     ("section", "TYRE WEAR ALERT", "tire-wheel"),
     ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
     ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
+
+    ("section", "AIRFLOW SIMULATION"),
+    ("item",  "Enable airflow simulation", "master toggle for the fan microcontroller · requires app restart", C_TEXT),
+    ("item",  "Serial Port",       "auto-fills when exactly one serial port is detected · type one in manually otherwise", C_TEXT),
+    ("item",  "Test Connection",   "sends PING to the device and reports success if it replies PONG",  C_TEXT),
 ]
 
 _SETTINGS_RIGHT = [

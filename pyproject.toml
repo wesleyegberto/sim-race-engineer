@@ -32,6 +32,9 @@ advisor = [
     "anthropic>=0.30",
     "openai>=1.0",
 ]
+microcontroller = [
+    "pyserial>=3.5",
+]
 
 [project.scripts]
 sim-race-engineer = "simraceengineer.main:main"

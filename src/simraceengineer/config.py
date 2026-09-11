@@ -45,6 +45,7 @@ class AppConfig:
     _VOICE = "voice"
     _STRATEGY = "strategy"
     _LLM = "llm"
+    _MICROCONTROLLER = "microcontroller"
 
     def __init__(self) -> None:
         self.device_ip: str = ""
@@ -120,6 +121,10 @@ class AppConfig:
         # Recording
         self.recording_on_start: bool = True
         self.recording_suffix: str = ""
+
+        # Microcontroller (airflow simulation)
+        self.microcontroller_enabled: bool = False
+        self.microcontroller_port: str = ""
 
         self.load()
 
@@ -205,6 +210,10 @@ class AppConfig:
             "api_key": self.llm_api_key,
             "base_url": self.llm_base_url,
         }
+        cp[self._MICROCONTROLLER] = {
+            "enabled": str(self.microcontroller_enabled),
+            "port": self.microcontroller_port,
+        }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
             cp.write(fh)
@@ -269,3 +278,5 @@ class AppConfig:
         self.llm_base_url = cp.get(self._LLM, "base_url", fallback="http://localhost:1234/v1")
         self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")
+        self.microcontroller_enabled = cp.getboolean(self._MICROCONTROLLER, "enabled", fallback=False)
+        self.microcontroller_port = cp.get(self._MICROCONTROLLER, "port", fallback="")

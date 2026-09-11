@@ -110,7 +110,7 @@ A full-width strip at the top of the dashboard reflecting engine rev zone:
 
 ## Status Strip
 
-Seven indicator chips displayed below the RPM bar. Dim when inactive, lit with color when active.
+Seven indicator chips displayed below the RPM bar. Dim when inactive, lit with color when active. An eighth **FAN** chip appears only when the Airflow Simulation microcontroller is enabled.
 
 | Chip | Meaning | Color when active |
 |------|---------|-------------------|
@@ -121,10 +121,13 @@ Seven indicator chips displayed below the RPM bar. Dim when inactive, lit with c
 | **LIGHT** | Headlights on | Light blue |
 | **OIL!** | Oil temperature above 130 °C | Red |
 | **H₂O!** | Water temperature above 105 °C | Red |
+| **FAN** | Airflow simulation microcontroller connected | Green |
 
 **TCS/ASM use:** Frequent flashing of TCS or ASM indicates the driver is consistently exceeding the grip limit. In time-attack, the goal is to keep these off entirely. In race conditions, occasional TCS activation is acceptable but sustained intervention means the entry or exit speed is too aggressive.
 
 **OIL!/H₂O! use:** Sustained red on either fluid chip risks engine damage. Back off, allow temperatures to drop before pushing again.
+
+**FAN use:** Only shown when Airflow Simulation is enabled in Settings. Dims immediately (within one polling frame) if the serial cable is unplugged or the microcontroller disconnects mid-session — a quick way to notice the fans have stopped responding without leaving the cockpit view.
 
 ---
 

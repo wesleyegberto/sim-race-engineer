@@ -198,6 +198,12 @@ def _run_app(args: argparse.Namespace) -> None:
         voice_service = VoiceService(config)
         voice_service.start()
 
+    microcontroller_service = None
+    if config.microcontroller_enabled:
+        from .microcontroller import MicrocontrollerService
+        microcontroller_service = MicrocontrollerService(config)
+        microcontroller_service.start()
+
     telemetry_queue: queue.Queue[TelemetryData] = queue.Queue(maxsize=4)
     controller = TelemetryController(config=config, bind_ip=args.bind, queue=telemetry_queue)
 
@@ -212,11 +218,15 @@ def _run_app(args: argparse.Namespace) -> None:
         get_status_fn=lambda: controller.status,
         get_error_fn=lambda: controller.error_msg,
         voice_service=voice_service,
+        microcontroller_service=microcontroller_service,
     )
     app.run()
 
     if voice_service:
         voice_service.stop()
+
+    if microcontroller_service:
+        microcontroller_service.stop()
 
     log.info("Dashboard closed")
 
