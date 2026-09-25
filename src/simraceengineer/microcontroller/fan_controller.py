@@ -5,10 +5,14 @@ telemetry-derived frame plus context and decides what to do, delegating the
 actual send to a collaborator (`Transport`) rather than performing I/O itself.
 """
 
+import logging
+
 from . import protocol
 from .transport import Transport
 
 __all__ = ["FanController"]
+
+log = logging.getLogger(__name__)
 
 
 class FanController:
@@ -45,6 +49,7 @@ class FanController:
             return
 
         self._transport.send_line(protocol.encode_fan_command(duty))
+        log.debug("FAN duty %s -> %d sent to device", self._last_duty, duty)
         self._last_duty = duty
         self._last_sent_at = now
 
@@ -59,5 +64,6 @@ class FanController:
         skipped because of a stale `_last_duty`/`_last_sent_at`.
         """
         self._transport.send_line(protocol.encode_fan_command(0))
+        log.debug("FAN duty -> 0 sent to device (shutdown)")
         self._last_duty = None
         self._last_sent_at = None

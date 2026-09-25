@@ -6,6 +6,8 @@ The Airflow Simulation feature drives two 12V frontal fans whose speed follows t
 
 Reference firmware: [`firmware/microcontroller/fan_airflow.ino`](../../firmware/microcontroller/fan_airflow.ino)
 
+Manual bench-test firmware (no PC app required): [`firmware/microcontroller/fan_manual_test/fan_manual_test.ino`](../../firmware/microcontroller/fan_manual_test/fan_manual_test.ino) — see [Manual Bench Test](#manual-bench-test) below.
+
 ---
 
 ## Wire Protocol
@@ -41,51 +43,23 @@ Each fan channel is switched on the negative (low) side by an N-channel MOSFET, 
 | Fan's positive (+) wire | 12V supply positive rail |
 | Flyback diode (1N4001) | Cathode to 12V positive rail, anode to MOSFET drain (i.e. in parallel with the fan, reverse-biased) — absorbs the inductive voltage spike when the fan switches off |
 
-### Text/ASCII wiring diagram
 
-```
-                    +12V supply rail
-                         |
-                         +-------------------+
-                         |                   |
-                       Fan 1 (+)          Fan 2 (+)
-                         |                   |
-                       Fan 1 (-)          Fan 2 (-)
-                         |                   |
-                    [1N4001]            [1N4001]   (cathode to +12V, parallel with fan)
-                         |                   |
-                    MOSFET Q1 Drain     MOSFET Q2 Drain
-                         |                   |
-                    MOSFET Q1 Source    MOSFET Q2 Source
-                         |                   |
-                         +--------+----------+---- Common GND (Arduino GND + 12V supply GND)
-                                  |
-Arduino D9  --[220R]-- Q1 Gate    |
-Arduino D10 --[220R]-- Q2 Gate    |
-Q1 Gate --[10k pulldown]-- GND    |
-Q2 Gate --[10k pulldown]-- GND ---+
+### Cirkit Designer diagram
 
-Arduino <--USB--> PC (Sim Race Engineer app)
-```
+Breadboard layout drawn in [Cirkit Designer](https://app.cirkitdesigner.com/):
 
-### Mermaid version
+![Cirkit Designer breadboard diagram](cirkit-designer-diagram.png)
 
-```mermaid
-graph LR
-    PC[PC running Sim Race Engineer] -- USB serial --> ARD[Arduino Uno/Nano]
-    ARD -- D9 PWM --> Q1[MOSFET Q1 gate]
-    ARD -- D10 PWM --> Q2[MOSFET Q2 gate]
-    Q1 -- drain --> F1[Fan 1 negative]
-    Q2 -- drain --> F2[Fan 2 negative]
-    PSU[12V power supply] -- positive rail --> F1
-    PSU -- positive rail --> F2
-    F1 -- positive --> PSU
-    F2 -- positive --> PSU
-    Q1 -- source --> GND[Common ground]
-    Q2 -- source --> GND
-    ARD -- GND --> GND
-    PSU -- GND --> GND
-```
+> **Not yet fully verified.** Double-check before powering up: the MOSFET part label in this diagram (double-check it reads `IRLZ44N`, a logic-level MOSFET — not `IRFZ44N` or a similar-looking part number, which is **not** logic-level and won't switch fully from the Arduino's 5V gate signal), and that Arduino GND, the 12V supply's negative lead, and both MOSFETs' Source pins all land on the same ground net. Cross-check against the [Wiring](#wiring) table above before assembling on real hardware.
+
+### Power-up / power-down order
+
+Always power the Arduino **before** the 12V supply, and remove power in the opposite order:
+
+1. **Powering up:** connect the Arduino via USB first, confirm it booted normally (onboard LED on, no reset loop, serial terminal responsive if open), *then* connect the 12V supply.
+2. **Powering down:** send `0` over serial first (the bench-test firmwares have no failsafe timeout — a duty cycle you set stays applied until you change it), disconnect the 12V supply, *then* disconnect the Arduino/USB last.
+
+Why this order matters: with the Arduino already running, its firmware actively drives the gate pin low (both bench-test firmwares and the reference firmware boot with duty `0`), reinforcing the 10kΩ pull-down resistor's job of keeping the MOSFET off *before* the load is energized. Powering the 12V rail first leaves that pull-down as the only thing holding the gate low during the Arduino's own boot/reset sequence — not dangerous by itself, but it opens a window where pin state can be less predictable, and makes it harder to isolate whether a problem is caused by the 12V stage or by a coincidental Arduino reset.
 
 ---
 
@@ -152,3 +126,70 @@ None of the parts in the [BOM](#bill-of-materials-bom) are project-specific — 
 2. Select the correct board (Uno/Nano) and serial port.
 3. Upload. The sketch has no external library dependencies.
 4. In the Sim Race Engineer Settings panel, enable "Airflow Simulation", select the Arduino's serial port (auto-detected if it's the only one present), and use "Test Connection" to confirm the firmware replies `PONG` to `PING`.
+
+---
+
+## Manual Bench Test
+
+Before wiring the board into the app, validate the wiring (MOSFETs, resistors, diodes, fans) by flashing [`firmware/microcontroller/fan_manual_test/fan_manual_test.ino`](../../firmware/microcontroller/fan_manual_test/fan_manual_test.ino) instead of the reference firmware and driving the fans by hand from any serial terminal — Arduino IDE's Serial Monitor, `screen /dev/tty.usbserial-XXXX 9600`, `minicom`, or `python -m serial.tools.miniterm <port> 9600`. Wiring is identical to the [Wiring](#wiring) section above; only the firmware differs.
+
+1. Open `firmware/microcontroller/fan_manual_test/fan_manual_test.ino` in the Arduino IDE and upload it (same board/port steps as [Flashing the Firmware](#flashing-the-firmware)).
+2. Open a serial terminal at `9600` baud, newline-terminated. The board prints a help banner on boot.
+3. Type commands (press Enter after each):
+
+   | Command | Effect |
+   |---|---|
+   | `<0-255>` | Set **both** fans to this PWM duty cycle (e.g. `128` ≈ 50%) |
+   | `1:<0-255>` | Set fan 1 (D9) only — isolates that channel's wiring |
+   | `2:<0-255>` | Set fan 2 (D10) only |
+   | `0` | Stop both fans |
+   | `?` | Reprint the help banner |
+
+4. Start low (e.g. `1:60`) and increase gradually, confirming each fan spins smoothly and the MOSFET/diode don't overheat, before testing both channels together at higher duty cycles.
+
+**Important:** this firmware has **no failsafe timeout** (unlike the reference firmware) — a duty cycle you set keeps running until you change it. Always send `0` before disconnecting or swapping back to the reference firmware.
+
+Once both channels check out, re-flash [`fan_airflow.ino`](../../firmware/microcontroller/fan_airflow.ino) and continue with step 4 above to connect it to the app.
+
+---
+
+## LED Bring-Up Test (fan-free)
+
+Before wiring up the fans at all, you can validate the MOSFET switching stage (gate resistor, pull-down, MOSFET, flyback diode) with a cheap, instantly-visible LED instead — no moving parts, no fan noise, and a wiring mistake is obvious immediately instead of a fan quietly not spinning.
+
+### Circuit change
+
+Every component from the [Wiring](#wiring) table stays exactly as documented (gate resistor, pull-down resistor, MOSFET, flyback diode) — only the load changes:
+
+| Original (fan) | LED test substitution |
+|---|---|
+| Fan's positive (+) wire → +12V rail | LED **anode** (long leg) → **new current-limiting resistor** → +12V rail |
+| Fan's negative (−) wire → MOSFET drain | LED **cathode** (short leg / flat side) → MOSFET drain |
+| Flyback diode (1N4001), parallel with the fan | Same — harmless to leave in place; it does no useful work with a resistive LED load (no inductive kickback to suppress), but doesn't hurt anything either |
+
+**New part needed:** one current-limiting resistor per channel, in series between the +12V rail and the LED anode (a bare LED has no internal resistance like a fan's coil — connecting it straight to 12V destroys it almost instantly).
+
+- **If you know the LED's color:** `R = (12V − Vf) / 0.02A`. Red/yellow (Vf ≈ 2V) → ~560Ω. Blue/white/green (Vf ≈ 3.2V) → ~470Ω.
+- **If unsure of the color or Vf:** use **1kΩ** — safe for any common 5mm LED, just dimmer than the calculated value.
+
+### Optional: power the rail from the Arduino's 5V pin instead of an external supply
+
+For the LED test only, you can skip the external 12V supply entirely and power the LED rail from the Arduino's own **5V** pin — two LEDs draw only ~10–20mA total, well within what the USB-powered 5V pin can supply. This also removes the external-supply/common-ground wiring, since everything shares the Arduino's own GND automatically.
+
+| Original (12V external) | 5V-from-Arduino variant |
+|---|---|
+| Fonte 12V (+) → +12V rail | Arduino **5V** pin → LED rail |
+| Fonte 12V (−) → GND rail | *(not needed — already the Arduino's own GND)* |
+| Current-limiting resistor: 560Ω / 470Ω / 1kΩ | **220Ω** (same value as the gate resistors R1/R3 — no new part needed) |
+
+At 5V through 220Ω: ~13.6mA for a red/yellow LED (Vf≈2V), ~8mA for a blue/white/green LED (Vf≈3.2V) — safe for any common 5mm LED. The MOSFET's gate is already driven at 5V by D9/D10 regardless of rail voltage, so switching behavior is unaffected.
+
+**⚠️ Do not use this shortcut for the real fans.** Two fans draw ~0.3–0.6A combined — far more than the Arduino's USB-powered 5V pin can safely supply (risking a brownout/reset), and 5V is the wrong voltage anyway: the app's speed-to-duty-cycle mapping is calibrated for 12V fans, so they'd spin far weaker and out of that calibration. Go back to the external 12V supply before wiring up the actual fans.
+
+### Firmware
+
+Flash [`firmware/microcontroller/led_bench_test/led_bench_test.ino`](../../firmware/microcontroller/led_bench_test/led_bench_test.ino) — identical command protocol to the fan bench-test firmware (same pins D9/D10, same `<0-255>`, `1:<0-255>`, `2:<0-255>`, `0`, `?` commands), just with output text worded for LEDs. PWM duty maps directly to perceived brightness, so `1:80` should visibly dim LED 1 compared to `1:255`.
+
+Same caveat as the fan bench-test firmware: **no failsafe timeout** — send `0` before disconnecting.
+
+Once both LED channels light up correctly (and dim smoothly as you sweep the duty cycle), swap the LED + resistor back out for the real fan + flyback diode wiring and move on to the [Manual Bench Test](#manual-bench-test) or straight to [Flashing the Firmware](#flashing-the-firmware).
