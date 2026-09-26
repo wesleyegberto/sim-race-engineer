@@ -37,6 +37,12 @@ void setup() {
   pinMode(FAN_PIN_1, OUTPUT);
   pinMode(FAN_PIN_2, OUTPUT);
 
+  // Pins 9/10 both run off Timer1 — drop its prescaler from the default 64
+  // (~490Hz, audible whine) to 1 (~31.4kHz, ultrasonic). See fan_airflow.ino
+  // for the full explanation; kept identical here so bench testing sounds
+  // the same as production.
+  TCCR1B = (TCCR1B & 0b11111000) | 0x01;
+
   // Boot with fans off.
   setFanDuty(FAN_PIN_1, 0);
   setFanDuty(FAN_PIN_2, 0);

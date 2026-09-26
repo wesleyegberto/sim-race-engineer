@@ -41,6 +41,12 @@ void setup() {
   pinMode(LED_PIN_1, OUTPUT);
   pinMode(LED_PIN_2, OUTPUT);
 
+  // Pins 9/10 both run off Timer1 — drop its prescaler from the default 64
+  // (~490Hz) to 1 (~31.4kHz). Doesn't matter for the LEDs themselves, but
+  // keeps this test circuit's timer config identical to fan_airflow.ino
+  // since it's validating the same MOSFET switching stage.
+  TCCR1B = (TCCR1B & 0b11111000) | 0x01;
+
   // Boot with LEDs off.
   setLedDuty(LED_PIN_1, 0);
   setLedDuty(LED_PIN_2, 0);

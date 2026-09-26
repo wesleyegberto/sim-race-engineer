@@ -61,13 +61,13 @@ class GT7TelemetryProvider(TelemetryProvider):
                 loop.sock_recv(self._sock, 4096),
                 timeout=_RECV_TIMEOUT,
             )
-            log.debug("UDP recv %d bytes — first8=%s", len(raw), raw[:8].hex())
+            # log.debug("UDP recv %d bytes — first8=%s", len(raw), raw[:8].hex())
             result = parse(raw)
             if result is None:
-                log.warning("parse() returned None for %d-byte packet — magic mismatch or bad decrypt", len(raw))
+                pass  # log.warning("parse() returned None for %d-byte packet — magic mismatch or bad decrypt", len(raw))
             else:
-                log.debug("Parsed OK — pkt_id=%d  spd=%.0f km/h  rpm=%.0f  gear=%s",
-                          result.packet_id, result.speed_kmh, result.rpm, result.gear_label)
+                pass  # log.debug("Parsed OK — pkt_id=%d  spd=%.0f km/h  rpm=%.0f  gear=%s",
+                #           result.packet_id, result.speed_kmh, result.rpm, result.gear_label)
             return result
         except TimeoutError:
             return None

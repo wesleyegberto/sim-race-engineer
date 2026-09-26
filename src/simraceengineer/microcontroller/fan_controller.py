@@ -21,16 +21,43 @@ class FanController:
         transport: Transport,
         max_speed_fallback_kmh: float = 250.0,
         send_interval_s: float = 0.1,
+        kick_start_duty: int = 255,
+        kick_start_duration_s: float = 0.2,
     ) -> None:
         self._transport = transport
         self._max_speed_fallback_kmh = max_speed_fallback_kmh
         self._send_interval_s = send_interval_s
+        self._kick_start_duty = kick_start_duty
+        self._kick_start_duration_s = kick_start_duration_s
         self._last_duty: int | None = None
         self._last_sent_at: float | None = None
+        self._kick_until: float | None = None
 
     def on_frame(self, speed_kmh: float, speed_max_kmh: float, paused: bool, now: float) -> None:
         """Call once per telemetry frame. Throttles actual sends to ~1 per
-        `send_interval_s` and only sends when the resulting duty cycle changed.
+        `send_interval_s`.
+
+        Always re-sends at that cadence, even when the computed duty cycle is
+        unchanged from the last send — the device firmware has its own
+        failsafe that zeroes the fans if no `FAN:` command arrives within
+        5000ms (see docs/hardware/microcontroller.md), so a sustained,
+        unchanging duty (e.g. cruising at a stable speed) must still be
+        refreshed periodically or the firmware will cut the fans on its own.
+        `send_interval_s` (default 100ms) gives a comfortable ~50x margin
+        under that 5000ms window.
+
+        Kick-start: a fan motor's static-friction breakaway torque isn't
+        constant — it depends on where the rotor happens to be sitting
+        relative to the stator poles when power is (re)applied, so the same
+        low target duty that starts the fan reliably one time may only buzz
+        without spinning the next. Whenever the computed duty transitions
+        from 0 to non-zero (fan was stopped, now needs to move), this
+        overrides the wire value to `kick_start_duty` (full power) for
+        `kick_start_duration_s`, bypassing the send throttle so the kick
+        begins immediately, before letting the actual computed duty take
+        over. This guarantees the fan physically starts moving every time,
+        regardless of rotor rest position, instead of occasionally just
+        buzzing at a too-low duty until speed increases further.
         """
         if not self._transport.is_connected:
             return
@@ -42,15 +69,28 @@ class FanController:
             pct = max(0.0, min(1.0, speed_kmh / effective_max))
             duty = round(pct * 255)
 
-        if self._last_sent_at is not None and now - self._last_sent_at < self._send_interval_s:
+        just_started_kick = False
+        if duty == 0:
+            self._kick_until = None
+        elif self._last_duty == 0 or self._last_duty is None:
+            self._kick_until = now + self._kick_start_duration_s
+            just_started_kick = True
+
+        send_duty = duty
+        if duty > 0 and self._kick_until is not None and now < self._kick_until:
+            send_duty = self._kick_start_duty
+
+        if (
+            not just_started_kick
+            and self._last_sent_at is not None
+            and now - self._last_sent_at < self._send_interval_s
+        ):
             return
 
-        if duty == self._last_duty:
-            return
-
-        self._transport.send_line(protocol.encode_fan_command(duty))
-        log.debug("FAN duty %s -> %d sent to device", self._last_duty, duty)
-        self._last_duty = duty
+        self._transport.send_line(protocol.encode_fan_command(send_duty))
+        if send_duty != self._last_duty:
+            log.debug("FAN duty %s -> %d sent to device", self._last_duty, send_duty)
+        self._last_duty = send_duty
         self._last_sent_at = now
 
     def shutdown(self) -> None:
@@ -59,11 +99,12 @@ class FanController:
         Called on graceful app/service stop to guarantee a final "off" command
         reaches the device. Safe to call regardless of `Transport.is_connected`
         — a disconnected/never-connected transport treats `send_line()` as a
-        no-op rather than raising. Also resets throttle/dedup state so a
-        subsequent `on_frame()` call (e.g. after a service restart) isn't
-        skipped because of a stale `_last_duty`/`_last_sent_at`.
+        no-op rather than raising. Also resets throttle/dedup/kick-start state
+        so a subsequent `on_frame()` call (e.g. after a service restart) isn't
+        skipped or affected by stale state from before shutdown.
         """
         self._transport.send_line(protocol.encode_fan_command(0))
         log.debug("FAN duty -> 0 sent to device (shutdown)")
         self._last_duty = None
         self._last_sent_at = None
+        self._kick_until = None

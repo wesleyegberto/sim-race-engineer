@@ -18,7 +18,7 @@
 const uint8_t FAN_PIN_1 = 9;   // PWM-capable digital pin, fan channel 1
 const uint8_t FAN_PIN_2 = 10;  // PWM-capable digital pin, fan channel 2
 
-const unsigned long FAILSAFE_TIMEOUT_MS = 1000;
+const unsigned long FAILSAFE_TIMEOUT_MS = 5000;
 const unsigned long BAUD_RATE = 9600;
 
 unsigned long lastFanCommandMillis = 0;
@@ -28,6 +28,14 @@ void setup() {
   Serial.begin(BAUD_RATE);
   pinMode(FAN_PIN_1, OUTPUT);
   pinMode(FAN_PIN_2, OUTPUT);
+
+  // Pins 9/10 both run off Timer1, whose default prescaler (64) puts the PWM
+  // switching frequency around 490Hz — squarely in the audible range, heard
+  // as a whine/buzz that changes pitch with duty cycle. Dropping the
+  // prescaler to 1 pushes it to ~31.4kHz (ultrasonic, above human hearing),
+  // with no effect on millis()/micros() (Timer0) or the analogWrite() API
+  // itself — only the underlying switching frequency changes.
+  TCCR1B = (TCCR1B & 0b11111000) | 0x01;
 
   // Boot with fans off; stay off until the first valid FAN: command arrives.
   setFanDuty(0);

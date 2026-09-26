@@ -90,13 +90,13 @@ def _decrypt(data: bytes) -> Optional[bytes]:
     iv2 = iv1 ^ 0xDEADBEAF
     nonce = iv2.to_bytes(4, 'little') + iv1.to_bytes(4, 'little')
 
-    log.debug("decrypt — pkt_size=%d  oiv=%s  nonce=%s", len(data), oiv.hex(), nonce.hex())
+    # log.debug("decrypt — pkt_size=%d  oiv=%s  nonce=%s", len(data), oiv.hex(), nonce.hex())
 
     cipher = Salsa20.new(key=_SALSA_KEY, nonce=nonce)
     decrypted = cipher.decrypt(data)
     magic = struct.unpack_from("<I", decrypted, 0)[0]
     if magic == _MAGIC:
-        log.debug("decrypt OK")
+        # log.debug("decrypt OK")
         return decrypted
 
     log.warning("decrypt failed — magic=0x%08X  expected=0x%08X", magic, _MAGIC)

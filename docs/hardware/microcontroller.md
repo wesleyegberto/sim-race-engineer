@@ -24,7 +24,7 @@ Manual bench-test firmware (no PC app required): [`firmware/microcontroller/fan_
 | App → device | `PING\n` | Connection test |
 | Device → app | `PONG\n` | Reply to `PING` |
 
-**Failsafe:** the firmware turns both fans off if no `FAN:` command is received within **1000 ms**. This timer is *not* reset by `PING`/`PONG` traffic — only a genuine `FAN:` command counts, so a connection-test loop can never keep the fans spinning without real speed data. The firmware also boots with duty `0` and stays off until the first valid `FAN:` command arrives.
+**Failsafe:** the firmware turns both fans off if no `FAN:` command is received within **5000 ms**. This timer is *not* reset by `PING`/`PONG` traffic — only a genuine `FAN:` command counts, so a connection-test loop can never keep the fans spinning without real speed data. The firmware also boots with duty `0` and stays off until the first valid `FAN:` command arrives. The app re-sends the current duty at least every 100ms (see `FanController.on_frame`), so this window has a comfortable ~50x margin during normal operation and only ever triggers on a genuine communication loss (app crash, USB unplugged, etc).
 
 ---
 
@@ -81,7 +81,7 @@ Why this order matters: with the Arduino already running, its firmware actively 
 **Notes:**
 - DC = Direct Current (as opposed to the AC/Alternating Current from a wall outlet) — the fans and the 12V supply both operate on DC.
 - MOSFET = Metal-Oxide-Semiconductor Field-Effect Transistor, a solid-state switch used here to let the low-power microcontroller pin (5V, milliamps) switch the high-power fan circuit (12V, hundreds of milliamps to a few amps) on and off via PWM.
-- PWM = Pulse-Width Modulation, the technique used to vary the fans' effective speed by rapidly switching the supply on and off at a varying duty cycle.
+- PWM = Pulse-Width Modulation, the technique used to vary the fans' effective speed by rapidly switching the supply on and off at a varying duty cycle. All three firmwares (`fan_airflow.ino`, `fan_manual_test.ino`, `led_bench_test.ino`) reconfigure Timer1's prescaler in `setup()` to push the switching frequency on pins 9/10 from the Arduino default of ~490Hz (audible whine/buzz that changes pitch with duty cycle) up to ~31.4kHz (ultrasonic, inaudible) — this only changes the switching frequency, not `analogWrite()`'s 0–255 duty range or `millis()`/`micros()` (a separate timer).
 - NPN = a bipolar transistor type (Negative-Positive-Negative doped layers). A simple NPN transistor (e.g. 2N2222) with the same flyback diode can substitute for the MOSFET on very small fans, but a logic-level MOSFET is recommended for reliable PWM switching of typical 120mm case fans.
 
 ---
