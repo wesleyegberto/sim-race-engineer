@@ -4,7 +4,7 @@
 
 The Airflow Simulation feature drives two 12V frontal fans whose speed follows the car's speed in-game, giving physical wind feedback while driving. The dashboard talks to a microcontroller (Arduino Uno/Nano-class board) over USB serial using a simple ASCII line protocol; the microcontroller drives the fans via PWM through a MOSFET switching stage (fans draw far more current than a microcontroller pin can supply).
 
-Reference firmware: [`firmware/microcontroller/fan_airflow.ino`](../../firmware/microcontroller/fan_airflow.ino)
+Reference firmware: [`firmware/microcontroller/fan_airflow/fan_airflow.ino`](../../firmware/microcontroller/fan_airflow/fan_airflow.ino)
 
 Manual bench-test firmware (no PC app required): [`firmware/microcontroller/fan_manual_test/fan_manual_test.ino`](../../firmware/microcontroller/fan_manual_test/fan_manual_test.ino) — see [Manual Bench Test](#manual-bench-test) below.
 
@@ -25,6 +25,15 @@ Manual bench-test firmware (no PC app required): [`firmware/microcontroller/fan_
 | Device → app | `PONG\n` | Reply to `PING` |
 
 **Failsafe:** the firmware turns both fans off if no `FAN:` command is received within **5000 ms**. This timer is *not* reset by `PING`/`PONG` traffic — only a genuine `FAN:` command counts, so a connection-test loop can never keep the fans spinning without real speed data. The firmware also boots with duty `0` and stays off until the first valid `FAN:` command arrives. The app re-sends the current duty at least every 100ms (see `FanController.on_frame`), so this window has a comfortable ~50x margin during normal operation and only ever triggers on a genuine communication loss (app crash, USB unplugged, etc).
+
+### Low-speed tuning (`FanController` constructor parameters)
+
+A fan's starting and sustaining torque at low duty isn't perfectly predictable — it depends on the specific fan, voltage, and where the rotor happens to be resting. `FanController` (`src/simraceengineer/microcontroller/fan_controller.py`) has two constructor-only tuning knobs for this (not exposed in the Settings panel — they're hardware-calibration constants, not user preferences):
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `kick_start_duty` / `kick_start_duration_s` | `255` / `0.2s` | Whenever the computed duty transitions from 0 to non-zero (fan starting from rest), briefly forces full duty for `kick_start_duration_s` before settling to the real target — guarantees the fan reliably overcomes static friction regardless of rotor rest position, instead of sometimes just buzzing without spinning at a low target duty. |
+| `min_sustain_duty` | `0` (disabled) | Floors any non-zero computed duty up to this value, so cruising at a low in-game speed never asks the fan to sustain a duty too low to spin smoothly. Duty `0` (stopped/paused) is never floored. Disabled by default — find the right value for your specific fan by bench testing (start low, e.g. `1:20`, and raise until rotation stays smooth without stuttering), then set it when constructing `FanController`. |
 
 ---
 
@@ -122,7 +131,7 @@ None of the parts in the [BOM](#bill-of-materials-bom) are project-specific — 
 
 ## Flashing the Firmware
 
-1. Open `firmware/microcontroller/fan_airflow.ino` in the Arduino IDE (or `arduino-cli`).
+1. Open `firmware/microcontroller/fan_airflow/fan_airflow.ino` in the Arduino IDE (or `arduino-cli`).
 2. Select the correct board (Uno/Nano) and serial port.
 3. Upload. The sketch has no external library dependencies.
 4. In the Sim Race Engineer Settings panel, enable "Airflow Simulation", select the Arduino's serial port (auto-detected if it's the only one present), and use "Test Connection" to confirm the firmware replies `PONG` to `PING`.
@@ -149,7 +158,7 @@ Before wiring the board into the app, validate the wiring (MOSFETs, resistors, d
 
 **Important:** this firmware has **no failsafe timeout** (unlike the reference firmware) — a duty cycle you set keeps running until you change it. Always send `0` before disconnecting or swapping back to the reference firmware.
 
-Once both channels check out, re-flash [`fan_airflow.ino`](../../firmware/microcontroller/fan_airflow.ino) and continue with step 4 above to connect it to the app.
+Once both channels check out, re-flash [`fan_airflow.ino`](../../firmware/microcontroller/fan_airflow/fan_airflow.ino) and continue with step 4 above to connect it to the app.
 
 ---
 

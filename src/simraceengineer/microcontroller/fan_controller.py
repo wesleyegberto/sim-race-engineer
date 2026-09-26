@@ -23,12 +23,14 @@ class FanController:
         send_interval_s: float = 0.1,
         kick_start_duty: int = 255,
         kick_start_duration_s: float = 0.2,
+        min_sustain_duty: int = 0,
     ) -> None:
         self._transport = transport
         self._max_speed_fallback_kmh = max_speed_fallback_kmh
         self._send_interval_s = send_interval_s
         self._kick_start_duty = kick_start_duty
         self._kick_start_duration_s = kick_start_duration_s
+        self._min_sustain_duty = min_sustain_duty
         self._last_duty: int | None = None
         self._last_sent_at: float | None = None
         self._kick_until: float | None = None
@@ -58,6 +60,16 @@ class FanController:
         over. This guarantees the fan physically starts moving every time,
         regardless of rotor rest position, instead of occasionally just
         buzzing at a too-low duty until speed increases further.
+
+        Minimum sustain duty: separately from the kick-start's brief full-
+        power pulse, a fan's *sustained* rotation can also stutter or stall
+        at a very low but non-zero duty, once already spinning. Any computed
+        duty above 0 is floored to `min_sustain_duty` so cruising at low
+        in-game speed never asks the fan to run below the level it can
+        reliably sustain. Duty 0 (stopped/paused) is never floored — the fan
+        is meant to be fully off then. Defaults to 0 (disabled) since the
+        right value is fan- and voltage-dependent and must be found by
+        bench testing (see docs/hardware/microcontroller.md).
         """
         if not self._transport.is_connected:
             return
@@ -68,6 +80,8 @@ class FanController:
             effective_max = speed_max_kmh if speed_max_kmh > 0 else self._max_speed_fallback_kmh
             pct = max(0.0, min(1.0, speed_kmh / effective_max))
             duty = round(pct * 255)
+            if duty > 0:
+                duty = max(duty, self._min_sustain_duty)
 
         just_started_kick = False
         if duty == 0:

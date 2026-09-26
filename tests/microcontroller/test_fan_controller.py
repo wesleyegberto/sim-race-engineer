@@ -284,6 +284,74 @@ def test_shutdown_resets_kick_state_so_next_on_frame_kicks_again():
     assert transport.sent == ["FAN:255\n"]
 
 
+# ── minimum sustain duty ─────────────────────────────────────────────────────
+#
+# Separately from the kick-start's brief full-power pulse, a fan's *sustained*
+# rotation can also stutter or stall at a very low but non-zero duty, once
+# already spinning. Any computed duty above 0 is floored to `min_sustain_duty`.
+# Disabled by default (0) — the right value is fan/voltage-specific and must
+# be found empirically on the bench.
+
+def test_low_nonzero_duty_is_floored_to_minimum_sustain_duty():
+    transport = _StubTransport()
+    fan = FanController(transport, min_sustain_duty=60, kick_start_duration_s=0.0)
+
+    # 10 km/h of 200 km/h max == round(0.05 * 255) == 13, well under the floor.
+    fan.on_frame(speed_kmh=10.0, speed_max_kmh=200.0, paused=False, now=0.0)
+
+    assert transport.sent == ["FAN:60\n"]
+
+
+def test_duty_above_minimum_sustain_duty_is_not_altered():
+    transport = _StubTransport()
+    fan = FanController(transport, min_sustain_duty=60, kick_start_duration_s=0.0)
+
+    # 50 km/h of 200 km/h max == round(0.25 * 255) == 64, already above the floor.
+    fan.on_frame(speed_kmh=50.0, speed_max_kmh=200.0, paused=False, now=0.0)
+
+    assert transport.sent == ["FAN:64\n"]
+
+
+def test_zero_duty_is_never_floored():
+    transport = _StubTransport()
+    fan = FanController(transport, min_sustain_duty=60, kick_start_duration_s=0.0)
+
+    fan.on_frame(speed_kmh=0.0, speed_max_kmh=200.0, paused=False, now=0.0)
+
+    assert transport.sent == ["FAN:0\n"]
+
+
+def test_paused_duty_is_never_floored_even_at_high_speed():
+    transport = _StubTransport()
+    fan = FanController(transport, min_sustain_duty=60, kick_start_duration_s=0.0)
+
+    fan.on_frame(speed_kmh=200.0, speed_max_kmh=200.0, paused=True, now=0.0)
+
+    assert transport.sent == ["FAN:0\n"]
+
+
+def test_min_sustain_duty_disabled_by_default():
+    transport = _StubTransport()
+    fan = FanController(transport, kick_start_duration_s=0.0)
+
+    fan.on_frame(speed_kmh=10.0, speed_max_kmh=200.0, paused=False, now=0.0)
+
+    assert transport.sent == ["FAN:13\n"]
+
+
+def test_kick_start_duty_still_wins_over_minimum_sustain_duty_during_kick():
+    transport = _StubTransport()
+    fan = FanController(
+        transport, min_sustain_duty=60, kick_start_duty=255, kick_start_duration_s=0.2
+    )
+
+    # Kick-start (255) applies while starting, even though the floored
+    # target duty (60) is lower than the kick value.
+    fan.on_frame(speed_kmh=10.0, speed_max_kmh=200.0, paused=False, now=0.0)
+
+    assert transport.sent == ["FAN:255\n"]
+
+
 # ── ~10 Hz cap under a busy input pattern ────────────────────────────────────
 
 def test_no_more_than_ten_sends_per_second_under_rapidly_changing_input():
