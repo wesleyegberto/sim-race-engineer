@@ -125,6 +125,7 @@ class AppConfig:
         # Microcontroller (airflow simulation)
         self.microcontroller_enabled: bool = False
         self.microcontroller_port: str = ""
+        self.fan_speed_ceiling_kmh: float = 220.0
 
         self.load()
 
@@ -213,6 +214,7 @@ class AppConfig:
         cp[self._MICROCONTROLLER] = {
             "enabled": str(self.microcontroller_enabled),
             "port": self.microcontroller_port,
+            "fan_speed_ceiling_kmh": str(self.fan_speed_ceiling_kmh),
         }
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
@@ -280,3 +282,4 @@ class AppConfig:
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")
         self.microcontroller_enabled = cp.getboolean(self._MICROCONTROLLER, "enabled", fallback=False)
         self.microcontroller_port = cp.get(self._MICROCONTROLLER, "port", fallback="")
+        self.fan_speed_ceiling_kmh = cp.getfloat(self._MICROCONTROLLER, "fan_speed_ceiling_kmh", fallback=220.0)

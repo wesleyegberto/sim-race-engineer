@@ -18,7 +18,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 992
+_CARD_W, _CARD_H = 480, 1048
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice", "test_microcontroller"] | None
@@ -58,8 +58,10 @@ class SettingsPanel:
         self._voice_wear_thr_text = "10"
         self._microcontroller_enabled = False
         self._microcontroller_port = ""
+        self._fan_speed_ceiling_text = "220"
+        self._fan_speed_ceiling_kmh = 220.0
         self._micro_test_result: bool | None = None
-        self._active_field: str | None = None  # "ip" | "wear_thr" | "port"
+        self._active_field: str | None = None  # "ip" | "wear_thr" | "port" | "fan_ceiling"
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -146,6 +148,10 @@ class SettingsPanel:
         self._micro_test_btn = pygame.Rect(field_x + 230, micro_port_y, 130, 34)
         self._micro_note_y = micro_port_y + 34 + 10
 
+        self._fan_ceiling_lbl_y = self._micro_note_y + 22
+        fan_ceiling_y = self._fan_ceiling_lbl_y + 18
+        self._fan_ceiling_field = pygame.Rect(field_x + 130, fan_ceiling_y, 70, 26)
+
         btn_y = cy + _CARD_H - 56
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
@@ -185,6 +191,7 @@ class SettingsPanel:
         voice_alert_advisor_pit_window: bool = True,
         microcontroller_enabled: bool = False,
         microcontroller_port: str = "",
+        fan_speed_ceiling_kmh: float = 220.0,
     ) -> None:
         self._ip_text = current_ip
         self._fuel_estimation = fuel_estimation
@@ -217,6 +224,8 @@ class SettingsPanel:
         self._microcontroller_port = microcontroller_port
         if self._microcontroller_enabled and not self._microcontroller_port:
             self._microcontroller_port = self._auto_detected_port() or ""
+        self._fan_speed_ceiling_kmh = fan_speed_ceiling_kmh if fan_speed_ceiling_kmh > 0 else 220.0
+        self._fan_speed_ceiling_text = str(int(self._fan_speed_ceiling_kmh))
         self._micro_test_result = None
         self.active = True
         self._active_field = None
@@ -242,11 +251,16 @@ class SettingsPanel:
                     self._voice_wear_thr_text = self._voice_wear_thr_text[:-1]
                 elif self._active_field == "port":
                     self._microcontroller_port = self._microcontroller_port[:-1]
+                elif self._active_field == "fan_ceiling":
+                    self._fan_speed_ceiling_text = self._fan_speed_ceiling_text[:-1]
                 else:
                     self._ip_text = self._ip_text[:-1]
             elif self._active_field == "port":
                 if event.unicode.isprintable() and len(self._microcontroller_port) < 40:
                     self._microcontroller_port += event.unicode
+            elif self._active_field == "fan_ceiling":
+                if event.unicode.isdigit() and len(self._fan_speed_ceiling_text) < 3:
+                    self._fan_speed_ceiling_text += event.unicode
             elif event.unicode in _ALLOWED_CHARS:
                 if self._active_field == "wear_thr" and event.unicode.isdigit() and len(self._voice_wear_thr_text) < 3:
                     self._voice_wear_thr_text += event.unicode
@@ -291,6 +305,9 @@ class SettingsPanel:
                 return None
             if self._micro_port_field.collidepoint(pos) and self._microcontroller_enabled:
                 self._active_field = "port"
+                return None
+            if self._fan_ceiling_field.collidepoint(pos) and self._microcontroller_enabled:
+                self._active_field = "fan_ceiling"
                 return None
             if (self._micro_test_btn.collidepoint(pos) and self._microcontroller_enabled
                     and self._microcontroller_port):
@@ -605,6 +622,27 @@ class SettingsPanel:
             note_surf = font_sm.render(note_text, True, note_color)
             screen.blit(note_surf, (self._micro_port_field.x, self._micro_note_y))
 
+        # Fan speed ceiling
+        ceiling_lbl_color = C_DIM if micro_enabled else (60, 60, 70)
+        ceiling_lbl = font_sm.render("Fan speed ceiling:", True, ceiling_lbl_color)
+        screen.blit(ceiling_lbl, (self._micro_port_field.x, self._fan_ceiling_lbl_y))
+
+        ceiling_active = self._active_field == "fan_ceiling" and micro_enabled
+        ceiling_bg = C_INPUT_ACTIVE if ceiling_active else C_INPUT_BG
+        ceiling_border = C_ACCENT if ceiling_active else C_BORDER
+        ceiling_bg = ceiling_bg if micro_enabled else (30, 30, 40)
+        ceiling_border = ceiling_border if micro_enabled else (45, 45, 55)
+        pygame.draw.rect(screen, ceiling_bg, self._fan_ceiling_field, border_radius=4)
+        pygame.draw.rect(screen, ceiling_border, self._fan_ceiling_field, 1, border_radius=4)
+        ceiling_txt_color = C_TEXT if micro_enabled else C_DIM
+        ceiling_cursor = "|" if (ceiling_active and self._cursor_visible) else ""
+        ceiling_surf = font_sm.render(self._fan_speed_ceiling_text + ceiling_cursor, True, ceiling_txt_color)
+        screen.blit(ceiling_surf, (self._fan_ceiling_field.x + 4,
+                                    self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_surf.get_height()) // 2))
+        ceiling_unit_surf = font_sm.render("km/h", True, ceiling_lbl_color)
+        screen.blit(ceiling_unit_surf, (self._fan_ceiling_field.right + 6,
+                                         self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_unit_surf.get_height()) // 2))
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -749,6 +787,16 @@ class SettingsPanel:
     @property
     def microcontroller_port(self) -> str:
         return self._microcontroller_port
+
+    @property
+    def fan_speed_ceiling_kmh(self) -> float:
+        try:
+            v = float(self._fan_speed_ceiling_text)
+            if v > 0:
+                self._fan_speed_ceiling_kmh = v
+        except ValueError:
+            pass
+        return self._fan_speed_ceiling_kmh
 
     def set_microcontroller_test_result(self, success: bool) -> None:
         self._micro_test_result = success

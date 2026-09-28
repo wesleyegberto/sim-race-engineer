@@ -710,7 +710,8 @@ class DashboardApp:
                         self._config.voice_alert_fuel_save_recommend,
                         self._config.voice_alert_advisor_pit_window,
                         self._config.microcontroller_enabled,
-                        self._config.microcontroller_port)
+                        self._config.microcontroller_port,
+                        self._config.fan_speed_ceiling_kmh)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -812,6 +813,7 @@ class DashboardApp:
                         self._config.voice_alert_advisor_pit_window = self._settings.voice_alert_advisor_pit_window
                         self._config.microcontroller_enabled = self._settings.microcontroller_enabled
                         self._config.microcontroller_port = self._settings.microcontroller_port
+                        self._config.fan_speed_ceiling_kmh = self._settings.fan_speed_ceiling_kmh
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -869,7 +871,8 @@ class DashboardApp:
                         self._config.voice_alert_fuel_save_recommend,
                         self._config.voice_alert_advisor_pit_window,
                         self._config.microcontroller_enabled,
-                        self._config.microcontroller_port)
+                        self._config.microcontroller_port,
+                        self._config.fan_speed_ceiling_kmh)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 

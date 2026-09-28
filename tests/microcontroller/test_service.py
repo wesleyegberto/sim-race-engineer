@@ -47,6 +47,7 @@ def _make_config(port: str = "") -> AppConfig:
     config = AppConfig.__new__(AppConfig)
     config.microcontroller_enabled = True
     config.microcontroller_port = port
+    config.fan_speed_ceiling_kmh = 220.0
     return config
 
 

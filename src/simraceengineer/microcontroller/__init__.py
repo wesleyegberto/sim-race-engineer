@@ -40,7 +40,16 @@ class MicrocontrollerService:
                 return
 
         self._transport = SerialTransport(port)
-        self._fan = FanController(self._transport)
+        # min_sustain_duty=85: bench-tested minimum PWM duty this fan/MOSFET
+        # combo can sustain smooth rotation at after kick-start hands off —
+        # observed stalling below ~70-80 (small margin added for reliability
+        # across duty-cycle variance). See "Low-speed tuning" in
+        # docs/hardware/microcontroller.md.
+        self._fan = FanController(
+            self._transport,
+            speed_ceiling_kmh=self._config.fan_speed_ceiling_kmh,
+            min_sustain_duty=85,
+        )
         self._transport.connect()
 
     def stop(self) -> None:
@@ -61,7 +70,7 @@ class MicrocontrollerService:
     def on_frame(self, data: TelemetryData) -> None:
         if self._fan is None:
             return
-        self._fan.on_frame(data.speed_kmh, data.speed_max_kmh, data.paused, time.monotonic())
+        self._fan.on_frame(data.speed_kmh, data.paused, time.monotonic())
 
     def test_connection(self, port: str | None = None, timeout: float = 1.0) -> bool:
         """Test connectivity on `port` (falls back to the configured/connected port).

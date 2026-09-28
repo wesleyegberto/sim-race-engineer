@@ -242,6 +242,7 @@ _SETTINGS_LEFT = [
     ("item",  "Enable airflow simulation", "master toggle for the fan microcontroller · requires app restart", C_TEXT),
     ("item",  "Serial Port",       "auto-fills when exactly one serial port is detected · type one in manually otherwise", C_TEXT),
     ("item",  "Test Connection",   "sends PING to the device and reports success if it replies PONG",  C_TEXT),
+    ("item",  "Fan speed ceiling", "km/h at which fan duty reaches 100% · default 220 · lower = more sensitive at low speed", C_TEXT),
 ]
 
 _SETTINGS_RIGHT = [

@@ -238,20 +238,36 @@ Optional integration with a hobby microcontroller (Arduino-class board) driving 
 USB serial, for physical wind feedback proportional to in-game speed. See the
 [Microcontroller hardware guide](docs/hardware/microcontroller.md) for wiring and firmware.
 
-This release adds the connectivity setup in the Settings panel:
+The Settings panel exposes the connectivity setup and airflow tuning:
 
 | Control | Behaviour |
 |---------|-----------|
 | **Enable airflow simulation** | Master toggle · requires an app restart to take effect |
 | **Serial Port** | Auto-fills when exactly one serial port is detected; left blank (or with 0/2+ ports found) it stays editable for manual entry (e.g. `/dev/tty.usbserial-1420`, `COM3`) |
 | **Test Connection** | Sends `PING` to the device over the configured port and reports success once it replies `PONG`, without blocking the dashboard for more than a couple of seconds |
+| **Fan speed ceiling (km/h)** | The car speed at which fan duty reaches 100% · default `220` km/h · lower it for a more sensitive curve at low speed, raise it if the fans hit full power too early |
 
-Once connected, fan intensity tracks car speed in real time: duty cycle scales linearly from 0%
-at a standstill to 100% at the car's top speed (`speed_max_kmh` from telemetry, so each car's
-own top speed sets the curve — no manual tuning needed), falls back to a fixed reference top
-speed for cars that don't report one, and drops to 0 immediately whenever the game is paused, in
-a menu, or in a replay. Commands to the microcontroller are throttled to ~10 per second and only
-resent when the duty cycle actually changes, to keep the serial link lightweight.
+Once connected, fan intensity tracks car speed in real time on an **absolute km/h scale**: duty
+cycle scales linearly from 0% at a standstill to 100% at the configured ceiling (`speed_kmh /
+fan_speed_ceiling_kmh`, clamped to 100%), and drops to 0 immediately whenever the game is paused,
+in a menu, or in a replay. Unlike a per-car relative scale, this doesn't depend on a
+telemetry-derived top speed that takes a lap or two to converge, so airflow feels physically
+consistent from the very first frame, across every car.
+
+Two additional behaviours smooth out real fan-motor quirks:
+
+- **Kick-start** — whenever duty transitions from 0 to non-zero (the fan was stopped and needs to
+  start moving again), the controller briefly forces full power for ~200ms before handing off to
+  the real computed duty, since a fan's static-friction breakaway torque isn't reliable at a low
+  starting duty.
+- **Minimum sustain duty** — any non-zero computed duty is floored to a bench-tested minimum so
+  cruising at low speed never asks the fan to run below the duty it can reliably sustain once
+  already spinning.
+
+Commands are re-sent to the microcontroller roughly every 100ms regardless of whether the duty
+cycle changed, since the device firmware has its own failsafe that zeroes the fans if no command
+arrives within 5 seconds — the periodic resend keeps a sustained, unchanging duty (e.g. cruising
+at a stable speed) from being cut by that failsafe.
 
 ---
 

@@ -19,14 +19,14 @@ class FanController:
     def __init__(
         self,
         transport: Transport,
-        max_speed_fallback_kmh: float = 250.0,
+        speed_ceiling_kmh: float = 220.0,
         send_interval_s: float = 0.1,
         kick_start_duty: int = 255,
         kick_start_duration_s: float = 0.2,
         min_sustain_duty: int = 0,
     ) -> None:
         self._transport = transport
-        self._max_speed_fallback_kmh = max_speed_fallback_kmh
+        self._speed_ceiling_kmh = speed_ceiling_kmh
         self._send_interval_s = send_interval_s
         self._kick_start_duty = kick_start_duty
         self._kick_start_duration_s = kick_start_duration_s
@@ -35,9 +35,24 @@ class FanController:
         self._last_sent_at: float | None = None
         self._kick_until: float | None = None
 
-    def on_frame(self, speed_kmh: float, speed_max_kmh: float, paused: bool, now: float) -> None:
+    def on_frame(self, speed_kmh: float, paused: bool, now: float) -> None:
         """Call once per telemetry frame. Throttles actual sends to ~1 per
         `send_interval_s`.
+
+        Duty mapping: `pct = speed_kmh / speed_ceiling_kmh`, clamped to 100%.
+        This is an absolute km/h scale with a single configurable ceiling
+        (`speed_ceiling_kmh`, default 220.0), rather than a per-car relative
+        scale driven by telemetry's `speed_max_kmh` — that value is a running
+        observed-top-speed estimate that takes time to converge (starts at 0
+        and climbs as the lap progresses), so early in a session or after a
+        spin it under-reports the car's real top speed and skews the fan
+        curve. An absolute ceiling means airflow feels physically consistent
+        across every car from the first frame, at the cost of not being
+        auto-tuned per car — the user sets one ceiling that suits their whole
+        garage (or the fastest car they drive). A ceiling of 0 or negative is
+        treated as always-full-duty (100%), both as a safe fallback for a
+        misconfigured value and to avoid a division by zero or a negative
+        percentage.
 
         Always re-sends at that cadence, even when the computed duty cycle is
         unchanged from the last send — the device firmware has its own
@@ -77,8 +92,10 @@ class FanController:
         if paused:
             duty = 0
         else:
-            effective_max = speed_max_kmh if speed_max_kmh > 0 else self._max_speed_fallback_kmh
-            pct = max(0.0, min(1.0, speed_kmh / effective_max))
+            if self._speed_ceiling_kmh <= 0:
+                pct = 1.0
+            else:
+                pct = max(0.0, min(1.0, speed_kmh / self._speed_ceiling_kmh))
             duty = round(pct * 255)
             if duty > 0:
                 duty = max(duty, self._min_sustain_duty)
