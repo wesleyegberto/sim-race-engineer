@@ -35,6 +35,11 @@ def _setup_logging(debug: bool = False) -> None:
     file_handler.setFormatter(logging.Formatter(_FMT))
     root.addHandler(file_handler)
 
+    # piper-tts logs one DEBUG line per phoneme sequence for every utterance
+    # (text=... phonemes=[...]) — noisy and not actionable for our own
+    # debugging, so keep it at WARNING regardless of our own --debug level.
+    logging.getLogger("piper").setLevel(logging.WARNING)
+
     def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
         if args.exc_type is SystemExit or args.exc_value is None:
             return
