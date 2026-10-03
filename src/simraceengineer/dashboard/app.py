@@ -834,6 +834,9 @@ class DashboardApp:
                                 self._connect_fn()
                     elif self._rec_btn.collidepoint(event.pos):
                         self._recording = not self._recording
+                        # Persist so the toggle survives restarts and the settings panel reflects it
+                        self._config.recording_on_start = self._recording
+                        self._config.save()
                         if self._recording and self._data and self._data.in_race:
                             if not self._recorder.active:
                                 self._recorder.start_session()
