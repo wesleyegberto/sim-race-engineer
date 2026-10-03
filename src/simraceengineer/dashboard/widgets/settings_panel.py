@@ -18,7 +18,7 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 1048
+_CARD_W, _CARD_H = 480, 994
 _ALLOWED_CHARS = set("0123456789.")
 
 Action = Literal["saved", "cancelled", "test_voice", "test_microcontroller"] | None
@@ -148,11 +148,13 @@ class SettingsPanel:
         self._micro_test_btn = pygame.Rect(field_x + 230, micro_port_y, 130, 34)
         self._micro_note_y = micro_port_y + 34 + 10
 
-        self._fan_ceiling_lbl_y = self._micro_note_y + 22
-        fan_ceiling_y = self._fan_ceiling_lbl_y + 18
+        # Label sits inline, to the left of the field
+        fan_ceiling_y = self._micro_note_y + 22
         self._fan_ceiling_field = pygame.Rect(field_x + 130, fan_ceiling_y, 70, 26)
 
-        btn_y = cy + _CARD_H - 56
+        # Buttons anchored right below the content; card height follows from them
+        btn_y = self._fan_ceiling_field.bottom + 16
+        self._card.height = btn_y + 36 + 16 - cy
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
 
@@ -625,7 +627,8 @@ class SettingsPanel:
         # Fan speed ceiling
         ceiling_lbl_color = C_DIM if micro_enabled else (60, 60, 70)
         ceiling_lbl = font_sm.render("Fan speed ceiling:", True, ceiling_lbl_color)
-        screen.blit(ceiling_lbl, (self._micro_port_field.x, self._fan_ceiling_lbl_y))
+        screen.blit(ceiling_lbl, (self._micro_port_field.x,
+                                  self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_lbl.get_height()) // 2))
 
         ceiling_active = self._active_field == "fan_ceiling" and micro_enabled
         ceiling_bg = C_INPUT_ACTIVE if ceiling_active else C_INPUT_BG
