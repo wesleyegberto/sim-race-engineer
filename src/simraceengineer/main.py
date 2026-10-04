@@ -204,7 +204,7 @@ def _run_app(args: argparse.Namespace) -> None:
         voice_service.start()
 
     microcontroller_service = None
-    if config.microcontroller_enabled:
+    if config.microcontroller_unlocked and config.microcontroller_enabled:
         from .microcontroller import MicrocontrollerService
         microcontroller_service = MicrocontrollerService(config)
         microcontroller_service.start()

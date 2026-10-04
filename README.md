@@ -238,7 +238,16 @@ Optional integration with a hobby microcontroller (Arduino-class board) driving 
 USB serial, for physical wind feedback proportional to in-game speed. See the
 [Microcontroller hardware guide](docs/hardware/microcontroller.md) for wiring and firmware.
 
-The Settings panel exposes the connectivity setup and airflow tuning:
+The feature is hidden by default: the Settings section, the FAN status chip and the related UI
+Guide entries only appear (and the serial service only starts) after unlocking it by hand in
+`~/sim-race-engineer/sim-race.conf`, then restarting the app:
+
+```ini
+[microcontroller]
+unlocked = true
+```
+
+Once unlocked, the Settings panel exposes the connectivity setup and airflow tuning:
 
 | Control | Behaviour |
 |---------|-----------|

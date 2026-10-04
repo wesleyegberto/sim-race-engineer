@@ -25,7 +25,8 @@ Action = Literal["saved", "cancelled", "test_voice", "test_microcontroller"] | N
 
 
 class SettingsPanel:
-    def __init__(self, win_w: int, win_h: int) -> None:
+    def __init__(self, win_w: int, win_h: int, show_microcontroller: bool = False) -> None:
+        self._show_micro = show_microcontroller
         self._win_w = win_w
         self._win_h = win_h
         self.active = False
@@ -153,7 +154,9 @@ class SettingsPanel:
         self._fan_ceiling_field = pygame.Rect(field_x + 130, fan_ceiling_y, 70, 26)
 
         # Buttons anchored right below the content; card height follows from them
-        btn_y = self._fan_ceiling_field.bottom + 16
+        content_bottom = (self._fan_ceiling_field.bottom if show_microcontroller
+                          else self._voice_chk_advisor_pit_window.bottom)
+        btn_y = content_bottom + 16
         self._card.height = btn_y + 36 + 16 - cy
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
@@ -299,19 +302,19 @@ class SettingsPanel:
             if self._voice_wear_thr_field.collidepoint(pos) and self._voice_enabled:
                 self._active_field = "wear_thr"
                 return None
-            if self._micro_check_box.collidepoint(pos):
+            if self._show_micro and self._micro_check_box.collidepoint(pos):
                 self._microcontroller_enabled = not self._microcontroller_enabled
                 if self._microcontroller_enabled and not self._microcontroller_port:
                     self._microcontroller_port = self._auto_detected_port() or ""
                 self._micro_test_result = None
                 return None
-            if self._micro_port_field.collidepoint(pos) and self._microcontroller_enabled:
+            if self._show_micro and self._micro_port_field.collidepoint(pos) and self._microcontroller_enabled:
                 self._active_field = "port"
                 return None
-            if self._fan_ceiling_field.collidepoint(pos) and self._microcontroller_enabled:
+            if self._show_micro and self._fan_ceiling_field.collidepoint(pos) and self._microcontroller_enabled:
                 self._active_field = "fan_ceiling"
                 return None
-            if (self._micro_test_btn.collidepoint(pos) and self._microcontroller_enabled
+            if (self._show_micro and self._micro_test_btn.collidepoint(pos) and self._microcontroller_enabled
                     and self._microcontroller_port):
                 return "test_microcontroller"
             if self._field.collidepoint(pos):
@@ -568,7 +571,26 @@ class SettingsPanel:
             surf = font_sm.render(label, True, txt_color)
             screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
 
-        # ── Airflow Simulation section ───────────────────────────────────────
+        if self._show_micro:
+            self._draw_airflow_section(screen, font_sm)
+
+        # Buttons
+        mouse = pygame.mouse.get_pos()
+        self._draw_btn(screen, font_sm, self._btn_save, "Save",
+                       C_BTN_SAVE if not self._btn_save.collidepoint(mouse) else C_BTN_HOVER)
+        self._draw_btn(screen, font_sm, self._btn_cancel, "Cancel",
+                       C_BTN_CANCEL if not self._btn_cancel.collidepoint(mouse) else (80, 80, 95))
+        _btns = [
+            self._fuel_btn_last, self._fuel_btn_avg,
+            self._voice_btn_en, self._voice_btn_pt, self._voice_btn_test,
+            self._btn_save, self._btn_cancel,
+        ]
+        if self._show_micro:
+            _btns.append(self._micro_test_btn)
+        if any(b.collidepoint(mouse) for b in _btns):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+
+    def _draw_airflow_section(self, screen: pygame.Surface, font_sm: pygame.font.Font) -> None:
         pygame.draw.line(screen, C_BORDER,
                          (self._card.x + 1, self._micro_sep_y),
                          (self._card.right - 1, self._micro_sep_y))
@@ -645,21 +667,6 @@ class SettingsPanel:
         ceiling_unit_surf = font_sm.render("km/h", True, ceiling_lbl_color)
         screen.blit(ceiling_unit_surf, (self._fan_ceiling_field.right + 6,
                                          self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_unit_surf.get_height()) // 2))
-
-        # Buttons
-        mouse = pygame.mouse.get_pos()
-        self._draw_btn(screen, font_sm, self._btn_save, "Save",
-                       C_BTN_SAVE if not self._btn_save.collidepoint(mouse) else C_BTN_HOVER)
-        self._draw_btn(screen, font_sm, self._btn_cancel, "Cancel",
-                       C_BTN_CANCEL if not self._btn_cancel.collidepoint(mouse) else (80, 80, 95))
-        _btns = [
-            self._fuel_btn_last, self._fuel_btn_avg,
-            self._voice_btn_en, self._voice_btn_pt, self._voice_btn_test,
-            self._micro_test_btn,
-            self._btn_save, self._btn_cancel,
-        ]
-        if any(b.collidepoint(mouse) for b in _btns):
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
     def _draw_btn(self, screen, font, rect: pygame.Rect, text: str, color: tuple) -> None:
         pygame.draw.rect(screen, color, rect, border_radius=6)

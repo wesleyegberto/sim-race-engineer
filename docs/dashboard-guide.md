@@ -110,7 +110,7 @@ A full-width strip at the top of the dashboard reflecting engine rev zone:
 
 ## Status Strip
 
-Seven indicator chips displayed below the RPM bar. Dim when inactive, lit with color when active. An eighth **FAN** chip appears only when the Airflow Simulation microcontroller is enabled.
+Seven indicator chips displayed below the RPM bar. Dim when inactive, lit with color when active. An eighth **FAN** chip appears only when the Airflow Simulation microcontroller is unlocked (`[microcontroller] unlocked = true` in `sim-race.conf`) and enabled.
 
 | Chip | Meaning | Color when active |
 |------|---------|-------------------|

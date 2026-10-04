@@ -134,7 +134,7 @@ None of the parts in the [BOM](#bill-of-materials-bom) are project-specific — 
 1. Open `firmware/microcontroller/fan_airflow/fan_airflow.ino` in the Arduino IDE (or `arduino-cli`).
 2. Select the correct board (Uno/Nano) and serial port.
 3. Upload. The sketch has no external library dependencies.
-4. In the Sim Race Engineer Settings panel, enable "Airflow Simulation", select the Arduino's serial port (auto-detected if it's the only one present), and use "Test Connection" to confirm the firmware replies `PONG` to `PING`.
+4. Unlock the feature by adding `unlocked = true` under `[microcontroller]` in `~/sim-race-engineer/sim-race.conf` and restart the app (the feature is hidden otherwise). Then, in the Sim Race Engineer Settings panel, enable "Airflow Simulation", select the Arduino's serial port (auto-detected if it's the only one present), and use "Test Connection" to confirm the firmware replies `PONG` to `PING`.
 
 ---
 

@@ -681,8 +681,8 @@ class DashboardApp:
         clock = pygame.time.Clock()
 
         self._load_assets()
-        self._settings = SettingsPanel(WIN_W, WIN_H)
-        self._help = HelpPanel()
+        self._settings = SettingsPanel(WIN_W, WIN_H, show_microcontroller=self._config.microcontroller_unlocked)
+        self._help = HelpPanel(show_microcontroller=self._config.microcontroller_unlocked)
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
         self._suffix_panel = SuffixInputPanel(WIN_W, WIN_H)
 

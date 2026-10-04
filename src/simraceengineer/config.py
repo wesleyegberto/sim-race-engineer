@@ -123,6 +123,9 @@ class AppConfig:
         self.recording_suffix: str = ""
 
         # Microcontroller (airflow simulation)
+        # Hidden feature gate: only set by hand in sim-race.conf. While false or
+        # absent, the feature is neither shown in the UI nor started.
+        self.microcontroller_unlocked: bool = False
         self.microcontroller_enabled: bool = False
         self.microcontroller_port: str = ""
         self.fan_speed_ceiling_kmh: float = 220.0
@@ -216,6 +219,9 @@ class AppConfig:
             "port": self.microcontroller_port,
             "fan_speed_ceiling_kmh": str(self.fan_speed_ceiling_kmh),
         }
+        # Only persisted once unlocked so the gate is not advertised in the file
+        if self.microcontroller_unlocked:
+            cp[self._MICROCONTROLLER]["unlocked"] = "True"
         self.PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(self.PATH, "w") as fh:
             cp.write(fh)
@@ -280,6 +286,7 @@ class AppConfig:
         self.llm_base_url = cp.get(self._LLM, "base_url", fallback="http://localhost:1234/v1")
         self.recording_on_start = cp.getboolean(self._SECTION, "recording_on_start", fallback=True)
         self.recording_suffix = cp.get(self._SECTION, "recording_suffix", fallback="")
+        self.microcontroller_unlocked = cp.getboolean(self._MICROCONTROLLER, "unlocked", fallback=False)
         self.microcontroller_enabled = cp.getboolean(self._MICROCONTROLLER, "enabled", fallback=False)
         self.microcontroller_port = cp.get(self._MICROCONTROLLER, "port", fallback="")
         self.fan_speed_ceiling_kmh = cp.getfloat(self._MICROCONTROLLER, "fan_speed_ceiling_kmh", fallback=220.0)
