@@ -60,7 +60,7 @@ python -m PyInstaller \
   --windowed \
   --onedir \
   --noconfirm \
-  "${ICON_ARGS[@]}" \
+  ${ICON_ARGS[@]+"${ICON_ARGS[@]}"} \
   --paths "src" \
   --add-data "src/simraceengineer/img:simraceengineer/img" \
   --add-data "src/simraceengineer/analysis/setup_advisor/gt7_cars.json:simraceengineer/analysis/setup_advisor" \

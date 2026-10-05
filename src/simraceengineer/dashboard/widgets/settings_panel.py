@@ -4,6 +4,8 @@ from typing import Literal
 
 import pygame
 
+from ...microcontroller.serial_transport import list_serial_ports
+
 C_OVERLAY = (0, 0, 0, 160)
 C_CARD = (28, 28, 36)
 C_BORDER = (60, 60, 75)
@@ -16,14 +18,15 @@ C_BTN_SAVE = (60, 120, 200)
 C_BTN_CANCEL = (55, 55, 68)
 C_BTN_HOVER = (80, 140, 220)
 
-_CARD_W, _CARD_H = 480, 804
+_CARD_W, _CARD_H = 480, 994
 _ALLOWED_CHARS = set("0123456789.")
 
-Action = Literal["saved", "cancelled", "test_voice"] | None
+Action = Literal["saved", "cancelled", "test_voice", "test_microcontroller"] | None
 
 
 class SettingsPanel:
-    def __init__(self, win_w: int, win_h: int) -> None:
+    def __init__(self, win_w: int, win_h: int, show_microcontroller: bool = False) -> None:
+        self._show_micro = show_microcontroller
         self._win_w = win_w
         self._win_h = win_h
         self.active = False
@@ -54,7 +57,12 @@ class SettingsPanel:
         self._voice_alert_advisor_pit_window = True
         self._recording_on_start = True
         self._voice_wear_thr_text = "10"
-        self._active_field: str | None = None  # "ip" | "wear_thr"
+        self._microcontroller_enabled = False
+        self._microcontroller_port = ""
+        self._fan_speed_ceiling_text = "220"
+        self._fan_speed_ceiling_kmh = 220.0
+        self._micro_test_result: bool | None = None
+        self._active_field: str | None = None  # "ip" | "wear_thr" | "port" | "fan_ceiling"
         self._cursor_visible = True
         self._cursor_timer = 0
 
@@ -130,7 +138,26 @@ class SettingsPanel:
         self._voice_chk_fuel_save_recommend = pygame.Rect(field_x, alerts_y + 374, 18, 18)
         self._voice_chk_advisor_pit_window  = pygame.Rect(col2_x,  alerts_y + 374, 18, 18)
 
-        btn_y = cy + _CARD_H - 56
+        # ── Airflow Simulation section ──────────────────────────────────────
+        self._micro_sep_y = alerts_y + 404
+        self._micro_lbl_y = self._micro_sep_y + 6
+        micro_check_y = self._micro_lbl_y + 20
+        self._micro_check_box = pygame.Rect(field_x, micro_check_y, 18, 18)
+        self._micro_port_lbl_y = micro_check_y + 34
+        micro_port_y = self._micro_port_lbl_y + 18
+        self._micro_port_field = pygame.Rect(field_x, micro_port_y, 220, 34)
+        self._micro_test_btn = pygame.Rect(field_x + 230, micro_port_y, 130, 34)
+        self._micro_note_y = micro_port_y + 34 + 10
+
+        # Label sits inline, to the left of the field
+        fan_ceiling_y = self._micro_note_y + 22
+        self._fan_ceiling_field = pygame.Rect(field_x + 130, fan_ceiling_y, 70, 26)
+
+        # Buttons anchored right below the content; card height follows from them
+        content_bottom = (self._fan_ceiling_field.bottom if show_microcontroller
+                          else self._voice_chk_advisor_pit_window.bottom)
+        btn_y = content_bottom + 16
+        self._card.height = btn_y + 36 + 16 - cy
         self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
         self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
 
@@ -167,6 +194,9 @@ class SettingsPanel:
         voice_alert_strategy_revised: bool = True,
         voice_alert_fuel_save_recommend: bool = True,
         voice_alert_advisor_pit_window: bool = True,
+        microcontroller_enabled: bool = False,
+        microcontroller_port: str = "",
+        fan_speed_ceiling_kmh: float = 220.0,
     ) -> None:
         self._ip_text = current_ip
         self._fuel_estimation = fuel_estimation
@@ -195,10 +225,21 @@ class SettingsPanel:
         self._voice_alert_strategy_revised = voice_alert_strategy_revised
         self._voice_alert_fuel_save_recommend = voice_alert_fuel_save_recommend
         self._voice_alert_advisor_pit_window = voice_alert_advisor_pit_window
+        self._microcontroller_enabled = microcontroller_enabled
+        self._microcontroller_port = microcontroller_port
+        if self._microcontroller_enabled and not self._microcontroller_port:
+            self._microcontroller_port = self._auto_detected_port() or ""
+        self._fan_speed_ceiling_kmh = fan_speed_ceiling_kmh if fan_speed_ceiling_kmh > 0 else 220.0
+        self._fan_speed_ceiling_text = str(int(self._fan_speed_ceiling_kmh))
+        self._micro_test_result = None
         self.active = True
         self._active_field = None
         self._cursor_timer = 0
         self._cursor_visible = True
+
+    def _auto_detected_port(self) -> str | None:
+        candidates = list_serial_ports()
+        return candidates[0] if len(candidates) == 1 else None
 
     def handle_event(self, event: pygame.event.Event) -> Action:
         if not self.active:
@@ -213,8 +254,18 @@ class SettingsPanel:
             if event.key == pygame.K_BACKSPACE:
                 if self._active_field == "wear_thr":
                     self._voice_wear_thr_text = self._voice_wear_thr_text[:-1]
+                elif self._active_field == "port":
+                    self._microcontroller_port = self._microcontroller_port[:-1]
+                elif self._active_field == "fan_ceiling":
+                    self._fan_speed_ceiling_text = self._fan_speed_ceiling_text[:-1]
                 else:
                     self._ip_text = self._ip_text[:-1]
+            elif self._active_field == "port":
+                if event.unicode.isprintable() and len(self._microcontroller_port) < 40:
+                    self._microcontroller_port += event.unicode
+            elif self._active_field == "fan_ceiling":
+                if event.unicode.isdigit() and len(self._fan_speed_ceiling_text) < 3:
+                    self._fan_speed_ceiling_text += event.unicode
             elif event.unicode in _ALLOWED_CHARS:
                 if self._active_field == "wear_thr" and event.unicode.isdigit() and len(self._voice_wear_thr_text) < 3:
                     self._voice_wear_thr_text += event.unicode
@@ -251,6 +302,21 @@ class SettingsPanel:
             if self._voice_wear_thr_field.collidepoint(pos) and self._voice_enabled:
                 self._active_field = "wear_thr"
                 return None
+            if self._show_micro and self._micro_check_box.collidepoint(pos):
+                self._microcontroller_enabled = not self._microcontroller_enabled
+                if self._microcontroller_enabled and not self._microcontroller_port:
+                    self._microcontroller_port = self._auto_detected_port() or ""
+                self._micro_test_result = None
+                return None
+            if self._show_micro and self._micro_port_field.collidepoint(pos) and self._microcontroller_enabled:
+                self._active_field = "port"
+                return None
+            if self._show_micro and self._fan_ceiling_field.collidepoint(pos) and self._microcontroller_enabled:
+                self._active_field = "fan_ceiling"
+                return None
+            if (self._show_micro and self._micro_test_btn.collidepoint(pos) and self._microcontroller_enabled
+                    and self._microcontroller_port):
+                return "test_microcontroller"
             if self._field.collidepoint(pos):
                 self._active_field = "ip"
                 return None
@@ -505,6 +571,9 @@ class SettingsPanel:
             surf = font_sm.render(label, True, txt_color)
             screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
 
+        if self._show_micro:
+            self._draw_airflow_section(screen, font_sm)
+
         # Buttons
         mouse = pygame.mouse.get_pos()
         self._draw_btn(screen, font_sm, self._btn_save, "Save",
@@ -516,8 +585,88 @@ class SettingsPanel:
             self._voice_btn_en, self._voice_btn_pt, self._voice_btn_test,
             self._btn_save, self._btn_cancel,
         ]
+        if self._show_micro:
+            _btns.append(self._micro_test_btn)
         if any(b.collidepoint(mouse) for b in _btns):
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+
+    def _draw_airflow_section(self, screen: pygame.Surface, font_sm: pygame.font.Font) -> None:
+        pygame.draw.line(screen, C_BORDER,
+                         (self._card.x + 1, self._micro_sep_y),
+                         (self._card.right - 1, self._micro_sep_y))
+        micro_lbl = font_sm.render("Airflow Simulation", True, C_DIM)
+        screen.blit(micro_lbl, (self._micro_check_box.x, self._micro_lbl_y))
+
+        pygame.draw.rect(screen, C_INPUT_BG, self._micro_check_box, border_radius=3)
+        pygame.draw.rect(screen, C_ACCENT, self._micro_check_box, 1, border_radius=3)
+        if self._microcontroller_enabled:
+            inner = self._micro_check_box.inflate(-5, -5)
+            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
+        micro_chk_lbl = font_sm.render("Enable airflow simulation  (* requires restart)", True, C_TEXT)
+        screen.blit(micro_chk_lbl, (self._micro_check_box.right + 10,
+                                    self._micro_check_box.y + (self._micro_check_box.height - micro_chk_lbl.get_height()) // 2))
+
+        micro_enabled = self._microcontroller_enabled
+        port_lbl = font_sm.render("Serial Port  (blank = auto-detect)", True, C_DIM)
+        screen.blit(port_lbl, (self._micro_port_field.x, self._micro_port_lbl_y))
+
+        port_active = self._active_field == "port" and micro_enabled
+        port_bg = C_INPUT_ACTIVE if port_active else C_INPUT_BG
+        port_border = C_ACCENT if port_active else C_BORDER
+        port_bg = port_bg if micro_enabled else (30, 30, 40)
+        port_border = port_border if micro_enabled else (45, 45, 55)
+        pygame.draw.rect(screen, port_bg, self._micro_port_field, border_radius=6)
+        pygame.draw.rect(screen, port_border, self._micro_port_field, 1, border_radius=6)
+        port_txt_color = C_TEXT if micro_enabled else C_DIM
+        port_cursor = "|" if (port_active and self._cursor_visible) else ""
+        port_surf = font_sm.render(self._microcontroller_port + port_cursor, True, port_txt_color)
+        screen.blit(port_surf, (self._micro_port_field.x + 8,
+                                self._micro_port_field.y + (self._micro_port_field.height - port_surf.get_height()) // 2))
+
+        test_ready = micro_enabled and bool(self._microcontroller_port)
+        test_bg = (50, 100, 60) if test_ready else (30, 30, 40)
+        test_border = (80, 160, 90) if test_ready else (45, 45, 55)
+        test_txt = C_TEXT if test_ready else C_DIM
+        pygame.draw.rect(screen, test_bg, self._micro_test_btn, border_radius=6)
+        pygame.draw.rect(screen, test_border, self._micro_test_btn, 1, border_radius=6)
+        test_surf = font_sm.render("Test Connection", True, test_txt)
+        screen.blit(test_surf, test_surf.get_rect(center=self._micro_test_btn.center))
+
+        if self._micro_test_result is None:
+            note_text = ("No serial port auto-detected — enter one manually"
+                         if micro_enabled and not self._microcontroller_port else "")
+            note_color = (180, 130, 60)
+        elif self._micro_test_result:
+            note_text = "Connected — device replied PONG"
+            note_color = (90, 200, 110)
+        else:
+            note_text = "No response from device"
+            note_color = (220, 90, 90)
+        if note_text:
+            note_surf = font_sm.render(note_text, True, note_color)
+            screen.blit(note_surf, (self._micro_port_field.x, self._micro_note_y))
+
+        # Fan speed ceiling
+        ceiling_lbl_color = C_DIM if micro_enabled else (60, 60, 70)
+        ceiling_lbl = font_sm.render("Fan speed ceiling:", True, ceiling_lbl_color)
+        screen.blit(ceiling_lbl, (self._micro_port_field.x,
+                                  self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_lbl.get_height()) // 2))
+
+        ceiling_active = self._active_field == "fan_ceiling" and micro_enabled
+        ceiling_bg = C_INPUT_ACTIVE if ceiling_active else C_INPUT_BG
+        ceiling_border = C_ACCENT if ceiling_active else C_BORDER
+        ceiling_bg = ceiling_bg if micro_enabled else (30, 30, 40)
+        ceiling_border = ceiling_border if micro_enabled else (45, 45, 55)
+        pygame.draw.rect(screen, ceiling_bg, self._fan_ceiling_field, border_radius=4)
+        pygame.draw.rect(screen, ceiling_border, self._fan_ceiling_field, 1, border_radius=4)
+        ceiling_txt_color = C_TEXT if micro_enabled else C_DIM
+        ceiling_cursor = "|" if (ceiling_active and self._cursor_visible) else ""
+        ceiling_surf = font_sm.render(self._fan_speed_ceiling_text + ceiling_cursor, True, ceiling_txt_color)
+        screen.blit(ceiling_surf, (self._fan_ceiling_field.x + 4,
+                                    self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_surf.get_height()) // 2))
+        ceiling_unit_surf = font_sm.render("km/h", True, ceiling_lbl_color)
+        screen.blit(ceiling_unit_surf, (self._fan_ceiling_field.right + 6,
+                                         self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_unit_surf.get_height()) // 2))
 
     def _draw_btn(self, screen, font, rect: pygame.Rect, text: str, color: tuple) -> None:
         pygame.draw.rect(screen, color, rect, border_radius=6)
@@ -640,3 +789,24 @@ class SettingsPanel:
             return max(1, min(99, v)) / 100.0
         except ValueError:
             return 0.10
+
+    @property
+    def microcontroller_enabled(self) -> bool:
+        return self._microcontroller_enabled
+
+    @property
+    def microcontroller_port(self) -> str:
+        return self._microcontroller_port
+
+    @property
+    def fan_speed_ceiling_kmh(self) -> float:
+        try:
+            v = float(self._fan_speed_ceiling_text)
+            if v > 0:
+                self._fan_speed_ceiling_kmh = v
+        except ValueError:
+            pass
+        return self._fan_speed_ceiling_kmh
+
+    def set_microcontroller_test_result(self, success: bool) -> None:
+        self._micro_test_result = success

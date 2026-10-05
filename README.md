@@ -232,6 +232,52 @@ Two analysis levels are available in the UI:
 
 `openai` backend is compatible with any OpenAI-format server: LM Studio, LocalAI, vLLM, etc.
 
+### Airflow Simulation — Fan Microcontroller (Setup)
+
+Optional integration with a hobby microcontroller (Arduino-class board) driving frontal fans over
+USB serial, for physical wind feedback proportional to in-game speed. See the
+[Microcontroller hardware guide](docs/hardware/microcontroller.md) for wiring and firmware.
+
+The feature is hidden by default: the Settings section, the FAN status chip and the related UI
+Guide entries only appear (and the serial service only starts) after unlocking it by hand in
+`~/sim-race-engineer/sim-race.conf`, then restarting the app:
+
+```ini
+[microcontroller]
+unlocked = true
+```
+
+Once unlocked, the Settings panel exposes the connectivity setup and airflow tuning:
+
+| Control | Behaviour |
+|---------|-----------|
+| **Enable airflow simulation** | Master toggle · requires an app restart to take effect |
+| **Serial Port** | Auto-fills when exactly one serial port is detected; left blank (or with 0/2+ ports found) it stays editable for manual entry (e.g. `/dev/tty.usbserial-1420`, `COM3`) |
+| **Test Connection** | Sends `PING` to the device over the configured port and reports success once it replies `PONG`, without blocking the dashboard for more than a couple of seconds |
+| **Fan speed ceiling (km/h)** | The car speed at which fan duty reaches 100% · default `220` km/h · lower it for a more sensitive curve at low speed, raise it if the fans hit full power too early |
+
+Once connected, fan intensity tracks car speed in real time on an **absolute km/h scale**: duty
+cycle scales linearly from 0% at a standstill to 100% at the configured ceiling (`speed_kmh /
+fan_speed_ceiling_kmh`, clamped to 100%), and drops to 0 immediately whenever the game is paused,
+in a menu, or in a replay. Unlike a per-car relative scale, this doesn't depend on a
+telemetry-derived top speed that takes a lap or two to converge, so airflow feels physically
+consistent from the very first frame, across every car.
+
+Two additional behaviours smooth out real fan-motor quirks:
+
+- **Kick-start** — whenever duty transitions from 0 to non-zero (the fan was stopped and needs to
+  start moving again), the controller briefly forces full power for ~200ms before handing off to
+  the real computed duty, since a fan's static-friction breakaway torque isn't reliable at a low
+  starting duty.
+- **Minimum sustain duty** — any non-zero computed duty is floored to a bench-tested minimum so
+  cruising at low speed never asks the fan to run below the duty it can reliably sustain once
+  already spinning.
+
+Commands are re-sent to the microcontroller roughly every 100ms regardless of whether the duty
+cycle changed, since the device firmware has its own failsafe that zeroes the fans if no command
+arrives within 5 seconds — the periodic resend keeps a sustained, unchanging duty (e.g. cruising
+at a stable speed) from being cut by that failsafe.
+
 ---
 
 ## In-App Help
@@ -252,7 +298,7 @@ Press **?** (info button in the header) to open the UI Guide — a 3-tab referen
 make install
 ```
 
-Installs the core dashboard and all optional extras (voice, analysis, advisor).
+Installs the core dashboard and all optional extras (voice, analysis, advisor, microcontroller).
 
 To install only specific extras:
 
@@ -261,7 +307,8 @@ uv pip install -e '.'                  # core dashboard only
 uv pip install -e '.[voice]'           # + Piper TTS voice alerts
 uv pip install -e '.[analysis]'        # + post-session lap analysis viewer
 uv pip install -e '.[advisor]'         # + AI setup advisor (Ollama / Anthropic / OpenAI)
-uv pip install -e '.[voice,analysis,advisor]'  # everything
+uv pip install -e '.[microcontroller]' # + airflow simulation (pyserial)
+uv pip install -e '.[voice,analysis,advisor,microcontroller]'  # everything
 ```
 
 ### Piper TTS models
@@ -297,6 +344,13 @@ The PS5 must be on the same network. Enable telemetry output in GT7:
 
 [Roadmap for this project](docs/roadmap.md)
 
+
+---
+
+## Hardware
+
+[Microcontroller hardware guide](docs/hardware/microcontroller.md) — wiring diagram, parts list (BOM),
+and reference Arduino firmware for the fan-based wind feedback rig.
 
 ---
 

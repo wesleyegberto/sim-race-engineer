@@ -51,6 +51,7 @@ Entry point: `src/simraceengineer/main.py` — loads config, starts telemetry, l
 | `recording/` | `lap_recorder.py` — saves per-lap telemetry to Parquet via pandas |
 | `voice/` | `VoiceService` — Piper TTS alerts; each alert has its own cooldown |
 | `analysis/` | Dash/Plotly web viewer for post-session lap review (`cli.py` is entry point) |
+| `microcontroller/` | `MicrocontrollerService` — optional USB-serial link to an Arduino-class board (`pyserial`); `FanController` drives airflow-simulation fans from car speed. See `docs/hardware/microcontroller.md` |
 
 ## Language
 

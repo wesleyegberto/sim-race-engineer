@@ -35,6 +35,11 @@ def _setup_logging(debug: bool = False) -> None:
     file_handler.setFormatter(logging.Formatter(_FMT))
     root.addHandler(file_handler)
 
+    # piper-tts logs one DEBUG line per phoneme sequence for every utterance
+    # (text=... phonemes=[...]) — noisy and not actionable for our own
+    # debugging, so keep it at WARNING regardless of our own --debug level.
+    logging.getLogger("piper").setLevel(logging.WARNING)
+
     def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
         if args.exc_type is SystemExit or args.exc_value is None:
             return
@@ -198,6 +203,12 @@ def _run_app(args: argparse.Namespace) -> None:
         voice_service = VoiceService(config)
         voice_service.start()
 
+    microcontroller_service = None
+    if config.microcontroller_unlocked and config.microcontroller_enabled:
+        from .microcontroller import MicrocontrollerService
+        microcontroller_service = MicrocontrollerService(config)
+        microcontroller_service.start()
+
     telemetry_queue: queue.Queue[TelemetryData] = queue.Queue(maxsize=4)
     controller = TelemetryController(config=config, bind_ip=args.bind, queue=telemetry_queue)
 
@@ -212,11 +223,15 @@ def _run_app(args: argparse.Namespace) -> None:
         get_status_fn=lambda: controller.status,
         get_error_fn=lambda: controller.error_msg,
         voice_service=voice_service,
+        microcontroller_service=microcontroller_service,
     )
     app.run()
 
     if voice_service:
         voice_service.stop()
+
+    if microcontroller_service:
+        microcontroller_service.stop()
 
     log.info("Dashboard closed")
 

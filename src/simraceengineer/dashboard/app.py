@@ -38,7 +38,7 @@ from .widgets.tire_widget import draw_tires
 log = logging.getLogger(__name__)
 
 # ── Layout constants ──────────────────────────────────────────────────────────
-WIN_W, WIN_H = 1280, 800
+WIN_W, WIN_H = 1280, 1000
 FPS = 60
 
 HEADER_H = 52
@@ -142,6 +142,7 @@ class DashboardApp:
         get_status_fn: Callable[[], str] | None = None,
         get_error_fn: Callable[[], str] | None = None,
         voice_service: Any | None = None,
+        microcontroller_service: Any | None = None,
     ) -> None:
         self._queue = telemetry_queue
         self._config = config
@@ -150,6 +151,7 @@ class DashboardApp:
         self._get_status_fn = get_status_fn or (lambda: "disconnected")
         self._get_error_fn = get_error_fn or (lambda: "")
         self._voice_service: Any | None = voice_service
+        self._microcontroller_service: Any | None = microcontroller_service
         self._data: TelemetryData | None = None
         self._running = False
         self._info_card_surf: pygame.Surface | None = None
@@ -562,6 +564,9 @@ class DashboardApp:
         if self._voice_service is not None and not self._race_finished:
             self._voice_service.on_frame(d, self._fuel_per_lap)
 
+        if self._microcontroller_service is not None:
+            self._microcontroller_service.on_frame(d)
+
         self._data = d
 
     def _load_assets(self) -> None:
@@ -676,8 +681,8 @@ class DashboardApp:
         clock = pygame.time.Clock()
 
         self._load_assets()
-        self._settings = SettingsPanel(WIN_W, WIN_H)
-        self._help = HelpPanel()
+        self._settings = SettingsPanel(WIN_W, WIN_H, show_microcontroller=self._config.microcontroller_unlocked)
+        self._help = HelpPanel(show_microcontroller=self._config.microcontroller_unlocked)
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
         self._suffix_panel = SuffixInputPanel(WIN_W, WIN_H)
 
@@ -703,7 +708,10 @@ class DashboardApp:
                         self._config.voice_alert_strategy_check_in,
                         self._config.voice_alert_strategy_revised,
                         self._config.voice_alert_fuel_save_recommend,
-                        self._config.voice_alert_advisor_pit_window)
+                        self._config.voice_alert_advisor_pit_window,
+                        self._config.microcontroller_enabled,
+                        self._config.microcontroller_port,
+                        self._config.fan_speed_ceiling_kmh)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -768,6 +776,12 @@ class DashboardApp:
                     if action == "test_voice":
                         if self._voice_service:
                             self._voice_service.speak_test(self._settings.voice_language)
+                    elif action == "test_microcontroller":
+                        if self._microcontroller_service:
+                            success = self._microcontroller_service.test_connection(
+                                self._settings.microcontroller_port
+                            )
+                            self._settings.set_microcontroller_test_result(success)
                     elif action == "saved":
                         self._config.device_ip = self._settings.ip_text
                         self._config.fuel_estimation = self._settings.fuel_estimation
@@ -797,6 +811,9 @@ class DashboardApp:
                         self._config.voice_alert_strategy_revised = self._settings.voice_alert_strategy_revised
                         self._config.voice_alert_fuel_save_recommend = self._settings.voice_alert_fuel_save_recommend
                         self._config.voice_alert_advisor_pit_window = self._settings.voice_alert_advisor_pit_window
+                        self._config.microcontroller_enabled = self._settings.microcontroller_enabled
+                        self._config.microcontroller_port = self._settings.microcontroller_port
+                        self._config.fan_speed_ceiling_kmh = self._settings.fan_speed_ceiling_kmh
                         self._config.save()
                         log.info("Config saved: device_ip=%s", self._config.device_ip)
                         if self._config.device_ip and self._get_status_fn() != "connected":
@@ -817,6 +834,9 @@ class DashboardApp:
                                 self._connect_fn()
                     elif self._rec_btn.collidepoint(event.pos):
                         self._recording = not self._recording
+                        # Persist so the toggle survives restarts and the settings panel reflects it
+                        self._config.recording_on_start = self._recording
+                        self._config.save()
                         if self._recording and self._data and self._data.in_race:
                             if not self._recorder.active:
                                 self._recorder.start_session()
@@ -852,7 +872,10 @@ class DashboardApp:
                         self._config.voice_alert_strategy_check_in,
                         self._config.voice_alert_strategy_revised,
                         self._config.voice_alert_fuel_save_recommend,
-                        self._config.voice_alert_advisor_pit_window)
+                        self._config.voice_alert_advisor_pit_window,
+                        self._config.microcontroller_enabled,
+                        self._config.microcontroller_port,
+                        self._config.fan_speed_ceiling_kmh)
                     elif self._help_btn.collidepoint(event.pos):
                         self._help.open()
 
@@ -1174,26 +1197,42 @@ class DashboardApp:
         CHIP_GAP = 8
         STRIP_Y = RPM_BAR_Y + 16 + 5   # 5px below RPM bar
 
-        # (label, active, active_fg, active_bg, icon)
+        # (label, active, active_fg, active_bg, icon, inactive_override)
+        # inactive_override, when set, replaces the default dim/off look with an
+        # explicit (fg, bg, border) — used for the microcontroller chip below so
+        # "disconnected" reads as a problem, not as a normal "feature off" dim state.
         chips = [
-            ("TCS",   d.tcs_active,        (15, 10, 5),     (255, 140, 0),    self._icon_tcs),
-            ("ASM",   d.asm_active,         (15, 10, 5),     (255, 190, 0),    self._icon_asm),
-            ("HB",    d.handbrake_active,   (15, 15, 5),     (240, 210, 0),    self._icon_parking),
-            ("LIGHT", d.lights_on,          (10, 10, 20),    (190, 200, 255),  self._icon_headlight),
-            ("OIL",   d.oil_temp > 130,     (255, 240, 240), (200, 30, 30),    self._icon_oil),
-            ("WATER", d.water_temp > 105,   (255, 240, 240), (200, 30, 30),    self._icon_coolant),
-            ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30),    None),
+            ("TCS",   d.tcs_active,        (15, 10, 5),     (255, 140, 0),    self._icon_tcs,    None),
+            ("ASM",   d.asm_active,         (15, 10, 5),     (255, 190, 0),    self._icon_asm,    None),
+            ("HB",    d.handbrake_active,   (15, 15, 5),     (240, 210, 0),    self._icon_parking, None),
+            ("LIGHT", d.lights_on,          (10, 10, 20),    (190, 200, 255),  self._icon_headlight, None),
+            ("OIL",   d.oil_temp > 130,     (255, 240, 240), (200, 30, 30),    self._icon_oil,    None),
+            ("WATER", d.water_temp > 105,   (255, 240, 240), (200, 30, 30),    self._icon_coolant, None),
+            ("REV",   d.rev_limiter,        (255, 240, 240), (200, 30, 30),    None,              None),
         ]
+
+        if self._microcontroller_service is not None:
+            connected = self._microcontroller_service.is_connected
+            chips.append((
+                "FAN", connected,
+                (10, 20, 12), (60, 200, 80), None,
+                ((255, 235, 235), (90, 25, 25), (200, 60, 60)),
+            ))
 
         total_w = len(chips) * CHIP_W + (len(chips) - 1) * CHIP_GAP
         x = (WIN_W - total_w) // 2
 
-        for label, active, fg, bg, icon in chips:
+        for label, active, fg, bg, icon, inactive_override in chips:
             rect = pygame.Rect(x, STRIP_Y, CHIP_W, CHIP_H)
             if active:
                 pygame.draw.rect(screen, bg, rect, border_radius=4)
                 pygame.draw.rect(screen, fg, rect, 1, border_radius=4)
                 color = fg
+            elif inactive_override is not None:
+                inactive_fg, inactive_bg, inactive_border = inactive_override
+                pygame.draw.rect(screen, inactive_bg, rect, border_radius=4)
+                pygame.draw.rect(screen, inactive_border, rect, 1, border_radius=4)
+                color = inactive_fg
             else:
                 pygame.draw.rect(screen, (28, 28, 36), rect, border_radius=4)
                 pygame.draw.rect(screen, (48, 48, 58), rect, 1, border_radius=4)

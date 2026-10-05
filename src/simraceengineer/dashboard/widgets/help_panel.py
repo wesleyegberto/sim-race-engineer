@@ -63,6 +63,7 @@ _RIGHT = [
     ("item",  "LIGHT",             "headlights on — useful in races with night segments",                       C_LIGHT, "headlight"),
     ("item",  "OIL",               "oil temperature critical — above 130°C",                                    C_RED, "oil"),
     ("item",  "WATER",             "water temperature critical — above 105°C",                                  C_RED, "coolant"),
+    ("item",  "FAN",               "airflow simulation microcontroller connected · shown only when the feature is enabled · dim if the cable/serial link drops mid-session", C_GREEN),
 
     ("section", "INFO PANEL (right)", "race-pos"),
     ("item",  "POS",               "race position · shown when available",                                      C_TEXT, "race-pos"),
@@ -236,6 +237,12 @@ _SETTINGS_LEFT = [
     ("section", "TYRE WEAR ALERT", "tire-wheel"),
     ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
     ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
+
+    ("section", "AIRFLOW SIMULATION"),
+    ("item",  "Enable airflow simulation", "master toggle for the fan microcontroller · requires app restart", C_TEXT),
+    ("item",  "Serial Port",       "auto-fills when exactly one serial port is detected · type one in manually otherwise", C_TEXT),
+    ("item",  "Test Connection",   "sends PING to the device and reports success if it replies PONG",  C_TEXT),
+    ("item",  "Fan speed ceiling", "km/h at which fan duty reaches 100% · default 220 · lower = more sensitive at low speed", C_TEXT),
 ]
 
 _SETTINGS_RIGHT = [
@@ -320,13 +327,37 @@ _ITEM_DESC_H = 18   # advance per description line
 _ITEM_GAP = 4       # gap between items
 _SECTION_PRE_GAP = 10
 _SECTION_UNDER_H = 7
+# Entries tied to the hidden airflow-simulation feature (see AppConfig.microcontroller_unlocked)
+_MICRO_SECTIONS = {"AIRFLOW SIMULATION"}
+_MICRO_ITEMS = {"FAN"}
+
+
+def _without_microcontroller(entries: list) -> list:
+    """Drop airflow-simulation sections (with their items) and standalone items."""
+    out = []
+    skipping = False
+    for entry in entries:
+        if entry[0] == "section":
+            skipping = entry[1] in _MICRO_SECTIONS
+        if skipping or (entry[0] == "item" and entry[1] in _MICRO_ITEMS):
+            continue
+        out.append(entry)
+    return out
+
+
 _FEATURE_CARD_H = 90  # height of each HOW IT WORKS card
 _FEATURE_CARD_GAP = 16
 
 
 class HelpPanel:
-    def __init__(self) -> None:
+    def __init__(self, show_microcontroller: bool = False) -> None:
         self.active = False
+        self._header_by_tab = [_APP_HEADER, None,   None,          None,            None]
+        self._left_by_tab   = [_APP_LEFT,  _LEFT,   _VOICE_LEFT,  _SETTINGS_LEFT,  _LAP_RECORD_LEFT]
+        self._right_by_tab  = [_APP_RIGHT, _RIGHT,  _VOICE_RIGHT, _SETTINGS_RIGHT, _LAP_RECORD_RIGHT]
+        if not show_microcontroller:
+            self._left_by_tab = [_without_microcontroller(e) for e in self._left_by_tab]
+            self._right_by_tab = [_without_microcontroller(e) for e in self._right_by_tab]
         self._overlay: pygame.Surface | None = None  # lazy-init on first draw
         self._surf_title: pygame.Surface | None = None
         self._surf_footer: pygame.Surface | None = None
@@ -438,13 +469,9 @@ class HelpPanel:
         if self._close_btn.collidepoint(mouse) or any(t.collidepoint(mouse) for t in self._tab_rects):
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 
-        _header_by_tab = [_APP_HEADER, None,   None,          None,            None]
-        _left_by_tab   = [_APP_LEFT,  _LEFT,   _VOICE_LEFT,  _SETTINGS_LEFT,  _LAP_RECORD_LEFT]
-        _right_by_tab  = [_APP_RIGHT, _RIGHT,  _VOICE_RIGHT, _SETTINGS_RIGHT, _LAP_RECORD_RIGHT]
-
-        left_entries  = _left_by_tab[self._active_tab]
-        right_entries = _right_by_tab[self._active_tab]
-        header_cards  = _header_by_tab[self._active_tab]
+        left_entries  = self._left_by_tab[self._active_tab]
+        right_entries = self._right_by_tab[self._active_tab]
+        header_cards  = self._header_by_tab[self._active_tab]
 
         content_y = _CARD_Y + _TITLE_H + 12
 
