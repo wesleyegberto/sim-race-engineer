@@ -23,3 +23,25 @@ C_YELLOW = (240, 210, 0)
 C_LIGHT = (190, 200, 255)
 C_SPIN = (255, 140, 0)
 C_LOCK = (220, 40, 40)
+
+# ── Panel window palette ──────────────────────────────────────────────────────
+C_TAB_ACTIVE = (45, 72, 140)
+
+# ── Settings window palette ───────────────────────────────────────────────────
+C_CARD = (28, 28, 36)                 # Settings window background
+C_TEXT_MUTED = (120, 120, 135)        # field labels / secondary text
+C_GROUP_LABEL = (160, 160, 175)       # alert sub-group headings
+C_TEXT_ON_ACCENT = (15, 15, 22)       # text on a selected (accent) choice
+C_INPUT_BG = (18, 18, 24)
+C_INPUT_ACTIVE = (40, 60, 100)
+C_INPUT_DISABLED = (30, 30, 40)
+C_BORDER_DISABLED = C_SEPARATOR
+C_BTN_SAVE = (60, 120, 200)
+C_BTN_CANCEL = (55, 55, 68)
+C_BTN_HOVER = C_ACCENT
+C_BTN_CANCEL_HOVER = (80, 80, 95)
+C_BTN_TEST = (50, 100, 60)
+C_BTN_TEST_BORDER = (80, 160, 90)
+C_NOTE = (180, 130, 60)               # restart / auto-detect notes
+C_SUCCESS = (90, 200, 110)
+C_ERROR = (220, 90, 90)

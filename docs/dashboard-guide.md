@@ -32,8 +32,8 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 | **Race status** (center) | `IN RACE` · `PIT / MENU` · `FINISHED` — reflects the current game state |
 | **Connection button** | Shows the telemetry link state (see below) |
 | **◉** | Start / stop the telemetry connection |
-| **?** | Opens the in-app help overlay |
-| **⚙** | Opens the Settings panel |
+| **?** | Opens the in-app help (UI Guide) in its own window — see [Help Window](#help-window) |
+| **⚙** | Opens Settings in its own window — see [Settings Window](#settings-window) |
 
 ### Connection button states
 
@@ -45,20 +45,83 @@ Real-time telemetry overlay for Gran Turismo 7. Receives UDP packets from the PS
 | **DISC** | Grey | Disconnected after a previous attempt (device IP is set) |
 | **OFF** | Dark red | No device IP configured — open **⚙ Settings** to set one |
 
-> The device IP is shown only in the **Settings** panel, not in the header.
+> The device IP is shown only in the **Settings** window (General tab), not in the header.
+>
+> Closing the main dashboard window quits the app.
 
 ---
 
-## Settings Panel
+## Settings Window
 
-Opened via the **⚙** button in the header.
+Opened via the **⚙** button in the header, in its own resizable OS window. The dashboard keeps
+updating and stays interactive while Settings is open; clicking **⚙** again brings the existing
+window to the front instead of opening a second one.
+
+On first launch with no device IP configured, Settings opens automatically on the **General** tab
+with the IP field focused.
+
+### Tabs and options
+
+**General**
 
 | Option | Description |
 |--------|-------------|
-| **Device IP** | IP address of the PS5 (or PC running GT7). Persisted to `~/sim-race-engineer/sim-race.conf`. |
-| **Record automatically on start** | When enabled, lap recording begins as soon as a session starts, without requiring manual action. Default: on. |
+| **Device IP address** | IP address of the PS5 (or PC running GT7). Must be four numbers 0–255. Persisted to `~/sim-race-engineer/sim-race.conf`. |
+| **Record laps automatically when a session starts** | Lap recording begins as soon as a session starts, without manual action. Default: on. |
+| **Fuel per lap estimate** | *Last lap* uses the previous lap's consumption; *Average* uses the session rolling average. |
 
-Settings are saved on **Save** and take effect immediately.
+**Voice**
+
+| Option | Description |
+|--------|-------------|
+| **Enable voice alerts** | Master switch for every spoken alert. |
+| **Voice language** | English or Português · takes effect after restarting the app. |
+| **Test voice** | Plays a sample alert in the selected language. |
+
+**Alerts** — one checkbox per voice alert (voice alerts must be enabled on the Voice tab), in two
+columns when the window is at least 600 px wide:
+
+| Group | Alerts |
+|-------|--------|
+| Race | Lap completed · New best lap · Final lap · Lap time delta · Race progress report · Position gained or lost · Laps remaining countdown |
+| Fuel and pit stops | Fuel low · Fuel critical · Pit window · Fuel saving warning |
+| Car health | Engine temperature · Oil temperature · Tyre temperature · Tyre inner temperature · Tyre pressure |
+| Tyre wear | **Tyre wear milestones** · **Announce every … % of wear** (1–99, default 10) |
+| Strategy alerts | Strategy check-in · Strategy revised · Fuel saving recommendation · Advisor pit window |
+
+**Airflow** — only shown when the airflow simulation feature is unlocked (see README):
+
+| Option | Description |
+|--------|-------------|
+| **Enable airflow simulation** | Drives fans from car speed through a USB microcontroller · takes effect after restart. |
+| **Serial port (leave blank to auto-detect)** | Filled in automatically when exactly one serial device is detected. |
+| **Test connection** | Sends `PING` and reports success when the device replies `PONG`. |
+| **Fan speed ceiling** | Car speed (km/h, 1–999, default 220) at which the fans reach 100%. |
+
+### Saving, cancelling and keyboard
+
+| Key / action | Effect |
+|--------------|--------|
+| **Save** or **Enter** | Validate, apply immediately and persist to `sim-race.conf` |
+| **Cancel**, **Esc** or the window's close button | Discard unsaved changes |
+| **Tab** / **Shift+Tab** | Cycle through text fields |
+| **←/→** (no field active) | Switch tabs |
+| Mouse wheel | Scroll the current tab |
+
+Invalid values (empty or malformed IP, tyre wear step outside 1–99, fan speed ceiling outside
+1–999) block the save; the error is shown in red under the field and the window jumps to the tab
+that contains it.
+
+---
+
+## Help Window
+
+Opened via the **?** button in the header, in its own resizable window (clicking **?** again
+focuses it). Tabs: **OVERVIEW · DASHBOARD · VOICE ALERTS · SETTINGS · LAP RECORD** — switch with
+**←/→** or a click. Every description is shown in full; scroll long tabs with the mouse wheel
+(switching tabs returns to the top). The content uses two columns when the window is at least
+900 px wide and one column below that. Clicking inside the guide does not close it — use **Esc** or
+the window's close button.
 
 ---
 

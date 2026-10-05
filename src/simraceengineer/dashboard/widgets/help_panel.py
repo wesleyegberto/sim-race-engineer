@@ -1,10 +1,14 @@
-"""Help overlay: describes every dashboard element."""
+"""Help window content: describes every dashboard element."""
+
+from typing import NamedTuple
 
 import pygame
 
 from simraceengineer.dashboard.colors import (
     C_ACCENT,
     C_BORDER,
+    C_BTN_GEAR,
+    C_BTN_GEAR_HOVER,
     C_DIVIDER,
     C_GREEN,
     C_LIGHT,
@@ -12,10 +16,13 @@ from simraceengineer.dashboard.colors import (
     C_MODAL_BG,
     C_MODAL_HEADER,
     C_ORANGE,
-    C_OVERLAY,
     C_SPIN,
+    C_TAB_ACTIVE,
     C_YELLOW,
 )
+from simraceengineer.dashboard.ui.scroll import ScrollState
+from simraceengineer.dashboard.ui.tabs import TabBar
+from simraceengineer.dashboard.ui.text import wrap_text
 
 # Semantic aliases for modal context
 C_CARD = C_MODAL_BG
@@ -178,20 +185,20 @@ _APP_HEADER = [
     ("card",
      "1 · DASHBOARD",
      "Real-time telemetry while driving",
-     "Connect the PS5 to the same network. The app displays speed · RPM · gear · tyres · G-forces · fuel"
-     " and electronics interventions on a second screen.",
+     ("Connect the PS5 to the same network. The app displays speed · RPM · gear · tyres · G-forces · fuel"
+      " and electronics interventions on a second screen."),
      C_ACCENT, "speedometer"),
     ("card",
      "2 · VOICE ALERTS",
      "Pit-wall engineer while you race",
-     "Automatic spoken alerts: fuel status · tyre temps · lap pace · pit windows and planned stop reminders."
-     " Available in English or Portuguese.",
+     ("Automatic spoken alerts: fuel status · tyre temps · lap pace · pit windows and planned stop reminders."
+      " Available in English or Portuguese."),
      C_GREEN, "voice-cmd"),
     ("card",
      "3 · LAP ANALYSIS",
      "Post-session interactive browser viewer",
-     "After the session ends: click ANALYSIS in the header · select session.parquet (all laps merged into one file)"
-     " · the browser opens at localhost:8050.",
+     ("After the session ends: click ANALYSIS in the header · select session.parquet (all laps merged into one file)"
+      " · the browser opens at localhost:8050."),
      C_ORANGE, "lap-analysis"),
 ]
 
@@ -212,60 +219,69 @@ _APP_RIGHT = [
     ("section", "HEADER BUTTONS", "panel-cluster"),
     ("item",  "Strategy",         "configure planned pit stops · green background when stops are set", C_GREEN, "strategy"),
     ("item",  "Analysis",         "opens file picker → select session.parquet → browser at :8050", C_ACCENT, "lap-analysis"),
-    ("item",  "Help",             "opens this guide",                                            C_TEXT, "info"),
-    ("item",  "Settings",         "opens the settings panel",                                    C_TEXT, "settings"),
+    ("item",  "Help",             "opens this guide in its own window · click again to focus it", C_TEXT, "info"),
+    ("item",  "Settings",         "opens Settings in its own window · the dashboard stays live", C_TEXT, "settings"),
+    ("item",  "Close dashboard",  "closing the main dashboard window quits the app",             C_DIM),
 ]
 
 _SETTINGS_LEFT = [
-    ("section", "CONNECTION", "semaphore"),
-    ("item",  "Device IP",         "PS5 / PC IP address · required to receive telemetry",          C_TEXT),
+    ("section", "SETTINGS WINDOW", "settings"),
+    ("item",  "Separate window",   "gear button opens Settings in its own resizable window · the dashboard keeps updating · clicking the gear again focuses it", C_TEXT, "settings"),
+    ("item",  "Tabs",              "General · Voice · Alerts · Airflow (only when the airflow feature is unlocked) · click or ←/→ when no field is active", C_TEXT),
+    ("item",  "Save · Enter",      "applies and stores every change in sim-race.conf",            C_GREEN),
+    ("item",  "Cancel · Esc · close", "discards unsaved changes · closing the window equals Cancel", C_RED),
+    ("item",  "Tab / Shift+Tab",   "move between text fields · mouse wheel scrolls long tabs",    C_TEXT),
+    ("item",  "Validation",        "invalid values are shown in red under the field and Save jumps to the tab with the error", C_ORANGE),
+    ("item",  "First launch",      "with no Device IP set, Settings opens on General with the IP field focused", C_ACCENT),
 
-    ("section", "RECORDING", "rec-button"),
-    ("item",  "Record on start",   "auto-start lap recording when a new session begins",           C_TEXT, "rec-button"),
-    ("item",  "Fuel estimation",   "Last lap: previous lap · Average: session rolling average",    C_TEXT, "fuel"),
+    ("section", "GENERAL TAB", "semaphore"),
+    ("item",  "Device IP address", "PS5 / PC running GT7 · required to receive telemetry · 4 numbers 0–255 (e.g. 192.168.1.20)", C_TEXT),
+    ("item",  "Record laps automatically when a session starts", "saves every lap for the post-session lap analysis", C_TEXT, "rec-button"),
+    ("item",  "Fuel per lap estimate", "Last lap: previous lap's consumption · Average: session rolling average", C_TEXT, "fuel"),
 
-    ("section", "VOICE", "voice-cmd"),
-    ("item",  "Voice enabled",     "master toggle · enables or disables all voice alerts",         C_TEXT),
-    ("item",  "Language · Test",   "EN = English · PT = Portuguese · Test plays a sample alert",  C_TEXT),
-
-    ("section", "CAR HEALTH ALERTS", "engine"),
-    ("item",  "Engine / Oil temp", "warn when coolant >105°C or oil >130°C · every 20s",         C_RED, "engine"),
-    ("item",  "Tyre temp",         "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),
-    ("item",  "Tyre inner temp",   "warn when any inner zone >110°C · wear indicator",            C_ORANGE, "tire-wheel"),
-    ("item",  "Tyre pressure",     "warn below 160 kPa or above 250 kPa · once per lap",         C_RED, "tire-pressure"),
+    ("section", "VOICE TAB", "voice-cmd"),
+    ("item",  "Enable voice alerts", "master switch for every spoken alert",                     C_TEXT),
+    ("item",  "Voice language",    "English or Português · takes effect after restarting the app", C_TEXT),
+    ("item",  "Test voice",        "plays a sample alert in the selected language",               C_TEXT),
 
     ("section", "TYRE WEAR ALERT", "tire-wheel"),
-    ("item",  "Tyre wear",         "enable tyre wear milestone announcements",                     C_ORANGE, "tire-wheel"),
-    ("item",  "Wear threshold %",  "announce each time avg wear reaches this % block (default 10)", C_TEXT),
+    ("item",  "Tyre wear milestones", "Alerts tab · announce the average tyre wear as it grows",  C_ORANGE, "tire-wheel"),
+    ("item",  "Announce every … % of wear", "milestone step · 1–99 · default 10",                C_TEXT),
 
     ("section", "AIRFLOW SIMULATION"),
-    ("item",  "Enable airflow simulation", "master toggle for the fan microcontroller · requires app restart", C_TEXT),
-    ("item",  "Serial Port",       "auto-fills when exactly one serial port is detected · type one in manually otherwise", C_TEXT),
-    ("item",  "Test Connection",   "sends PING to the device and reports success if it replies PONG",  C_TEXT),
-    ("item",  "Fan speed ceiling", "km/h at which fan duty reaches 100% · default 220 · lower = more sensitive at low speed", C_TEXT),
+    ("item",  "Enable airflow simulation", "Airflow tab · drives fans from car speed via a USB microcontroller · requires app restart", C_TEXT),
+    ("item",  "Serial port (leave blank to auto-detect)", "filled in automatically when exactly one serial device is detected · type one in manually otherwise", C_TEXT),
+    ("item",  "Test connection",   "sends PING to the device and reports success if it replies PONG", C_TEXT),
+    ("item",  "Fan speed ceiling", "km/h at which the fans reach 100% · 1–999 · default 220 · lower = stronger airflow at low speed", C_TEXT),
 ]
 
 _SETTINGS_RIGHT = [
-    ("section", "RACE ALERTS", "racing"),
+    ("section", "ALERTS TAB · RACE", "racing"),
     ("item",  "Lap completed",     "announce each lap time when no new best was set",              C_TEXT, "lap-time"),
-    ("item",  "Best lap",          "announce when a new personal best is set",                     C_GREEN, "lap-time"),
+    ("item",  "New best lap",      "announce when a new personal best is set",                     C_GREEN, "lap-time"),
     ("item",  "Final lap",         "announce entering the last lap of a timed / lapped race",      C_ORANGE, "flags"),
-    ("item",  "Race report",       "35% and 70% race summary · position · avg tyre wear · worst tyre warning", C_TEXT, "lap-time"),
-    ("item",  "Lap delta",         "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
-    ("item",  "Overtake",          "position gained → encouragement · position lost → support · 15s cooldown", C_GREEN, "race-pos"),
-    ("item",  "Laps to go",        "countdown at 5, 4, 3, 2, 1 laps remaining · only in races ≥ 10 laps", C_ACCENT, "flags"),
+    ("item",  "Lap time delta",    "warn when lap pace exceeds the configured delta threshold",    C_ORANGE, "lap-time"),
+    ("item",  "Race progress report", "35% and 70% race summary · position · avg tyre wear · worst tyre warning", C_TEXT, "lap-time"),
+    ("item",  "Position gained or lost", "position gained → encouragement · position lost → support · 15s cooldown", C_GREEN, "race-pos"),
+    ("item",  "Laps remaining countdown", "countdown at 5, 4, 3, 2, 1 laps remaining · only in races ≥ 10 laps", C_ACCENT, "flags"),
 
-    ("section", "FUEL & PIT ALERTS", "fuel"),
+    ("section", "FUEL AND PIT STOPS", "fuel"),
     ("item",  "Fuel low",          "warn when fuel drops below low threshold (default 20%)",       C_ORANGE, "fuel"),
     ("item",  "Fuel critical",     "warn when fuel drops below critical threshold (default 10%)",  C_RED, "fuel"),
     ("item",  "Pit window",        "alert when 2–4 laps of fuel remain in a race",                C_ACCENT, "fuel"),
-    ("item",  "Fuel save",         "warn when fuel margin < 1.5 laps to finish · only in races ≥ 10 laps · replaces fuel-to-finish call", C_ORANGE, "fuel"),
+    ("item",  "Fuel saving warning", "warn when fuel margin < 1.5 laps to finish · only in races ≥ 10 laps · replaces fuel-to-finish call", C_ORANGE, "fuel"),
+
+    ("section", "CAR HEALTH", "engine"),
+    ("item",  "Engine / Oil temperature", "warn when coolant >105°C or oil >130°C · every 20s",  C_RED, "engine"),
+    ("item",  "Tyre temperature",  "warn when any surface temp >100°C · once per lap",            C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre inner temperature", "warn when any inner zone >110°C · wear indicator",       C_ORANGE, "tire-wheel"),
+    ("item",  "Tyre pressure",     "warn below 160 kPa or above 250 kPa · once per lap",         C_RED, "tire-pressure"),
 
     ("section", "STRATEGY ALERTS", "strategy"),
-    ("item",  "Check-in",           "periodic strategy briefing: fuel laps, recommended box lap · fires at 33%/66% of race (≥10 laps) or every 3 laps (short races)", C_ACCENT, "strategy"),
-    ("item",  "Revised",            "fires when strategy health changes to REVISE: pit lap has shifted by >2 laps from plan", C_ORANGE, "strategy"),
-    ("item",  "Fuel save+",         "fires when fuel delta is between 0 and fuel_save_delta_l (default 2 L): suggests lift-and-coast to extend range", C_ORANGE, "fuel"),
-    ("item",  "Pit window",         "fires 1–2 laps before advisor pit window opens, and once when the window is active: 'box window open, N laps to box'", C_ACCENT, "strategy"),
+    ("item",  "Strategy check-in", "periodic strategy briefing: fuel laps, recommended box lap · fires at 33%/66% of race (≥10 laps) or every 3 laps (short races)", C_ACCENT, "strategy"),
+    ("item",  "Strategy revised",  "fires when strategy health changes to REVISE: pit lap has shifted by >2 laps from plan", C_ORANGE, "strategy"),
+    ("item",  "Fuel saving recommendation", "fires when fuel delta is between 0 and fuel_save_delta_l (default 2 L): suggests lift-and-coast to extend range", C_ORANGE, "fuel"),
+    ("item",  "Advisor pit window", "fires 1–2 laps before advisor pit window opens, and once when the window is active: 'box window open, N laps to box'", C_ACCENT, "strategy"),
 ]
 
 _LAP_RECORD_LEFT = [
@@ -315,18 +331,19 @@ _LAP_RECORD_RIGHT = [
 ]
 # fmt: on
 
-_FOOTER = "Press ESC or click outside the card to close"
+_FOOTER = "ESC or close the window to dismiss  ·  ←/→ switch tabs"
 
-_CARD_X, _CARD_Y = 44, 58       # card sits just below the header
-_CARD_W, _CARD_H = 1192, 730    # bottom ≈ 788, leaves margin on 800px screen
 _PAD = 24
 _COL_GAP = 28
-_TITLE_H = 44
-_ITEM_NAME_H = 18   # advance per name line (14pt ≈ 17-18px)
-_ITEM_DESC_H = 18   # advance per description line
-_ITEM_GAP = 4       # gap between items
-_SECTION_PRE_GAP = 10
+_HEADER_H = 48      # tab bar row
+_FOOTER_H = 28
+_TAB_H = 30
+_TWO_COLUMN_MIN_W = 900
+_ITEM_GAP = 6       # gap between items
+_SECTION_PRE_GAP = 12
 _SECTION_UNDER_H = 7
+_ICON_SZ = 14
+_ICON_GAP = 5
 # Entries tied to the hidden airflow-simulation feature (see AppConfig.microcontroller_unlocked)
 _MICRO_SECTIONS = {"AIRFLOW SIMULATION"}
 _MICRO_ITEMS = {"FAN"}
@@ -345,11 +362,71 @@ def _without_microcontroller(entries: list) -> list:
     return out
 
 
-_FEATURE_CARD_H = 90  # height of each HOW IT WORKS card
 _FEATURE_CARD_GAP = 16
+_FEATURE_CARD_PAD = 10
+_CONTENT_PAD_TOP = 12     # space between the tab bar and the first content row
+_CONTENT_PAD_BOTTOM = 16  # space after the last content row
+_DESC_INDENT = 12         # item descriptions are indented under the item name
+_SCROLL_STEP = 40         # px per mouse-wheel notch
+_MIN_ENTRIES_H = 160      # room below the feature cards for a few entries at minimum height
+_INDICATOR_W = 4
+_INDICATOR_MARGIN = 4
+
+
+class _TextOp(NamedTuple):
+    """One rendered text line, in content space (y = 0 is the top of the content)."""
+
+    x: int
+    y: int
+    text: str
+    font: str      # "body" | "title" | "small"
+    color: tuple
+    max_w: int     # width the line was wrapped to (column or card inner width)
+
+
+class _IconOp(NamedTuple):
+    """An icon centred vertically on ``cy``; skipped when the icon is not loaded."""
+
+    x: int
+    cy: int
+    key: str
+
+
+class _LineOp(NamedTuple):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+    color: tuple
+
+
+class _CardOp(NamedTuple):
+    """A feature-card background with border."""
+
+    rect: tuple[int, int, int, int]
+
+
+_Op = _TextOp | _IconOp | _LineOp | _CardOp
+
+
+class _RenderList(NamedTuple):
+    ops: list[_Op]
+    height: int  # total content height, including padding
 
 
 class HelpPanel:
+    """Help content rendered into its own resizable window.
+
+    The panel is sized by ``layout(w, h)`` (called on open and on every resize) and
+    draws onto whatever surface it is given. Mouse positions are window-relative,
+    so hover is tracked from the window's own MOUSEMOTION events rather than the
+    global ``pygame.mouse.get_pos()``.
+
+    Content is laid out once per (tab, width) into a cached content-space render
+    list (all text wrapped with ``wrap_text``) and blitted with the current scroll
+    offset, clipped to the viewport between the tab bar and the footer.
+    """
+
     def __init__(self, show_microcontroller: bool = False) -> None:
         self.active = False
         self._header_by_tab = [_APP_HEADER, None,   None,          None,            None]
@@ -358,279 +435,374 @@ class HelpPanel:
         if not show_microcontroller:
             self._left_by_tab = [_without_microcontroller(e) for e in self._left_by_tab]
             self._right_by_tab = [_without_microcontroller(e) for e in self._right_by_tab]
-        self._overlay: pygame.Surface | None = None  # lazy-init on first draw
-        self._surf_title: pygame.Surface | None = None
-        self._surf_footer: pygame.Surface | None = None
-        self._surf_how_it_works: pygame.Surface | None = None
-        self._surf_tab_active: list[pygame.Surface | None] = [None] * len(_TAB_LABELS)
-        self._surf_tab_inactive: list[pygame.Surface | None] = [None] * len(_TAB_LABELS)
-        self._card = pygame.Rect(_CARD_X, _CARD_Y, _CARD_W, _CARD_H)
-        col_w = (_CARD_W - 2 * _PAD - _COL_GAP) // 2
-        self._col_w = col_w
-        self._col_left_x = _CARD_X + _PAD
-        self._col_right_x = self._col_left_x + col_w + _COL_GAP
-        close_sz = 22
-        self._close_btn = pygame.Rect(
-            _CARD_X + _CARD_W - close_sz - 10,
-            _CARD_Y + (_TITLE_H - close_sz) // 2,
-            close_sz, close_sz,
-        )
-        tab_w, tab_h, tab_gap = 100, 26, 3
-        tab_y = _CARD_Y + (_TITLE_H - tab_h) // 2
-        cx = _CARD_X + _CARD_W // 2
-        n_tabs = len(_TAB_LABELS)
-        total_tab_w = n_tabs * tab_w + (n_tabs - 1) * tab_gap
-        tab_start_x = cx - total_tab_w // 2
-        self._tab_rects = [
-            pygame.Rect(tab_start_x + i * (tab_w + tab_gap), tab_y, tab_w, tab_h)
-            for i in range(n_tabs)
-        ]
-        self._active_tab = 0
+        # Fonts are created lazily: pygame.font must be initialised first.
+        self._font_body: pygame.font.Font | None = None
+        self._font_title: pygame.font.Font | None = None
+        self._font_small: pygame.font.Font | None = None
+        self._text_cache: dict[tuple[int, str, tuple], pygame.Surface] = {}
+        self._render_cache: dict[tuple[int, int], _RenderList] = {}
+        self._scroll = ScrollState(step=_SCROLL_STEP)
+        self._tabs: TabBar | None = None
+        self._size: tuple[int, int] = (0, 0)
+        self._columns = 2
+        self._col_w = 0
+        self._col_xs: list[int] = []
+        self._hover: tuple[int, int] | None = None
+
+    # ── Lifecycle ──────────────────────────────────────────────────────────────
 
     def open(self) -> None:
         self.active = True
+        self._hover = None
+        self._scroll.reset()
+
+    def close(self) -> None:
+        self.active = False
+        self._hover = None
+
+    @property
+    def active_tab(self) -> int:
+        return self._tab_bar().active
+
+    @property
+    def columns(self) -> int:
+        return self._columns
+
+    def min_size(self) -> tuple[int, int]:
+        """Smallest window size that keeps the layout usable, derived from the content.
+
+        Width: the tab bar at its natural size, and the OVERVIEW feature cards side by
+        side with their titles on one line. Height: header + footer + the feature cards
+        plus room for a few entries; everything else scrolls.
+        """
+        self._ensure_fonts()
+        small, title = self._font("small"), self._font("title")
+        tabs_w = sum(small.size(label)[0] + 2 * 16 for label in _TAB_LABELS)
+        tabs_w += 4 * (len(_TAB_LABELS) - 1)
+        card_w = max(
+            title.size(card[1])[0] + (_ICON_SZ + _ICON_GAP if card[5] else 0)
+            for card in _APP_HEADER
+        ) + 2 * _FEATURE_CARD_PAD
+        cards_w = len(_APP_HEADER) * card_w + _FEATURE_CARD_GAP * (len(_APP_HEADER) - 1)
+        w = max(tabs_w, cards_w) + 2 * _PAD
+
+        # Measure the card block with a throwaway layout, then restore the panel state.
+        saved_size = self._size
+        self.layout(w, 10_000)
+        cards_bottom = self._build_feature_cards([], _PAD, _CONTENT_PAD_TOP, _APP_HEADER)
+        self._render_cache.clear()
+        self._text_cache.clear()
+        self._size = (0, 0)
+        if saved_size != (0, 0):
+            self.layout(*saved_size)
+        return w, _HEADER_H + 1 + cards_bottom + _MIN_ENTRIES_H + _FOOTER_H
+
+    def layout(self, w: int, h: int) -> None:
+        """Recompute tab and column geometry for a ``w`` x ``h`` window."""
+        self._ensure_fonts()
+        if w != self._size[0]:
+            # Wrapped lines depend on the width: drop layouts and stale text surfaces.
+            self._render_cache.clear()
+            self._text_cache.clear()
+        self._size = (w, h)
+        tabs = self._tab_bar()
+        tabs.layout(_PAD, (_HEADER_H - _TAB_H) // 2, max(0, w - 2 * _PAD))
+        content_w = max(0, w - 2 * _PAD)
+        if w >= _TWO_COLUMN_MIN_W:
+            self._columns = 2
+            self._col_w = (content_w - _COL_GAP) // 2
+            self._col_xs = [_PAD, _PAD + self._col_w + _COL_GAP]
+        else:
+            self._columns = 1
+            self._col_w = content_w
+            self._col_xs = [_PAD]
+        self._sync_scroll()
+
+    def _viewport(self) -> pygame.Rect:
+        """Scrollable area between the tab bar and the footer, in window px."""
+        w, h = self._size
+        top = _HEADER_H + 1
+        return pygame.Rect(0, top, w, max(0, h - _FOOTER_H - top))
+
+    def _sync_scroll(self) -> None:
+        if self._size == (0, 0):
+            return
+        self._scroll.set_sizes(self._viewport().height, self._render_list().height)
+
+    def _on_tab_changed(self) -> None:
+        self._scroll.reset()
+        self._sync_scroll()
+
+    # ── Events ─────────────────────────────────────────────────────────────────
 
     def handle_event(self, event: pygame.event.Event) -> str | None:
+        """Handle an event owned by the Help window. Returns ``"closed"`` on Esc."""
+        tabs = self._tab_bar()
+        before = tabs.active
+        result = self._dispatch(event, tabs)
+        if tabs.active != before:
+            self._on_tab_changed()
+        return result
+
+    def _dispatch(self, event: pygame.event.Event, tabs: TabBar) -> str | None:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.active = False
                 return "closed"
-            if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
-                delta = -1 if event.key == pygame.K_LEFT else 1
-                self._active_tab = (self._active_tab + delta) % len(_TAB_LABELS)
-                return None
+            if event.key == pygame.K_LEFT:
+                tabs.prev()
+            elif event.key == pygame.K_RIGHT:
+                tabs.next()
+            return None
+        if event.type == pygame.MOUSEWHEEL:
+            self._sync_scroll()
+            self._scroll.scroll(event.y)
+            return None
+        if event.type == pygame.MOUSEMOTION:
+            self._hover = event.pos
+            return None
+        if event.type == pygame.WINDOWLEAVE:
+            self._hover = None
+            return None
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            for i, tab_rect in enumerate(self._tab_rects):
-                if tab_rect.collidepoint(event.pos):
-                    self._active_tab = i
-                    return None
-            self.active = False
-            return "closed"
+            index = tabs.hit(event.pos)
+            if index is not None:
+                tabs.select(index)
+            # Any other click is deliberately ignored: Help never closes on click.
         return None
 
-    def draw(
-        self,
-        surface: pygame.Surface,
-        font_md: pygame.font.Font,
-        font_sm: pygame.font.Font,
-        icon_close: pygame.Surface | None = None,
-        icons: dict | None = None,
-    ) -> None:
+    # ── Rendering ──────────────────────────────────────────────────────────────
+
+    def draw(self, surface: pygame.Surface, icons: dict | None = None) -> None:
         if not self.active:
             return
+        self._ensure_fonts()
+        if surface.get_size() != self._size:
+            self.layout(*surface.get_size())
+        w, h = self._size
+        small = self._font_small
+        assert small is not None
 
-        if self._overlay is None:
-            self._overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-            self._overlay.fill(C_OVERLAY)
-        surface.blit(self._overlay, (0, 0))
+        surface.fill(C_CARD)
+        self._draw_header(surface, w)
 
-        pygame.draw.rect(surface, C_CARD, self._card, border_radius=10)
-        pygame.draw.rect(surface, C_BORDER, self._card, 1, border_radius=10)
-
-        title_bar = pygame.Rect(_CARD_X, _CARD_Y, _CARD_W, _TITLE_H)
-        pygame.draw.rect(surface, C_TITLE_BAR, title_bar,
-                         border_top_left_radius=10, border_top_right_radius=10)
-        pygame.draw.line(
-            surface, C_BORDER,
-            (_CARD_X, _CARD_Y + _TITLE_H),
-            (_CARD_X + _CARD_W, _CARD_Y + _TITLE_H), 1,
-        )
-        _t = self._surf_title
-        if _t is None:
-            _t = font_md.render("SIM RACE ENGINEER", True, C_TITLE)
-            self._surf_title = _t
-        surface.blit(_t, _t.get_rect(midleft=(_CARD_X + _PAD, _CARD_Y + _TITLE_H // 2)))
-
-        mouse = pygame.mouse.get_pos()
-        for i, (label, tab_rect) in enumerate(zip(_TAB_LABELS, self._tab_rects)):
-            active = (i == self._active_tab)
-            bg = (45, 72, 140) if active else (38, 38, 58)
-            pygame.draw.rect(surface, bg, tab_rect, border_radius=4)
-            if active:
-                pygame.draw.rect(surface, C_ACCENT, tab_rect, 1, border_radius=4)
-                _tab = self._surf_tab_active[i]
-                if _tab is None:
-                    _tab = font_sm.render(label, True, C_TITLE)
-                    self._surf_tab_active[i] = _tab
-            else:
-                _tab = self._surf_tab_inactive[i]
-                if _tab is None:
-                    _tab = font_sm.render(label, True, C_DIM)
-                    self._surf_tab_inactive[i] = _tab
-            surface.blit(_tab, _tab.get_rect(center=tab_rect.center))
-
-        close_bg = (70, 40, 40) if self._close_btn.collidepoint(mouse) else (42, 42, 58)
-        pygame.draw.rect(surface, close_bg, self._close_btn, border_radius=4)
-        if icon_close:
-            surface.blit(icon_close, icon_close.get_rect(center=self._close_btn.center))
-        else:
-            x_surf = font_sm.render("X", True, C_TITLE)
-            surface.blit(x_surf, x_surf.get_rect(center=self._close_btn.center))
-        if self._close_btn.collidepoint(mouse) or any(t.collidepoint(mouse) for t in self._tab_rects):
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-
-        left_entries  = self._left_by_tab[self._active_tab]
-        right_entries = self._right_by_tab[self._active_tab]
-        header_cards  = self._header_by_tab[self._active_tab]
-
-        content_y = _CARD_Y + _TITLE_H + 12
-
-        if header_cards:
-            content_y = self._draw_feature_cards(
-                surface, font_md, font_sm, self._col_left_x, content_y, header_cards, icons,
-            )
-            content_y += 10
-
-        _footer_top = _CARD_Y + _CARD_H - 28
-        content_clip = pygame.Rect(
-            _CARD_X + 1, content_y, _CARD_W - 2, _footer_top - content_y
-        )
+        render = self._render_list()
+        self._scroll.set_sizes(self._viewport().height, render.height)
+        viewport = self._viewport()
         prev_clip = surface.get_clip()
-        surface.set_clip(content_clip)
-
-        self._draw_column(surface, font_sm, self._col_left_x, content_y, left_entries, icons)
-
-        div_x = self._col_right_x - _COL_GAP // 2
-        pygame.draw.line(
-            surface, C_DIVIDER,
-            (div_x, content_y - 4),
-            (div_x, _footer_top), 1,
-        )
-        self._draw_column(surface, font_sm, self._col_right_x, content_y, right_entries, icons)
-
+        surface.set_clip(viewport.clip(prev_clip))
+        self._blit_ops(surface, render.ops, viewport, icons)
+        indicator = self._scroll.indicator()
+        if indicator is not None:
+            top, height = indicator
+            thumb = pygame.Rect(
+                w - _INDICATOR_W - _INDICATOR_MARGIN, viewport.top + top, _INDICATOR_W, height
+            )
+            pygame.draw.rect(surface, C_DIM, thumb, border_radius=2)
         surface.set_clip(prev_clip)
 
-        _ftr = self._surf_footer
-        if _ftr is None:
-            _ftr = font_sm.render(_FOOTER, True, C_DIM)
-            self._surf_footer = _ftr
-        surface.blit(_ftr, _ftr.get_rect(
-            center=(_CARD_X + _CARD_W // 2, _CARD_Y + _CARD_H - 14)))
+        content_bottom = h - _FOOTER_H
+        pygame.draw.line(surface, C_BORDER, (0, content_bottom), (w, content_bottom), 1)
+        ftr = self._text(small, _FOOTER, C_DIM)
+        surface.blit(ftr, ftr.get_rect(center=(w // 2, content_bottom + _FOOTER_H // 2)))
 
-    def _draw_feature_cards(
+    def _blit_ops(
         self,
         surface: pygame.Surface,
-        font_md: pygame.font.Font,
-        font_sm: pygame.font.Font,
+        ops: list[_Op],
+        viewport: pygame.Rect,
+        icons: dict | None,
+    ) -> None:
+        """Blit content-space ops shifted by the scroll offset, culling off-screen ones."""
+        dy = viewport.top - self._scroll.offset
+        for op in ops:
+            if isinstance(op, _TextOp):
+                font = self._font(op.font)
+                sy = op.y + dy
+                if sy > viewport.bottom or sy + font.get_linesize() < viewport.top:
+                    continue
+                surface.blit(self._text(font, op.text, op.color), (op.x, sy))
+            elif isinstance(op, _IconOp):
+                icon = icons.get(op.key) if icons else None
+                if icon:
+                    surface.blit(icon, icon.get_rect(midleft=(op.x, op.cy + dy)))
+            elif isinstance(op, _LineOp):
+                pygame.draw.line(surface, op.color, (op.x1, op.y1 + dy), (op.x2, op.y2 + dy), 1)
+            else:
+                x, y, cw, ch = op.rect
+                rect = pygame.Rect(x, y + dy, cw, ch)
+                if not rect.colliderect(viewport):
+                    continue
+                pygame.draw.rect(surface, C_MODAL_HEADER, rect, border_radius=6)
+                pygame.draw.rect(surface, C_DIVIDER, rect, 1, border_radius=6)
+
+    def _draw_header(self, surface: pygame.Surface, w: int) -> None:
+        small = self._font_small
+        assert small is not None
+        pygame.draw.rect(surface, C_TITLE_BAR, pygame.Rect(0, 0, w, _HEADER_H))
+        pygame.draw.line(surface, C_BORDER, (0, _HEADER_H), (w, _HEADER_H), 1)
+        tabs = self._tab_bar()
+        prev_clip = surface.get_clip()
+        for i, (label, rect) in enumerate(zip(tabs.labels, tabs.rects)):
+            active = i == tabs.active
+            hovered = self._hover is not None and rect.collidepoint(self._hover)
+            if active:
+                bg = C_TAB_ACTIVE
+            elif hovered:
+                bg = C_BTN_GEAR_HOVER
+            else:
+                bg = C_BTN_GEAR
+            pygame.draw.rect(surface, bg, rect, border_radius=4)
+            if active:
+                pygame.draw.rect(surface, C_ACCENT, rect, 1, border_radius=4)
+            lbl = self._text(small, label, C_TITLE if (active or hovered) else C_DIM)
+            surface.set_clip(rect.inflate(-4, 0))
+            surface.blit(lbl, lbl.get_rect(center=rect.center))
+            surface.set_clip(prev_clip)
+
+    # ── Content layout (content space, cached per tab and width) ───────────────
+
+    def _render_list(self) -> _RenderList:
+        """Return the cached render list for the active tab at the current width."""
+        tab = self.active_tab
+        key = (tab, self._size[0])
+        render = self._render_cache.get(key)
+        if render is None:
+            render = self._build_render_list(tab)
+            self._render_cache[key] = render
+        return render
+
+    def _build_render_list(self, tab: int) -> _RenderList:
+        self._ensure_fonts()
+        ops: list[_Op] = []
+        y = _CONTENT_PAD_TOP
+        cards = self._header_by_tab[tab]
+        if cards:
+            y = self._build_feature_cards(ops, _PAD, y, cards) + 10
+
+        left, right = self._left_by_tab[tab], self._right_by_tab[tab]
+        columns = [left, right] if self._columns == 2 else [left + right]
+        bottom = y
+        for x, entries in zip(self._col_xs, columns):
+            bottom = max(bottom, self._build_column(ops, x, y, entries))
+        for x in self._col_xs[1:]:
+            div_x = x - _COL_GAP // 2
+            ops.append(_LineOp(div_x, y - 4, div_x, bottom, C_DIVIDER))
+        return _RenderList(ops, bottom + _CONTENT_PAD_BOTTOM)
+
+    def _add_lines(
+        self,
+        ops: list[_Op],
+        font_key: str,
+        text: str,
+        color: tuple,
         x: int,
         y: int,
-        cards: list,
-        icons: dict | None = None,
+        max_w: int,
+        gap: int = 0,
     ) -> int:
-        """Renders feature cards spanning the full content width. Returns new y after the section."""
-        full_w = _CARD_W - 2 * _PAD
-        n = len(cards)
-        card_w = (full_w - _FEATURE_CARD_GAP * (n - 1)) // n
+        """Wrap ``text`` to ``max_w`` and append one text op per line. Returns the new y."""
+        font = self._font(font_key)
+        max_w = max(1, max_w)
+        for line in wrap_text(text, max_w, lambda s: font.size(s)[0]):
+            ops.append(_TextOp(x, y, line, font_key, color, max_w))
+            y += font.get_linesize() + gap
+        return y
 
-        _hiw = self._surf_how_it_works
-        if _hiw is None:
-            _hiw = font_sm.render("HOW IT WORKS", True, C_SECTION)
-            self._surf_how_it_works = _hiw
-        surface.blit(_hiw, (x, y))
-        y += _hiw.get_height() + 4
-        pygame.draw.line(surface, C_DIVIDER, (x, y), (x + full_w, y), 1)
+    def _build_feature_cards(self, ops: list[_Op], x: int, y: int, cards: list) -> int:
+        """Lay out feature cards spanning the full content width; each card grows to fit."""
+        title_font = self._font("title")
+        full_w = max(0, self._size[0] - 2 * _PAD)
+        n = len(cards)
+        card_w = max(1, (full_w - _FEATURE_CARD_GAP * (n - 1)) // n)
+
+        y = self._add_lines(ops, "small", "HOW IT WORKS", C_SECTION, x, y, full_w) + 2
+        ops.append(_LineOp(x, y, x + full_w, y, C_DIVIDER))
         y += _SECTION_UNDER_H + 2
 
-        _ICON_SZ = 14
-        _ICON_GAP = 5
-        _PAD_CARD = 10
-
+        card_ops: list[list[_Op]] = []
+        card_bottom = y
         for i, entry in enumerate(cards):
             _, title, subtitle, desc, color, icon_key = entry
             cx = x + i * (card_w + _FEATURE_CARD_GAP)
-            card_rect = pygame.Rect(cx, y, card_w, _FEATURE_CARD_H)
-            pygame.draw.rect(surface, (30, 30, 45), card_rect, border_radius=6)
-            pygame.draw.rect(surface, C_DIVIDER, card_rect, 1, border_radius=6)
-
-            ty = y + _PAD_CARD
-            tx = cx + _PAD_CARD
-
-            icon = icons.get(icon_key) if (icons and icon_key) else None
+            tx = cx + _FEATURE_CARD_PAD
+            inner_right = cx + card_w - _FEATURE_CARD_PAD
+            body: list[_Op] = []
+            ty = y + _FEATURE_CARD_PAD
             ix = tx
-            if icon:
-                surface.blit(icon, icon.get_rect(midleft=(ix, ty + _ICON_SZ // 2 + 1)))
+            if icon_key:
+                body.append(_IconOp(ix, ty + title_font.get_height() // 2, icon_key))
                 ix += _ICON_SZ + _ICON_GAP
-            title_surf = font_md.render(title, True, color)
-            surface.blit(title_surf, (ix, ty))
-            ty += title_surf.get_height() + 3
+            ty = self._add_lines(body, "title", title, color, ix, ty, inner_right - ix) + 3
+            ty = self._add_lines(body, "small", subtitle, C_TEXT, tx, ty, inner_right - tx) + 4
+            ty = self._add_lines(body, "small", desc, C_DIM, tx, ty, inner_right - tx, gap=1)
+            card_ops.append(body)
+            card_bottom = max(card_bottom, ty + _FEATURE_CARD_PAD)
 
-            sub_surf = font_sm.render(subtitle, True, C_TEXT)
-            surface.blit(sub_surf, (tx, ty))
-            ty += sub_surf.get_height() + 5
+        card_h = card_bottom - y
+        for i, body in enumerate(card_ops):
+            cx = x + i * (card_w + _FEATURE_CARD_GAP)
+            ops.append(_CardOp((cx, y, card_w, card_h)))
+            ops.extend(body)
+        return card_bottom
 
-            desc_max_w = card_w - 2 * _PAD_CARD
-            words = desc.split()
-            line: str = ""
-            lines: list[str] = []
-            for word in words:
-                test = (line + " " + word).strip()
-                if font_sm.size(test)[0] <= desc_max_w:
-                    line = test
-                else:
-                    if line:
-                        lines.append(line)
-                    line = word
-            if line:
-                lines.append(line)
-            _MAX_DESC_LINES = 2
-            if len(lines) > _MAX_DESC_LINES:
-                last = lines[_MAX_DESC_LINES - 1]
-                while font_sm.size(last + "…")[0] > desc_max_w and len(last) > 1:
-                    last = last[:-1]
-                lines = lines[:_MAX_DESC_LINES - 1] + [last + "…"]
-            for dl in lines:
-                ds = font_sm.render(dl, True, C_DIM)
-                surface.blit(ds, (tx, ty))
-                ty += ds.get_height() + 1
-
-        return y + _FEATURE_CARD_H
-
-    def _draw_column(
-        self,
-        surface: pygame.Surface,
-        font: pygame.font.Font,
-        x: int,
-        start_y: int,
-        entries: list,
-        icons: dict | None = None,
-    ) -> None:
-        _ICON_SZ = 14
-        _ICON_GAP = 5
-        y = start_y
+    def _build_column(self, ops: list[_Op], x: int, y: int, entries: list) -> int:
+        """Lay out one column of sections/items starting at ``y``. Returns the end y."""
+        body = self._font("body")
+        right = x + self._col_w
         first_section = True
-
         for entry in entries:
-            kind = entry[0]
-
-            if kind == "section":
+            if entry[0] == "section":
                 if not first_section:
                     y += _SECTION_PRE_GAP
                 first_section = False
                 icon_key = entry[2] if len(entry) > 2 else None
-                icon = icons.get(icon_key) if (icons and icon_key) else None
                 ix = x
-                if icon:
-                    surface.blit(icon, icon.get_rect(midleft=(ix, y + _ICON_SZ // 2 + 1)))
+                if icon_key:
+                    ops.append(_IconOp(ix, y + body.get_height() // 2, icon_key))
                     ix += _ICON_SZ + _ICON_GAP
-                lbl = font.render(entry[1], True, C_SECTION)
-                surface.blit(lbl, (ix, y))
-                y += lbl.get_height() + 3
-                pygame.draw.line(
-                    surface, C_DIVIDER, (x, y), (x + self._col_w, y), 1
-                )
+                y = self._add_lines(ops, "body", entry[1], C_SECTION, ix, y, right - ix) + 3
+                ops.append(_LineOp(x, y, right, y, C_DIVIDER))
                 y += _SECTION_UNDER_H
-
             else:
                 _, name, desc, color = entry[:4]
                 icon_key = entry[4] if len(entry) > 4 else None
-                icon = icons.get(icon_key) if (icons and icon_key) else None
                 ix = x + 2
-                if icon:
-                    surface.blit(icon, icon.get_rect(midleft=(ix, y + _ICON_SZ // 2 + 1)))
+                if icon_key:
+                    ops.append(_IconOp(ix, y + body.get_height() // 2, icon_key))
                     ix += _ICON_SZ + _ICON_GAP
-                name_surf = font.render(f"• {name}", True, color)
-                surface.blit(name_surf, (ix, y))
-                y += _ITEM_NAME_H
-                desc_surf = font.render(desc, True, C_DIM)
-                surface.blit(desc_surf, (x + 12, y))
-                y += _ITEM_DESC_H + _ITEM_GAP
+                y = self._add_lines(ops, "body", f"• {name}", color, ix, y, right - ix)
+                desc_x = x + _DESC_INDENT
+                y = self._add_lines(ops, "small", desc, C_DIM, desc_x, y, right - desc_x)
+                y += _ITEM_GAP
+        return y
+
+    # ── Helpers ────────────────────────────────────────────────────────────────
+
+    def _ensure_fonts(self) -> None:
+        if self._font_body is None:
+            self._font_body = pygame.font.SysFont("monospace", 16)
+            self._font_title = pygame.font.SysFont("monospace", 20)
+            self._font_small = pygame.font.SysFont("monospace", 13)
+
+    def _font(self, key: str) -> pygame.font.Font:
+        self._ensure_fonts()
+        font = {"body": self._font_body, "title": self._font_title, "small": self._font_small}[key]
+        assert font is not None
+        return font
+
+    def _tab_bar(self) -> TabBar:
+        if self._tabs is None:
+            self._ensure_fonts()
+            small = self._font_small
+            assert small is not None
+            self._tabs = TabBar(_TAB_LABELS, lambda s: small.size(s)[0], height=_TAB_H)
+        return self._tabs
+
+    def _text(self, font: pygame.font.Font, text: str, color: tuple) -> pygame.Surface:
+        """Render ``text`` once per (font, text, colour) and reuse the surface."""
+        key = (id(font), text, color)
+        surf = self._text_cache.get(key)
+        if surf is None:
+            surf = font.render(text, True, color)
+            self._text_cache[key] = surf
+        return surf

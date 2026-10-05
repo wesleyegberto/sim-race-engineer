@@ -102,7 +102,7 @@ Each alert has an independent cooldown to avoid repetition.
 | Overtake | Position gained → encouragement; position lost → support | 15 s |
 
 All thresholds are configurable in `~/sim-race-engineer/sim-race.conf`.
-Each alert can be individually enabled or disabled in the in-app Settings panel.
+Each alert can be individually enabled or disabled on the **Alerts** tab of the in-app Settings window.
 
 ### Race Strategy
 
@@ -238,7 +238,7 @@ Optional integration with a hobby microcontroller (Arduino-class board) driving 
 USB serial, for physical wind feedback proportional to in-game speed. See the
 [Microcontroller hardware guide](docs/hardware/microcontroller.md) for wiring and firmware.
 
-The feature is hidden by default: the Settings section, the FAN status chip and the related UI
+The feature is hidden by default: the **Airflow** Settings tab, the FAN status chip and the related UI
 Guide entries only appear (and the serial service only starts) after unlocking it by hand in
 `~/sim-race-engineer/sim-race.conf`, then restarting the app:
 
@@ -247,14 +247,14 @@ Guide entries only appear (and the serial service only starts) after unlocking i
 unlocked = true
 ```
 
-Once unlocked, the Settings panel exposes the connectivity setup and airflow tuning:
+Once unlocked, the **Airflow** tab of the Settings window exposes the connectivity setup and airflow tuning:
 
 | Control | Behaviour |
 |---------|-----------|
 | **Enable airflow simulation** | Master toggle · requires an app restart to take effect |
-| **Serial Port** | Auto-fills when exactly one serial port is detected; left blank (or with 0/2+ ports found) it stays editable for manual entry (e.g. `/dev/tty.usbserial-1420`, `COM3`) |
-| **Test Connection** | Sends `PING` to the device over the configured port and reports success once it replies `PONG`, without blocking the dashboard for more than a couple of seconds |
-| **Fan speed ceiling (km/h)** | The car speed at which fan duty reaches 100% · default `220` km/h · lower it for a more sensitive curve at low speed, raise it if the fans hit full power too early |
+| **Serial port (leave blank to auto-detect)** | Auto-fills when exactly one serial port is detected; left blank (or with 0/2+ ports found) it stays editable for manual entry (e.g. `/dev/tty.usbserial-1420`, `COM3`) |
+| **Test connection** | Sends `PING` to the device over the configured port and reports success once it replies `PONG`, without blocking the dashboard for more than a couple of seconds |
+| **Fan speed ceiling (km/h)** | The car speed at which fan duty reaches 100% · `1`–`999`, default `220` km/h · lower it for a more sensitive curve at low speed, raise it if the fans hit full power too early |
 
 Once connected, fan intensity tracks car speed in real time on an **absolute km/h scale**: duty
 cycle scales linearly from 0% at a standstill to 100% at the configured ceiling (`speed_kmh /
@@ -282,13 +282,48 @@ at a stable speed) from being cut by that failsafe.
 
 ## In-App Help
 
-Press **?** (info button in the header) to open the UI Guide — a 3-tab reference panel:
+Press **?** (info button in the header) to open the UI Guide in its own resizable window. The
+dashboard keeps updating behind it; clicking **?** again brings the existing window to the front.
 
 | Tab | Content |
 |-----|---------|
+| OVERVIEW | The three app features, connection status, recording and header controls |
 | DASHBOARD | Every widget, indicator, and colour code explained |
-| APP GUIDE | Lap recording format, settings, and header controls |
 | VOICE ALERTS | Each voice event, its trigger condition, and how to interpret it |
+| SETTINGS | Every option of the Settings window, tab by tab, plus its keyboard shortcuts |
+| LAP RECORD | Lap recording file format and recorded columns |
+
+Switch tabs with **←/→** or a click; scroll long tabs with the mouse wheel. Content is laid out in
+two columns when the window is at least 900 px wide and in one column below that. **Esc** or the
+window's close button dismisses it — clicking inside the guide no longer closes it.
+
+## Settings Window
+
+The gear button in the header opens Settings in its own resizable window, so the dashboard stays
+live and interactive while you edit. Clicking the gear again focuses the open window.
+
+| Tab | Options |
+|-----|---------|
+| **General** | Device IP address · Record laps automatically when a session starts · Fuel per lap estimate (Last lap / Average) |
+| **Voice** | Enable voice alerts · Voice language (English / Português, applied after restart) · Test voice |
+| **Alerts** | Per-alert toggles grouped as Race, Fuel and pit stops, Car health · Tyre wear milestones with *Announce every … % of wear* · Strategy alerts |
+| **Airflow** | Only shown when the airflow simulation feature is unlocked (see *Airflow Simulation* above) |
+
+Changes are only applied when you save:
+
+| Key / action | Effect |
+|--------------|--------|
+| **Save** button or **Enter** | Validate, apply and persist to `~/sim-race-engineer/sim-race.conf` |
+| **Cancel**, **Esc** or the window's close button | Discard unsaved changes |
+| **Tab** / **Shift+Tab** | Move between text fields |
+| **←/→** (no field active) | Switch tabs |
+| Mouse wheel | Scroll a tab that doesn't fit the window |
+
+Invalid values block the save and are shown inline under the field (Device IP must be four numbers
+0–255 and not empty; tyre wear step 1–99; fan speed ceiling 1–999 km/h); the window jumps to the
+tab containing the first error.
+
+Closing the main dashboard window quits the app.
 
 ---
 
@@ -324,7 +359,8 @@ No manual step required.
 sh run.sh
 ```
 
-On first launch, the Settings panel opens automatically. Enter the device IP address and save.
+On first launch (no device IP configured), the Settings window opens automatically on the
+**General** tab with the IP field focused. Type the device IP address and press **Enter** to save.
 The IP is persisted to `~/sim-race-engineer/sim-race.conf` and reused on subsequent launches.
 
 ```bash

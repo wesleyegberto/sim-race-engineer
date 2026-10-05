@@ -1,812 +1,975 @@
-"""Settings overlay modal."""
+"""Settings panel rendered inside its own resizable window.
 
-from typing import Literal
+The panel is a thin pygame renderer on top of ``SettingsForm``: the controls are a
+declarative list of specs per tab (``Section``, ``Checkbox``, ``TextInput``,
+``Choice``, ``Button``, ``Note``) laid out top-to-bottom in content space by
+``layout()``. Only the active tab is laid out; its content scrolls inside a viewport
+between a fixed header (title + tab bar) and a fixed footer (error summary +
+Cancel/Save). Validation errors and helper text are rendered directly under their
+field. Mouse positions are window-relative; hover is tracked from ``MOUSEMOTION``
+events because ``pygame.mouse.get_pos()`` follows the focused window only.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Literal
 
 import pygame
 
 from ...microcontroller.serial_transport import list_serial_ports
+from ..colors import (
+    C_ACCENT,
+    C_BORDER,
+    C_BORDER_DISABLED,
+    C_BTN_CANCEL,
+    C_BTN_CANCEL_HOVER,
+    C_BTN_HOVER,
+    C_BTN_SAVE,
+    C_BTN_TEST,
+    C_BTN_TEST_BORDER,
+    C_CARD,
+    C_DIM,
+    C_DIVIDER,
+    C_ERROR,
+    C_GROUP_LABEL,
+    C_INPUT_ACTIVE,
+    C_INPUT_BG,
+    C_INPUT_DISABLED,
+    C_NOTE,
+    C_SUCCESS,
+    C_TAB_ACTIVE,
+    C_TEXT,
+    C_TEXT_MUTED,
+    C_TEXT_ON_ACCENT,
+)
+from ..settings_form import SettingsForm
+from ..ui.scroll import ScrollState
+from ..ui.tabs import TabBar
+from ..ui.text import wrap_text
 
-C_OVERLAY = (0, 0, 0, 160)
-C_CARD = (28, 28, 36)
-C_BORDER = (60, 60, 75)
-C_TEXT = (230, 230, 230)
-C_DIM = (120, 120, 135)
-C_ACCENT = (80, 140, 220)
-C_INPUT_BG = (18, 18, 24)
-C_INPUT_ACTIVE = (40, 60, 100)
-C_BTN_SAVE = (60, 120, 200)
-C_BTN_CANCEL = (55, 55, 68)
-C_BTN_HOVER = (80, 140, 220)
-
-_CARD_W, _CARD_H = 480, 994
-_ALLOWED_CHARS = set("0123456789.")
+if TYPE_CHECKING:
+    from ...config import AppConfig
 
 Action = Literal["saved", "cancelled", "test_voice", "test_microcontroller"] | None
 
 
+def auto_detect_port() -> str | None:
+    """Return the serial port when exactly one candidate is connected, else None."""
+    candidates = list_serial_ports()
+    return candidates[0] if len(candidates) == 1 else None
+
+
+# ── Control specs ─────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class Section:
+    """Group heading; ``major`` draws a full-width separator above it."""
+
+    title: str
+    major: bool = False
+    line: bool = True
+
+
+@dataclass(frozen=True)
+class Checkbox:
+    """Boolean form field; ``half`` lets it share a row in the 2-column grid."""
+
+    field: str
+    label: str
+    half: bool = True
+    help: str = ""
+
+
+@dataclass(frozen=True)
+class TextInput:
+    """Free-text form field. ``inline`` puts the label left of the box when it fits."""
+
+    field: str
+    label: str
+    unit: str = ""
+    width: int | None = None
+    inline: bool = False
+    large: bool = False
+    help: str = ""
+
+
+@dataclass(frozen=True)
+class Choice:
+    """Single choice among ``options`` (value, label) for a string form attribute."""
+
+    field: str
+    label: str
+    options: tuple[tuple[str, str], ...]
+    help: str = ""
+
+
+@dataclass(frozen=True)
+class Button:
+    """Action button; the click returns ``action`` from ``handle_event``."""
+
+    action: Literal["test_voice", "test_microcontroller"]
+    label: str
+
+
+@dataclass(frozen=True)
+class Note:
+    """Static wrapped note; dimmed while ``enabled_by`` is inactive."""
+
+    text: str
+    enabled_by: str | None = None
+
+
+@dataclass(frozen=True)
+class MicroStatus:
+    """Microcontroller auto-detect / connection-test status line."""
+
+
+Control = Section | Checkbox | TextInput | Choice | Button | Note | MicroStatus
+
+
+@dataclass(frozen=True)
+class Tab:
+    """One Settings tab: stable id, visible label and its controls."""
+
+    id: str
+    label: str
+    controls: tuple[Control, ...]
+
+
+_ALERT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    ("Race", (
+        ("voice_alert_lap_completed", "Lap completed"),
+        ("voice_alert_best_lap", "New best lap"),
+        ("voice_alert_final_lap", "Final lap"),
+        ("voice_alert_lap_delta", "Lap time delta"),
+        ("voice_alert_race_report", "Race progress report"),
+        ("voice_alert_overtake", "Position gained or lost"),
+        ("voice_alert_laps_to_finish", "Laps remaining countdown"),
+    )),
+    ("Fuel and pit stops", (
+        ("voice_alert_fuel_low", "Fuel low"),
+        ("voice_alert_fuel_critical", "Fuel critical"),
+        ("voice_alert_pit_window", "Pit window"),
+        ("voice_alert_fuel_save", "Fuel saving warning"),
+    )),
+    ("Car health", (
+        ("voice_alert_engine_temp", "Engine temperature"),
+        ("voice_alert_oil_temp", "Oil temperature"),
+        ("voice_alert_tire_temp", "Tyre temperature"),
+        ("voice_alert_tire_inner_temp", "Tyre inner temperature"),
+        ("voice_alert_tire_pressure", "Tyre pressure"),
+    )),
+)
+
+_STRATEGY_ALERTS: tuple[tuple[str, str], ...] = (
+    ("voice_alert_strategy_check_in", "Strategy check-in"),
+    ("voice_alert_strategy_revised", "Strategy revised"),
+    ("voice_alert_fuel_save_recommend", "Fuel saving recommendation"),
+    ("voice_alert_advisor_pit_window", "Advisor pit window"),
+)
+
+
+def build_tabs(show_microcontroller: bool) -> list[Tab]:
+    """Declarative Settings content: one ``Tab`` per visible tab, in display order."""
+    general = (
+        TextInput("device_ip", "Device IP address", large=True,
+                  help="IP address of the PS5 or PC running Gran Turismo 7. It must be "
+                       "on the same network as this computer; required to receive telemetry."),
+        Checkbox("recording_on_start", "Record laps automatically when a session starts",
+                 half=False,
+                 help="Saves the telemetry of every lap for the post-session lap analysis."),
+        Choice("fuel_estimation", "Fuel per lap estimate",
+               (("last", "Last lap"), ("average", "Average")),
+               help="Last lap uses the previous lap's consumption; Average uses the "
+                    "rolling average of the session."),
+    )
+    voice = (
+        Checkbox("voice_enabled", "Enable voice alerts", half=False,
+                 help="Master switch for every spoken alert from the race engineer."),
+        Choice("voice_language", "Voice language", (("en", "English"), ("pt", "Português")),
+               help="A language change takes effect after restarting the app."),
+        Button("test_voice", "Test voice"),
+        Note("Plays a sample alert in the selected language.", enabled_by="voice"),
+    )
+
+    alerts: list[Control] = [
+        Section("Engineer communications", line=False),
+        Note("Choose which alerts the race engineer speaks. "
+             "Voice alerts must be enabled on the Voice tab."),
+    ]
+    for title, group in _ALERT_GROUPS:
+        alerts.append(Section(title))
+        alerts.extend(Checkbox(name, label) for name, label in group)
+    alerts += [
+        Section("Tyre wear"),
+        Checkbox("voice_alert_tyre_wear", "Tyre wear milestones", half=False),
+        TextInput("voice_tyre_wear_threshold_pct", "Announce every", unit="% of wear",
+                  width=60, inline=True,
+                  help="The engineer reports the average tyre wear each time it grows "
+                       "by this amount (1 to 99, default 10)."),
+        Section("Strategy alerts"),
+        Note("Advice from the race strategy calculator: periodic check-ins, plan "
+             "changes, lift-and-coast suggestions and pit window calls.",
+             enabled_by="voice"),
+    ]
+    alerts.extend(Checkbox(name, label) for name, label in _STRATEGY_ALERTS)
+
+    tabs = [
+        Tab("general", "General", general),
+        Tab("voice", "Voice", voice),
+        Tab("alerts", "Alerts", tuple(alerts)),
+    ]
+    if show_microcontroller:
+        tabs.append(Tab("airflow", "Airflow", (
+            Checkbox("microcontroller_enabled", "Enable airflow simulation", half=False,
+                     help="Drives fans from the car speed through a USB microcontroller. "
+                          "Takes effect after restarting the app."),
+            TextInput("microcontroller_port", "Serial port (leave blank to auto-detect)",
+                      width=280,
+                      help="Filled in automatically when exactly one serial device "
+                           "is connected."),
+            Button("test_microcontroller", "Test connection"),
+            MicroStatus(),
+            TextInput("fan_speed_ceiling_kmh", "Fan speed ceiling", unit="km/h",
+                      width=70, inline=True,
+                      help="Car speed at which the fans reach 100%. Lower values give "
+                           "more airflow at low speed (default 220)."),
+        )))
+    return tabs
+
+
+def build_controls(show_microcontroller: bool) -> list[Control]:
+    """Every control of every visible tab, flattened in tab order."""
+    return [c for tab in build_tabs(show_microcontroller) for c in tab.controls]
+
+
+@dataclass
+class _Placed:
+    """A control laid out in content space (y = 0 at the top of the content)."""
+
+    spec: Control
+    rect: pygame.Rect                      # interactive area (box / cell / button)
+    bounds: pygame.Rect                    # everything drawn, for culling
+    label_y: int = 0
+    lines: list[str] = field(default_factory=list)       # label / note lines
+    options: list[tuple[str, pygame.Rect]] = field(default_factory=list)
+    inline: bool = False                   # TextInput label drawn left of the box
+    error_y: int = 0
+    error_lines: list[str] = field(default_factory=list)
+    help_y: int = 0
+    help_lines: list[str] = field(default_factory=list)
+
+
+# ── Geometry ──────────────────────────────────────────────────────────────────
+_PAD = 20
+_TITLE_Y = 12
+_TAB_H = 30
+_SCROLLBAR_W = 6
+_COL_GAP = 16
+_TWO_COL_MIN_W = 600      # content width at which the Alerts grid uses 2 columns
+_MIN_W = 420              # floor for the window's minimum width (keeps wrapped labels readable)
+_CHECK = 18
+_BTN_W, _BTN_H = 96, 36
+_CURSOR_BLINK_MS = 500
+
+
 class SettingsPanel:
-    def __init__(self, win_w: int, win_h: int, show_microcontroller: bool = False) -> None:
-        self._show_micro = show_microcontroller
-        self._win_w = win_w
-        self._win_h = win_h
-        self.active = False
-        self._ip_text = ""
-        self._fuel_estimation = "average"
-        self._voice_enabled = False
-        self._voice_language = "en"
-        self._voice_alert_fuel_critical = True
-        self._voice_alert_fuel_low = True
-        self._voice_alert_lap_completed = True
-        self._voice_alert_best_lap = True
-        self._voice_alert_final_lap = True
-        self._voice_alert_race_report = True
-        self._voice_alert_engine_temp = True
-        self._voice_alert_tire_temp = True
-        self._voice_alert_tire_inner_temp = True
-        self._voice_alert_oil_temp = True
-        self._voice_alert_tire_pressure = True
-        self._voice_alert_lap_delta = True
-        self._voice_alert_pit_window = True
-        self._voice_alert_tyre_wear = True
-        self._voice_alert_overtake = True
-        self._voice_alert_laps_to_finish = True
-        self._voice_alert_fuel_save = True
-        self._voice_alert_strategy_check_in = True
-        self._voice_alert_strategy_revised = True
-        self._voice_alert_fuel_save_recommend = True
-        self._voice_alert_advisor_pit_window = True
-        self._recording_on_start = True
-        self._voice_wear_thr_text = "10"
-        self._microcontroller_enabled = False
-        self._microcontroller_port = ""
-        self._fan_speed_ceiling_text = "220"
-        self._fan_speed_ceiling_kmh = 220.0
-        self._micro_test_result: bool | None = None
-        self._active_field: str | None = None  # "ip" | "wear_thr" | "port" | "fan_ceiling"
-        self._cursor_visible = True
-        self._cursor_timer = 0
-
-        cx = (win_w - _CARD_W) // 2
-        cy = max(4, (win_h - _CARD_H) // 2)
-        self._card = pygame.Rect(cx, cy, _CARD_W, _CARD_H)
-
-        field_x = cx + 20
-        field_y = cy + 90
-        self._field = pygame.Rect(field_x, field_y, _CARD_W - 40, 38)
-
-        # Recording on start checkbox (right below IP field)
-        self._rec_on_start_check = pygame.Rect(field_x, field_y + 46, 18, 18)
-
-        fuel_y = field_y + 84
-        self._fuel_btn_last = pygame.Rect(field_x, fuel_y, 130, 30)
-        self._fuel_btn_avg = pygame.Rect(field_x + 140, fuel_y, 130, 30)
-
-        # Voice section
-        voice_check_y = fuel_y + 66
-        self._voice_check_box = pygame.Rect(field_x, voice_check_y, 18, 18)
-        self._voice_sep_y = fuel_y + 48
-
-        voice_lang_y = voice_check_y + 44
-        self._voice_btn_en = pygame.Rect(field_x, voice_lang_y, 90, 30)
-        self._voice_btn_pt = pygame.Rect(field_x + 100, voice_lang_y, 90, 30)
-        self._voice_btn_test = pygame.Rect(field_x + 210, voice_lang_y, 110, 30)
-
-        self._voice_restart_note_y = voice_lang_y + 38
-
-        alerts_y = self._voice_restart_note_y + 30
-        self._voice_alerts_sep_y = alerts_y
-        col2_x = field_x + 220
-
-        # ── Race group ────────────────────────────────────────────────────────
-        self._voice_grp_race_lbl_y    = alerts_y + 24
-        self._voice_chk_lap_completed    = pygame.Rect(field_x, alerts_y + 40, 18, 18)
-        self._voice_chk_best_lap         = pygame.Rect(col2_x,  alerts_y + 40, 18, 18)
-        self._voice_chk_final_lap        = pygame.Rect(field_x, alerts_y + 62, 18, 18)
-        self._voice_chk_lap_delta        = pygame.Rect(col2_x,  alerts_y + 62, 18, 18)
-        self._voice_chk_race_report      = pygame.Rect(field_x, alerts_y + 84, 18, 18)
-        self._voice_chk_overtake         = pygame.Rect(col2_x,  alerts_y + 84, 18, 18)
-        self._voice_chk_laps_to_finish   = pygame.Rect(field_x, alerts_y + 106, 18, 18)
-
-        # ── Fuel & Pit group (shifted +22 to make room for laps_to_finish) ───
-        self._voice_grp_fuel_sep_y    = alerts_y + 128
-        self._voice_grp_fuel_lbl_y    = alerts_y + 134
-        self._voice_chk_fuel_low      = pygame.Rect(field_x, alerts_y + 150, 18, 18)
-        self._voice_chk_fuel_critical = pygame.Rect(col2_x,  alerts_y + 150, 18, 18)
-        self._voice_chk_pit_window    = pygame.Rect(field_x, alerts_y + 172, 18, 18)
-        self._voice_chk_fuel_save     = pygame.Rect(col2_x,  alerts_y + 172, 18, 18)
-
-        # ── Car health group ──────────────────────────────────────────────────
-        self._voice_grp_car_sep_y       = alerts_y + 194
-        self._voice_grp_car_lbl_y       = alerts_y + 200
-        self._voice_chk_engine_temp     = pygame.Rect(field_x, alerts_y + 216, 18, 18)
-        self._voice_chk_oil_temp        = pygame.Rect(col2_x,  alerts_y + 216, 18, 18)
-        self._voice_chk_tire_temp       = pygame.Rect(field_x, alerts_y + 238, 18, 18)
-        self._voice_chk_tire_inner_temp = pygame.Rect(col2_x,  alerts_y + 238, 18, 18)
-        self._voice_chk_tire_pressure   = pygame.Rect(field_x, alerts_y + 260, 18, 18)
-
-        # ── Tyre wear (real field) ─────────────────────────────────────────────
-        self._voice_grp_wear_sep_y    = alerts_y + 282
-        self._voice_grp_wear_lbl_y    = alerts_y + 288
-        self._voice_chk_tyre_wear     = pygame.Rect(field_x, alerts_y + 304, 18, 18)
-        self._voice_wear_thr_field    = pygame.Rect(col2_x + 20, alerts_y + 302, 50, 22)
-
-        # ── Strategy alerts group ──────────────────────────────────────────────
-        self._voice_grp_strategy_sep_y = alerts_y + 330
-        self._voice_grp_strategy_lbl_y = alerts_y + 336
-        self._voice_chk_strategy_check_in   = pygame.Rect(field_x, alerts_y + 352, 18, 18)
-        self._voice_chk_strategy_revised    = pygame.Rect(col2_x,  alerts_y + 352, 18, 18)
-        self._voice_chk_fuel_save_recommend = pygame.Rect(field_x, alerts_y + 374, 18, 18)
-        self._voice_chk_advisor_pit_window  = pygame.Rect(col2_x,  alerts_y + 374, 18, 18)
-
-        # ── Airflow Simulation section ──────────────────────────────────────
-        self._micro_sep_y = alerts_y + 404
-        self._micro_lbl_y = self._micro_sep_y + 6
-        micro_check_y = self._micro_lbl_y + 20
-        self._micro_check_box = pygame.Rect(field_x, micro_check_y, 18, 18)
-        self._micro_port_lbl_y = micro_check_y + 34
-        micro_port_y = self._micro_port_lbl_y + 18
-        self._micro_port_field = pygame.Rect(field_x, micro_port_y, 220, 34)
-        self._micro_test_btn = pygame.Rect(field_x + 230, micro_port_y, 130, 34)
-        self._micro_note_y = micro_port_y + 34 + 10
-
-        # Label sits inline, to the left of the field
-        fan_ceiling_y = self._micro_note_y + 22
-        self._fan_ceiling_field = pygame.Rect(field_x + 130, fan_ceiling_y, 70, 26)
-
-        # Buttons anchored right below the content; card height follows from them
-        content_bottom = (self._fan_ceiling_field.bottom if show_microcontroller
-                          else self._voice_chk_advisor_pit_window.bottom)
-        btn_y = content_bottom + 16
-        self._card.height = btn_y + 36 + 16 - cy
-        self._btn_save = pygame.Rect(cx + _CARD_W - 210, btn_y, 90, 36)
-        self._btn_cancel = pygame.Rect(cx + _CARD_W - 110, btn_y, 90, 36)
-
-        # Pre-allocated overlay (never changes)
-        self._overlay = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
-        self._overlay.fill(C_OVERLAY)
-
-    def open(
+    def __init__(
         self,
-        current_ip: str,
-        fuel_estimation: str = "average",
-        recording_on_start: bool = True,
-        voice_enabled: bool = False,
-        voice_language: str = "en",
-        voice_alert_fuel_critical: bool = True,
-        voice_alert_fuel_low: bool = True,
-        voice_alert_lap_completed: bool = True,
-        voice_alert_best_lap: bool = True,
-        voice_alert_final_lap: bool = True,
-        voice_alert_race_report: bool = True,
-        voice_alert_engine_temp: bool = True,
-        voice_alert_tire_temp: bool = True,
-        voice_alert_tire_inner_temp: bool = True,
-        voice_alert_oil_temp: bool = True,
-        voice_alert_tire_pressure: bool = True,
-        voice_alert_lap_delta: bool = True,
-        voice_alert_pit_window: bool = True,
-        voice_alert_tyre_wear: bool = True,
-        voice_tyre_wear_threshold_pct: float = 0.10,
-        voice_alert_overtake: bool = True,
-        voice_alert_laps_to_finish: bool = True,
-        voice_alert_fuel_save: bool = True,
-        voice_alert_strategy_check_in: bool = True,
-        voice_alert_strategy_revised: bool = True,
-        voice_alert_fuel_save_recommend: bool = True,
-        voice_alert_advisor_pit_window: bool = True,
-        microcontroller_enabled: bool = False,
-        microcontroller_port: str = "",
-        fan_speed_ceiling_kmh: float = 220.0,
+        show_microcontroller: bool = False,
+        detect_port: Callable[[], str | None] = auto_detect_port,
     ) -> None:
-        self._ip_text = current_ip
-        self._fuel_estimation = fuel_estimation
-        self._recording_on_start = recording_on_start
-        self._voice_enabled = voice_enabled
-        self._voice_language = voice_language
-        self._voice_alert_fuel_critical = voice_alert_fuel_critical
-        self._voice_alert_fuel_low = voice_alert_fuel_low
-        self._voice_alert_lap_completed = voice_alert_lap_completed
-        self._voice_alert_best_lap = voice_alert_best_lap
-        self._voice_alert_final_lap = voice_alert_final_lap
-        self._voice_alert_race_report = voice_alert_race_report
-        self._voice_alert_engine_temp = voice_alert_engine_temp
-        self._voice_alert_tire_temp = voice_alert_tire_temp
-        self._voice_alert_tire_inner_temp = voice_alert_tire_inner_temp
-        self._voice_alert_oil_temp = voice_alert_oil_temp
-        self._voice_alert_tire_pressure = voice_alert_tire_pressure
-        self._voice_alert_lap_delta = voice_alert_lap_delta
-        self._voice_alert_pit_window = voice_alert_pit_window
-        self._voice_alert_tyre_wear = voice_alert_tyre_wear
-        self._voice_wear_thr_text = str(int(voice_tyre_wear_threshold_pct * 100))
-        self._voice_alert_overtake = voice_alert_overtake
-        self._voice_alert_laps_to_finish = voice_alert_laps_to_finish
-        self._voice_alert_fuel_save = voice_alert_fuel_save
-        self._voice_alert_strategy_check_in = voice_alert_strategy_check_in
-        self._voice_alert_strategy_revised = voice_alert_strategy_revised
-        self._voice_alert_fuel_save_recommend = voice_alert_fuel_save_recommend
-        self._voice_alert_advisor_pit_window = voice_alert_advisor_pit_window
-        self._microcontroller_enabled = microcontroller_enabled
-        self._microcontroller_port = microcontroller_port
-        if self._microcontroller_enabled and not self._microcontroller_port:
-            self._microcontroller_port = self._auto_detected_port() or ""
-        self._fan_speed_ceiling_kmh = fan_speed_ceiling_kmh if fan_speed_ceiling_kmh > 0 else 220.0
-        self._fan_speed_ceiling_text = str(int(self._fan_speed_ceiling_kmh))
-        self._micro_test_result = None
-        self.active = True
-        self._active_field = None
-        self._cursor_timer = 0
+        self._show_micro = show_microcontroller
+        self._detect_port = detect_port
+        self._tabs = build_tabs(show_microcontroller)
+        self._field_tab: dict[str, int] = {
+            spec.field: i
+            for i, tab in enumerate(self._tabs)
+            for spec in tab.controls
+            if isinstance(spec, Checkbox | TextInput | Choice)
+        }
+        self._tab_bar = TabBar([t.label for t in self._tabs],
+                               lambda s: self._fonts()[1].size(s)[0], height=_TAB_H)
+        self.form: SettingsForm | None = None
+        self._active_field: str | None = None
+        self._errors: dict[str, str] = {}
+        self._summary_lines: list[str] = []
+        self._micro_test_result: bool | None = None
         self._cursor_visible = True
+        self._cursor_timer = 0
+        self._mouse: tuple[int, int] | None = None
+        self._scroll = ScrollState()
+        self._size: tuple[int, int] | None = None
+        self._placed: list[_Placed] = []
+        self._content_h = 0
+        self._header_h = 80
+        self._footer_top = 0
+        self._viewport = pygame.Rect(0, self._header_h, 0, 0)
+        self._btn_save = pygame.Rect(0, 0, _BTN_W, _BTN_H)
+        self._btn_cancel = pygame.Rect(0, 0, _BTN_W, _BTN_H)
+        self._font_md: pygame.font.Font | None = None
+        self._font_body: pygame.font.Font | None = None
+        self._font_sm: pygame.font.Font | None = None
 
-    def _auto_detected_port(self) -> str | None:
-        candidates = list_serial_ports()
-        return candidates[0] if len(candidates) == 1 else None
-
-    def handle_event(self, event: pygame.event.Event) -> Action:
-        if not self.active:
-            return None
-
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN:
-                return self._save()
-            if event.key == pygame.K_ESCAPE:
-                self.active = False
-                return "cancelled"
-            if event.key == pygame.K_BACKSPACE:
-                if self._active_field == "wear_thr":
-                    self._voice_wear_thr_text = self._voice_wear_thr_text[:-1]
-                elif self._active_field == "port":
-                    self._microcontroller_port = self._microcontroller_port[:-1]
-                elif self._active_field == "fan_ceiling":
-                    self._fan_speed_ceiling_text = self._fan_speed_ceiling_text[:-1]
-                else:
-                    self._ip_text = self._ip_text[:-1]
-            elif self._active_field == "port":
-                if event.unicode.isprintable() and len(self._microcontroller_port) < 40:
-                    self._microcontroller_port += event.unicode
-            elif self._active_field == "fan_ceiling":
-                if event.unicode.isdigit() and len(self._fan_speed_ceiling_text) < 3:
-                    self._fan_speed_ceiling_text += event.unicode
-            elif event.unicode in _ALLOWED_CHARS:
-                if self._active_field == "wear_thr" and event.unicode.isdigit() and len(self._voice_wear_thr_text) < 3:
-                    self._voice_wear_thr_text += event.unicode
-                elif self._active_field != "wear_thr" and len(self._ip_text) < 15:
-                    self._ip_text += event.unicode
-
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            pos = event.pos
-            if self._btn_save.collidepoint(pos):
-                return self._save()
-            if self._btn_cancel.collidepoint(pos):
-                self.active = False
-                return "cancelled"
-            if self._rec_on_start_check.collidepoint(pos):
-                self._recording_on_start = not self._recording_on_start
-                return None
-            if self._fuel_btn_last.collidepoint(pos):
-                self._fuel_estimation = "last"
-                return None
-            if self._fuel_btn_avg.collidepoint(pos):
-                self._fuel_estimation = "average"
-                return None
-            if self._voice_check_box.collidepoint(pos):
-                self._voice_enabled = not self._voice_enabled
-                return None
-            if self._voice_btn_en.collidepoint(pos):
-                self._voice_language = "en"
-                return None
-            if self._voice_btn_pt.collidepoint(pos):
-                self._voice_language = "pt"
-                return None
-            if self._voice_btn_test.collidepoint(pos) and self._voice_enabled:
-                return "test_voice"
-            if self._voice_wear_thr_field.collidepoint(pos) and self._voice_enabled:
-                self._active_field = "wear_thr"
-                return None
-            if self._show_micro and self._micro_check_box.collidepoint(pos):
-                self._microcontroller_enabled = not self._microcontroller_enabled
-                if self._microcontroller_enabled and not self._microcontroller_port:
-                    self._microcontroller_port = self._auto_detected_port() or ""
-                self._micro_test_result = None
-                return None
-            if self._show_micro and self._micro_port_field.collidepoint(pos) and self._microcontroller_enabled:
-                self._active_field = "port"
-                return None
-            if self._show_micro and self._fan_ceiling_field.collidepoint(pos) and self._microcontroller_enabled:
-                self._active_field = "fan_ceiling"
-                return None
-            if (self._show_micro and self._micro_test_btn.collidepoint(pos) and self._microcontroller_enabled
-                    and self._microcontroller_port):
-                return "test_microcontroller"
-            if self._field.collidepoint(pos):
-                self._active_field = "ip"
-                return None
-            for chk, attr in (
-                (self._voice_chk_lap_completed,   "_voice_alert_lap_completed"),
-                (self._voice_chk_best_lap,        "_voice_alert_best_lap"),
-                (self._voice_chk_final_lap,       "_voice_alert_final_lap"),
-                (self._voice_chk_lap_delta,       "_voice_alert_lap_delta"),
-                (self._voice_chk_race_report,     "_voice_alert_race_report"),
-                (self._voice_chk_fuel_low,        "_voice_alert_fuel_low"),
-                (self._voice_chk_fuel_critical,   "_voice_alert_fuel_critical"),
-                (self._voice_chk_pit_window,      "_voice_alert_pit_window"),
-                (self._voice_chk_engine_temp,     "_voice_alert_engine_temp"),
-                (self._voice_chk_oil_temp,        "_voice_alert_oil_temp"),
-                (self._voice_chk_tire_temp,       "_voice_alert_tire_temp"),
-                (self._voice_chk_tire_inner_temp, "_voice_alert_tire_inner_temp"),
-                (self._voice_chk_tire_pressure,   "_voice_alert_tire_pressure"),
-                (self._voice_chk_tyre_wear,         "_voice_alert_tyre_wear"),
-                (self._voice_chk_overtake,          "_voice_alert_overtake"),
-                (self._voice_chk_laps_to_finish,    "_voice_alert_laps_to_finish"),
-                (self._voice_chk_fuel_save,         "_voice_alert_fuel_save"),
-                (self._voice_chk_strategy_check_in,   "_voice_alert_strategy_check_in"),
-                (self._voice_chk_strategy_revised,    "_voice_alert_strategy_revised"),
-                (self._voice_chk_fuel_save_recommend, "_voice_alert_fuel_save_recommend"),
-                (self._voice_chk_advisor_pit_window,  "_voice_alert_advisor_pit_window"),
-            ):
-                if chk.collidepoint(pos) and self._voice_enabled:
-                    setattr(self, attr, not getattr(self, attr))
-                    return None
-            if not self._card.collidepoint(pos):
-                self.active = False
-                return "cancelled"
-
-        return None
-
-    def draw(self, screen: pygame.Surface, font_md: pygame.font.Font,
-             font_sm: pygame.font.Font, dt_ms: int) -> None:
-        if not self.active:
-            return
-
-        # Cursor blink
-        self._cursor_timer += dt_ms
-        if self._cursor_timer >= 500:
-            self._cursor_timer = 0
-            self._cursor_visible = not self._cursor_visible
-
-        screen.blit(self._overlay, (0, 0))
-
-        # Card
-        pygame.draw.rect(screen, C_CARD, self._card, border_radius=10)
-        pygame.draw.rect(screen, C_BORDER, self._card, 1, border_radius=10)
-
-        # Title
-        title = font_md.render("Settings", True, C_TEXT)
-        screen.blit(title, (self._card.x + 20, self._card.y + 18))
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 1, self._card.y + 52),
-                         (self._card.right - 1, self._card.y + 52))
-
-        # Device IP
-        lbl = font_sm.render("Device IP  (PS5 or PC)", True, C_DIM)
-        screen.blit(lbl, (self._field.x, self._field.y - 20))
-        pygame.draw.rect(screen, C_INPUT_ACTIVE, self._field, border_radius=6)
-        pygame.draw.rect(screen, C_ACCENT, self._field, 1, border_radius=6)
-        display = self._ip_text + ("|" if (self._cursor_visible and self._active_field != "wear_thr") else " ")
-        ip_surf = font_md.render(display, True, C_TEXT)
-        screen.blit(ip_surf, (self._field.x + 10, self._field.y + 8))
-
-        # Recording on start checkbox
-        pygame.draw.rect(screen, C_INPUT_BG, self._rec_on_start_check, border_radius=3)
-        pygame.draw.rect(screen, C_ACCENT, self._rec_on_start_check, 1, border_radius=3)
-        if self._recording_on_start:
-            inner = self._rec_on_start_check.inflate(-5, -5)
-            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-        rec_lbl = font_sm.render("Record automatically on start", True, C_TEXT)
-        screen.blit(rec_lbl, (self._rec_on_start_check.right + 10,
-                              self._rec_on_start_check.y + (self._rec_on_start_check.height - rec_lbl.get_height()) // 2))
-
-        # Fuel estimation mode
-        fuel_lbl = font_sm.render("Fuel/Lap estimation", True, C_DIM)
-        screen.blit(fuel_lbl, (self._fuel_btn_last.x, self._fuel_btn_last.y - 18))
-        for btn, mode, label in (
-            (self._fuel_btn_last, "last", "Last lap"),
-            (self._fuel_btn_avg, "average", "Average"),
-        ):
-            active = self._fuel_estimation == mode
-            bg = C_ACCENT if active else C_INPUT_BG
-            border = C_ACCENT if active else C_BORDER
-            pygame.draw.rect(screen, bg, btn, border_radius=6)
-            pygame.draw.rect(screen, border, btn, 1, border_radius=6)
-            txt_color = (15, 15, 22) if active else C_TEXT
-            surf = font_sm.render(label, True, txt_color)
-            screen.blit(surf, surf.get_rect(center=btn.center))
-
-        # Voice section separator
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 1, self._voice_sep_y),
-                         (self._card.right - 1, self._voice_sep_y))
-
-        # Voice enabled checkbox
-        pygame.draw.rect(screen, C_INPUT_BG, self._voice_check_box, border_radius=3)
-        pygame.draw.rect(screen, C_ACCENT, self._voice_check_box, 1, border_radius=3)
-        if self._voice_enabled:
-            inner = self._voice_check_box.inflate(-5, -5)
-            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-        voice_lbl = font_sm.render("Enable voice alerts", True, C_TEXT)
-        screen.blit(voice_lbl, (self._voice_check_box.right + 10,
-                                self._voice_check_box.y + (self._voice_check_box.height - voice_lbl.get_height()) // 2))
-
-        # Language buttons (dimmed when voice disabled)
-        lang_color = C_DIM if not self._voice_enabled else C_DIM
-        lang_lbl = font_sm.render("Language", True, lang_color)
-        screen.blit(lang_lbl, (self._voice_btn_en.x, self._voice_btn_en.y - 18))
-        for btn, code, label in (
-            (self._voice_btn_en, "en", "English"),
-            (self._voice_btn_pt, "pt", "Português"),
-        ):
-            active = self._voice_language == code and self._voice_enabled
-            bg = C_ACCENT if active else C_INPUT_BG
-            border = C_ACCENT if active else C_BORDER
-            alpha_color = bg if self._voice_enabled else (30, 30, 40)
-            pygame.draw.rect(screen, alpha_color, btn, border_radius=6)
-            pygame.draw.rect(screen, border if self._voice_enabled else (45, 45, 55), btn, 1, border_radius=6)
-            txt_color = (15, 15, 22) if active else (C_TEXT if self._voice_enabled else C_DIM)
-            surf = font_sm.render(label, True, txt_color)
-            screen.blit(surf, surf.get_rect(center=btn.center))
-
-        # Test voice button
-        test_bg = (50, 100, 60) if self._voice_enabled else (30, 30, 40)
-        test_border = (80, 160, 90) if self._voice_enabled else (45, 45, 55)
-        test_txt = C_TEXT if self._voice_enabled else C_DIM
-        pygame.draw.rect(screen, test_bg, self._voice_btn_test, border_radius=6)
-        pygame.draw.rect(screen, test_border, self._voice_btn_test, 1, border_radius=6)
-        surf = font_sm.render("Test Voice", True, test_txt)
-        screen.blit(surf, surf.get_rect(center=self._voice_btn_test.center))
-
-        # Restart note
-        note_color = (180, 130, 60) if self._voice_enabled else C_DIM
-        note = font_sm.render("* Language change requires app restart", True, note_color)
-        screen.blit(note, (self._voice_btn_en.x, self._voice_restart_note_y))
-
-        # Engineer communications section
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 1, self._voice_alerts_sep_y),
-                         (self._card.right - 1, self._voice_alerts_sep_y))
-        alerts_lbl = font_sm.render("Engineer communications", True, C_DIM)
-        screen.blit(alerts_lbl, (self._voice_chk_lap_completed.x, self._voice_alerts_sep_y + 6))
-
-        grp_color = (160, 160, 175)
-        _sep_x0 = self._card.x + 20
-        _sep_x1 = self._card.right - 20
-
-        # Race sub-group
-        screen.blit(font_sm.render("Race", True, grp_color),
-                    (self._voice_chk_lap_completed.x, self._voice_grp_race_lbl_y))
-
-        # Fuel & Pit sub-group
-        pygame.draw.line(screen, (42, 42, 55), (_sep_x0, self._voice_grp_fuel_sep_y),
-                         (_sep_x1, self._voice_grp_fuel_sep_y))
-        screen.blit(font_sm.render("Fuel & Pit", True, grp_color),
-                    (self._voice_chk_lap_completed.x, self._voice_grp_fuel_lbl_y))
-
-        # Car health sub-group
-        pygame.draw.line(screen, (42, 42, 55), (_sep_x0, self._voice_grp_car_sep_y),
-                         (_sep_x1, self._voice_grp_car_sep_y))
-        screen.blit(font_sm.render("Car health", True, grp_color),
-                    (self._voice_chk_lap_completed.x, self._voice_grp_car_lbl_y))
-
-        for chk, checked, label in (
-            (self._voice_chk_lap_completed,   self._voice_alert_lap_completed,   "Lap completed"),
-            (self._voice_chk_best_lap,        self._voice_alert_best_lap,        "Best lap"),
-            (self._voice_chk_final_lap,       self._voice_alert_final_lap,       "Final lap"),
-            (self._voice_chk_lap_delta,       self._voice_alert_lap_delta,       "Lap delta"),
-            (self._voice_chk_race_report,      self._voice_alert_race_report,      "Race report"),
-            (self._voice_chk_laps_to_finish,   self._voice_alert_laps_to_finish,   "Laps to go"),
-            (self._voice_chk_fuel_low,         self._voice_alert_fuel_low,         "Fuel low"),
-            (self._voice_chk_fuel_critical,    self._voice_alert_fuel_critical,    "Fuel critical"),
-            (self._voice_chk_pit_window,       self._voice_alert_pit_window,       "Pit window"),
-            (self._voice_chk_fuel_save,        self._voice_alert_fuel_save,        "Fuel save"),
-            (self._voice_chk_engine_temp,      self._voice_alert_engine_temp,      "Engine temp"),
-            (self._voice_chk_oil_temp,        self._voice_alert_oil_temp,        "Oil temp"),
-            (self._voice_chk_tire_temp,       self._voice_alert_tire_temp,       "Tyre temp"),
-            (self._voice_chk_tire_inner_temp, self._voice_alert_tire_inner_temp, "Inner temp"),
-            (self._voice_chk_tire_pressure,   self._voice_alert_tire_pressure,   "Tyre pres."),
-            (self._voice_chk_overtake,        self._voice_alert_overtake,        "Overtake"),
-        ):
-            enabled = self._voice_enabled
-            pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
-            pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
-            if checked and enabled:
-                inner = chk.inflate(-5, -5)
-                pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-            txt_color = C_TEXT if enabled else C_DIM
-            surf = font_sm.render(label, True, txt_color)
-            screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
-
-        # ── Tyre wear (real field) section ───────────────────────────────────
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 20, self._voice_grp_wear_sep_y),
-                         (self._card.right - 20, self._voice_grp_wear_sep_y))
-        grp_wear = font_sm.render("Tyre Wear", True, C_DIM)
-        screen.blit(grp_wear, (self._card.x + 20, self._voice_grp_wear_lbl_y))
-
-        enabled = self._voice_enabled
-        chk = self._voice_chk_tyre_wear
-        pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
-        pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
-        if self._voice_alert_tyre_wear and enabled:
-            inner = chk.inflate(-5, -5)
-            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-        txt_color = C_TEXT if enabled else C_DIM
-        surf = font_sm.render("Wear alert", True, txt_color)
-        screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
-
-        # Threshold input
-        thr_active = self._active_field == "wear_thr" and enabled
-        thr_bg = C_INPUT_ACTIVE if thr_active else C_INPUT_BG
-        thr_border = C_ACCENT if thr_active else C_BORDER
-        pygame.draw.rect(screen, thr_bg, self._voice_wear_thr_field, border_radius=4)
-        pygame.draw.rect(screen, thr_border, self._voice_wear_thr_field, 1, border_radius=4)
-        thr_cursor = "|" if (thr_active and self._cursor_visible) else ""
-        thr_surf = font_sm.render(self._voice_wear_thr_text + thr_cursor, True, txt_color)
-        screen.blit(thr_surf, (self._voice_wear_thr_field.x + 4,
-                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - thr_surf.get_height()) // 2))
-        pct_surf = font_sm.render("%", True, C_DIM)
-        screen.blit(pct_surf, (self._voice_wear_thr_field.right + 4,
-                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - pct_surf.get_height()) // 2))
-        thr_lbl = font_sm.render("Threshold:", True, C_DIM)
-        screen.blit(thr_lbl, (self._voice_wear_thr_field.x - font_sm.size("Threshold: ")[0] - 4,
-                               self._voice_wear_thr_field.y + (self._voice_wear_thr_field.height - thr_lbl.get_height()) // 2))
-
-        # ── Strategy alerts group ─────────────────────────────────────────────
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 20, self._voice_grp_strategy_sep_y),
-                         (self._card.right - 20, self._voice_grp_strategy_sep_y))
-        grp_strategy = font_sm.render("Strategy Alerts", True, C_DIM)
-        screen.blit(grp_strategy, (self._card.x + 20, self._voice_grp_strategy_lbl_y))
-
-        for chk, checked, label in (
-            (self._voice_chk_strategy_check_in,   self._voice_alert_strategy_check_in,   "Check-in"),
-            (self._voice_chk_strategy_revised,    self._voice_alert_strategy_revised,    "Revised"),
-            (self._voice_chk_fuel_save_recommend, self._voice_alert_fuel_save_recommend, "Fuel save+"),
-            (self._voice_chk_advisor_pit_window,  self._voice_alert_advisor_pit_window,  "Pit window"),
-        ):
-            enabled = self._voice_enabled
-            pygame.draw.rect(screen, C_INPUT_BG, chk, border_radius=3)
-            pygame.draw.rect(screen, C_ACCENT if enabled else (45, 45, 55), chk, 1, border_radius=3)
-            if checked and enabled:
-                inner = chk.inflate(-5, -5)
-                pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-            txt_color = C_TEXT if enabled else C_DIM
-            surf = font_sm.render(label, True, txt_color)
-            screen.blit(surf, (chk.right + 10, chk.y + (chk.height - surf.get_height()) // 2))
-
-        if self._show_micro:
-            self._draw_airflow_section(screen, font_sm)
-
-        # Buttons
-        mouse = pygame.mouse.get_pos()
-        self._draw_btn(screen, font_sm, self._btn_save, "Save",
-                       C_BTN_SAVE if not self._btn_save.collidepoint(mouse) else C_BTN_HOVER)
-        self._draw_btn(screen, font_sm, self._btn_cancel, "Cancel",
-                       C_BTN_CANCEL if not self._btn_cancel.collidepoint(mouse) else (80, 80, 95))
-        _btns = [
-            self._fuel_btn_last, self._fuel_btn_avg,
-            self._voice_btn_en, self._voice_btn_pt, self._voice_btn_test,
-            self._btn_save, self._btn_cancel,
-        ]
-        if self._show_micro:
-            _btns.append(self._micro_test_btn)
-        if any(b.collidepoint(mouse) for b in _btns):
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-
-    def _draw_airflow_section(self, screen: pygame.Surface, font_sm: pygame.font.Font) -> None:
-        pygame.draw.line(screen, C_BORDER,
-                         (self._card.x + 1, self._micro_sep_y),
-                         (self._card.right - 1, self._micro_sep_y))
-        micro_lbl = font_sm.render("Airflow Simulation", True, C_DIM)
-        screen.blit(micro_lbl, (self._micro_check_box.x, self._micro_lbl_y))
-
-        pygame.draw.rect(screen, C_INPUT_BG, self._micro_check_box, border_radius=3)
-        pygame.draw.rect(screen, C_ACCENT, self._micro_check_box, 1, border_radius=3)
-        if self._microcontroller_enabled:
-            inner = self._micro_check_box.inflate(-5, -5)
-            pygame.draw.rect(screen, C_ACCENT, inner, border_radius=2)
-        micro_chk_lbl = font_sm.render("Enable airflow simulation  (* requires restart)", True, C_TEXT)
-        screen.blit(micro_chk_lbl, (self._micro_check_box.right + 10,
-                                    self._micro_check_box.y + (self._micro_check_box.height - micro_chk_lbl.get_height()) // 2))
-
-        micro_enabled = self._microcontroller_enabled
-        port_lbl = font_sm.render("Serial Port  (blank = auto-detect)", True, C_DIM)
-        screen.blit(port_lbl, (self._micro_port_field.x, self._micro_port_lbl_y))
-
-        port_active = self._active_field == "port" and micro_enabled
-        port_bg = C_INPUT_ACTIVE if port_active else C_INPUT_BG
-        port_border = C_ACCENT if port_active else C_BORDER
-        port_bg = port_bg if micro_enabled else (30, 30, 40)
-        port_border = port_border if micro_enabled else (45, 45, 55)
-        pygame.draw.rect(screen, port_bg, self._micro_port_field, border_radius=6)
-        pygame.draw.rect(screen, port_border, self._micro_port_field, 1, border_radius=6)
-        port_txt_color = C_TEXT if micro_enabled else C_DIM
-        port_cursor = "|" if (port_active and self._cursor_visible) else ""
-        port_surf = font_sm.render(self._microcontroller_port + port_cursor, True, port_txt_color)
-        screen.blit(port_surf, (self._micro_port_field.x + 8,
-                                self._micro_port_field.y + (self._micro_port_field.height - port_surf.get_height()) // 2))
-
-        test_ready = micro_enabled and bool(self._microcontroller_port)
-        test_bg = (50, 100, 60) if test_ready else (30, 30, 40)
-        test_border = (80, 160, 90) if test_ready else (45, 45, 55)
-        test_txt = C_TEXT if test_ready else C_DIM
-        pygame.draw.rect(screen, test_bg, self._micro_test_btn, border_radius=6)
-        pygame.draw.rect(screen, test_border, self._micro_test_btn, 1, border_radius=6)
-        test_surf = font_sm.render("Test Connection", True, test_txt)
-        screen.blit(test_surf, test_surf.get_rect(center=self._micro_test_btn.center))
-
-        if self._micro_test_result is None:
-            note_text = ("No serial port auto-detected — enter one manually"
-                         if micro_enabled and not self._microcontroller_port else "")
-            note_color = (180, 130, 60)
-        elif self._micro_test_result:
-            note_text = "Connected — device replied PONG"
-            note_color = (90, 200, 110)
-        else:
-            note_text = "No response from device"
-            note_color = (220, 90, 90)
-        if note_text:
-            note_surf = font_sm.render(note_text, True, note_color)
-            screen.blit(note_surf, (self._micro_port_field.x, self._micro_note_y))
-
-        # Fan speed ceiling
-        ceiling_lbl_color = C_DIM if micro_enabled else (60, 60, 70)
-        ceiling_lbl = font_sm.render("Fan speed ceiling:", True, ceiling_lbl_color)
-        screen.blit(ceiling_lbl, (self._micro_port_field.x,
-                                  self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_lbl.get_height()) // 2))
-
-        ceiling_active = self._active_field == "fan_ceiling" and micro_enabled
-        ceiling_bg = C_INPUT_ACTIVE if ceiling_active else C_INPUT_BG
-        ceiling_border = C_ACCENT if ceiling_active else C_BORDER
-        ceiling_bg = ceiling_bg if micro_enabled else (30, 30, 40)
-        ceiling_border = ceiling_border if micro_enabled else (45, 45, 55)
-        pygame.draw.rect(screen, ceiling_bg, self._fan_ceiling_field, border_radius=4)
-        pygame.draw.rect(screen, ceiling_border, self._fan_ceiling_field, 1, border_radius=4)
-        ceiling_txt_color = C_TEXT if micro_enabled else C_DIM
-        ceiling_cursor = "|" if (ceiling_active and self._cursor_visible) else ""
-        ceiling_surf = font_sm.render(self._fan_speed_ceiling_text + ceiling_cursor, True, ceiling_txt_color)
-        screen.blit(ceiling_surf, (self._fan_ceiling_field.x + 4,
-                                    self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_surf.get_height()) // 2))
-        ceiling_unit_surf = font_sm.render("km/h", True, ceiling_lbl_color)
-        screen.blit(ceiling_unit_surf, (self._fan_ceiling_field.right + 6,
-                                         self._fan_ceiling_field.y + (self._fan_ceiling_field.height - ceiling_unit_surf.get_height()) // 2))
-
-    def _draw_btn(self, screen, font, rect: pygame.Rect, text: str, color: tuple) -> None:
-        pygame.draw.rect(screen, color, rect, border_radius=6)
-        pygame.draw.rect(screen, C_BORDER, rect, 1, border_radius=6)
-        surf = font.render(text, True, C_TEXT)
-        screen.blit(surf, surf.get_rect(center=rect.center))
-
-    def _save(self) -> Action:
-        self.active = False
-        return "saved"
+    # ── lifecycle ─────────────────────────────────────────────────────────────
 
     @property
-    def recording_on_start(self) -> bool:
-        return self._recording_on_start
+    def is_open(self) -> bool:
+        return self.form is not None
 
     @property
-    def ip_text(self) -> str:
-        return self._ip_text
+    def tab_labels(self) -> list[str]:
+        return [t.label for t in self._tabs]
 
     @property
-    def fuel_estimation(self) -> str:
-        return self._fuel_estimation
+    def active_tab(self) -> str:
+        """Id of the active tab (``general``, ``voice``, ``alerts`` or ``airflow``)."""
+        return self._tabs[self._tab_bar.active].id
 
-    @property
-    def voice_enabled(self) -> bool:
-        return self._voice_enabled
+    def open(self, config: AppConfig, active_field: str | None = None) -> None:
+        """Load a fresh form from ``config``; ``active_field`` gets keyboard focus."""
+        self.form = SettingsForm.from_config(config, self._show_micro, self._detect_port)
+        self._active_field = active_field
+        self._tab_bar.active = self._field_tab.get(active_field or "", 0)
+        self._errors = {}
+        self._summary_lines = []
+        self._micro_test_result = None
+        self._cursor_visible = True
+        self._cursor_timer = 0
+        self._mouse = None
+        self._scroll.reset()
+        if self._size is not None:
+            self.layout(*self._size)
 
-    @property
-    def voice_language(self) -> str:
-        return self._voice_language
-
-    @property
-    def voice_alert_fuel_critical(self) -> bool:
-        return self._voice_alert_fuel_critical
-
-    @property
-    def voice_alert_fuel_low(self) -> bool:
-        return self._voice_alert_fuel_low
-
-    @property
-    def voice_alert_lap_completed(self) -> bool:
-        return self._voice_alert_lap_completed
-
-    @property
-    def voice_alert_best_lap(self) -> bool:
-        return self._voice_alert_best_lap
-
-    @property
-    def voice_alert_final_lap(self) -> bool:
-        return self._voice_alert_final_lap
-
-    @property
-    def voice_alert_race_report(self) -> bool:
-        return self._voice_alert_race_report
-
-    @property
-    def voice_alert_engine_temp(self) -> bool:
-        return self._voice_alert_engine_temp
-
-    @property
-    def voice_alert_tire_temp(self) -> bool:
-        return self._voice_alert_tire_temp
-
-    @property
-    def voice_alert_tire_inner_temp(self) -> bool:
-        return self._voice_alert_tire_inner_temp
-
-    @property
-    def voice_alert_oil_temp(self) -> bool:
-        return self._voice_alert_oil_temp
-
-    @property
-    def voice_alert_tire_pressure(self) -> bool:
-        return self._voice_alert_tire_pressure
-
-    @property
-    def voice_alert_lap_delta(self) -> bool:
-        return self._voice_alert_lap_delta
-
-    @property
-    def voice_alert_pit_window(self) -> bool:
-        return self._voice_alert_pit_window
-
-    @property
-    def voice_alert_tyre_wear(self) -> bool:
-        return self._voice_alert_tyre_wear
-
-    @property
-    def voice_alert_overtake(self) -> bool:
-        return self._voice_alert_overtake
-
-    @property
-    def voice_alert_laps_to_finish(self) -> bool:
-        return self._voice_alert_laps_to_finish
-
-    @property
-    def voice_alert_fuel_save(self) -> bool:
-        return self._voice_alert_fuel_save
-
-    @property
-    def voice_alert_strategy_check_in(self) -> bool:
-        return self._voice_alert_strategy_check_in
-
-    @property
-    def voice_alert_strategy_revised(self) -> bool:
-        return self._voice_alert_strategy_revised
-
-    @property
-    def voice_alert_fuel_save_recommend(self) -> bool:
-        return self._voice_alert_fuel_save_recommend
-
-    @property
-    def voice_alert_advisor_pit_window(self) -> bool:
-        return self._voice_alert_advisor_pit_window
-
-    @property
-    def voice_tyre_wear_threshold_pct(self) -> float:
-        try:
-            v = int(self._voice_wear_thr_text)
-            return max(1, min(99, v)) / 100.0
-        except ValueError:
-            return 0.10
-
-    @property
-    def microcontroller_enabled(self) -> bool:
-        return self._microcontroller_enabled
-
-    @property
-    def microcontroller_port(self) -> str:
-        return self._microcontroller_port
-
-    @property
-    def fan_speed_ceiling_kmh(self) -> float:
-        try:
-            v = float(self._fan_speed_ceiling_text)
-            if v > 0:
-                self._fan_speed_ceiling_kmh = v
-        except ValueError:
-            pass
-        return self._fan_speed_ceiling_kmh
+    def close(self) -> None:
+        """Discard the form (unsaved edits are lost)."""
+        self.form = None
+        self._active_field = None
+        self._errors = {}
+        self._summary_lines = []
 
     def set_microcontroller_test_result(self, success: bool) -> None:
         self._micro_test_result = success
+        self._relayout()   # the status line text (and height) changed
+
+    # ── fonts ─────────────────────────────────────────────────────────────────
+
+    def _fonts(self) -> tuple[pygame.font.Font, pygame.font.Font, pygame.font.Font]:
+        if self._font_md is None or self._font_body is None or self._font_sm is None:
+            self._font_md = pygame.font.SysFont("monospace", 20)
+            self._font_body = pygame.font.SysFont("monospace", 16)
+            self._font_sm = pygame.font.SysFont("monospace", 13)
+        return self._font_md, self._font_body, self._font_sm
+
+    # ── layout ────────────────────────────────────────────────────────────────
+
+    def _content_width(self) -> int:
+        """Usable content width; the scrollbar lives inside the right padding."""
+        assert self._size is not None
+        return max(100, self._size[0] - 2 * _PAD)
+
+    def min_size(self) -> tuple[int, int]:
+        """Smallest window size that keeps the layout usable, derived from the content.
+
+        Width: the widest non-wrapping row (tab bar, option buttons, action buttons,
+        Save/Cancel), floored at ``_MIN_W`` so wrapped labels stay readable.
+        Height: header + footer + the General and Voice tabs without scrolling
+        (the longer Alerts/Airflow tabs scroll).
+        """
+        _, body, _ = self._fonts()
+        tabs_w = (sum(body.size(t.label)[0] + 2 * 16 for t in self._tabs)
+                  + 4 * (len(self._tabs) - 1))
+        widest = max(tabs_w, 2 * _BTN_W + 10)
+        for tab in self._tabs:
+            for spec in tab.controls:
+                if isinstance(spec, Choice):
+                    row = sum(body.size(label)[0] + 24 for _, label in spec.options)
+                    widest = max(widest, row + 10 * (len(spec.options) - 1))
+                elif isinstance(spec, Button):
+                    widest = max(widest, body.size(spec.label)[0] + 30)
+        w = max(_MIN_W, widest + 2 * _PAD)
+
+        # Measure with a throwaway layout, then restore the panel state.
+        saved_size, saved_tab = self._size, self._tab_bar.active
+        content_h = 0
+        for tab_id in ("general", "voice"):
+            self._tab_bar.active = next(i for i, t in enumerate(self._tabs) if t.id == tab_id)
+            self.layout(w, 10_000)
+            content_h = max(content_h, self._content_h)
+        footer_h = 10_000 - self._footer_top
+        h = self._header_h + content_h + footer_h
+        self._tab_bar.active = saved_tab
+        self._size = None
+        if saved_size is not None:
+            self.layout(*saved_size)
+        return w, h
+
+    def layout(self, w: int, h: int) -> None:
+        """Position the header and the active tab's controls for a ``w`` x ``h`` window.
+
+        Called on open, on resize, on tab switch and whenever inline errors change.
+        """
+        self._size = (w, h)
+        md, body, sm = self._fonts()
+        tabs_y = _TITLE_Y + md.get_linesize() + 8
+        self._tab_bar.layout(_PAD, tabs_y, w - 2 * _PAD)
+        self._header_h = tabs_y + _TAB_H
+
+        lh_body, lh_sm = body.get_linesize(), sm.get_linesize()
+        x0 = _PAD
+        cw = self._content_width()
+        two_col = cw >= _TWO_COL_MIN_W
+        col_w = (cw - _COL_GAP) // 2 if two_col else cw
+
+        def measure_body(s: str) -> int:
+            return body.size(s)[0]
+
+        def measure_sm(s: str) -> int:
+            return sm.size(s)[0]
+
+        def extras(p: _Placed, y: int, name: str, help_text: str, width: int) -> int:
+            """Place the inline error then the helper text under a field; new y."""
+            if name in self._errors:
+                p.error_y = y
+                p.error_lines = wrap_text(self._errors[name], width, measure_sm)
+                y += len(p.error_lines) * lh_sm + 2
+            if help_text:
+                p.help_y = y
+                p.help_lines = wrap_text(help_text, width, measure_sm)
+                y += len(p.help_lines) * lh_sm + 2
+            return y
+
+        placed: list[_Placed] = []
+        y = 14
+        col = 0          # next column for a half-width checkbox (2-column grid)
+        row_top = 0
+        row_h = 0
+
+        def flush_row() -> None:
+            nonlocal y, col, row_h
+            if col == 1:
+                y = row_top + row_h + 6
+                col = 0
+                row_h = 0
+
+        for spec in self._tabs[self._tab_bar.active].controls:
+            if isinstance(spec, Checkbox):
+                half = spec.half and two_col
+                if not half:
+                    flush_row()
+                cell_w = col_w if half else cw
+                text_w = cell_w - (_CHECK + 10)
+                cx = x0 + col_w + _COL_GAP if half and col == 1 else x0
+                cy = row_top if half and col == 1 else y
+                p = _Placed(spec, pygame.Rect(cx, cy, cell_w, 0), pygame.Rect(0, 0, 0, 0),
+                            lines=wrap_text(spec.label, text_w, measure_body))
+                bottom = extras(p, cy + max(_CHECK + 4, len(p.lines) * lh_body + 2),
+                                spec.field, spec.help, text_w)
+                p.rect.height = bottom - cy
+                p.bounds = p.rect.copy()
+                placed.append(p)
+                if not half:
+                    y = bottom + 6
+                elif col == 0:
+                    row_top, row_h, col = cy, p.rect.height, 1
+                else:
+                    row_h = max(row_h, p.rect.height)
+                    y = row_top + row_h + 6
+                    col, row_h = 0, 0
+                continue
+
+            flush_row()
+            top = y
+            if isinstance(spec, Section):
+                y += 12 if spec.major else 4
+                label_y = y + (8 if spec.line else 0)
+                y = label_y + lh_sm + 8
+                rect = pygame.Rect(x0, top, cw, y - top)
+                placed.append(_Placed(spec, rect, rect.copy(), label_y=label_y))
+            elif isinstance(spec, TextInput):
+                font = md if spec.large else body
+                box_h = font.get_linesize() + (16 if spec.large else 12)
+                box_w = min(spec.width or cw, cw)
+                label_w = body.size(spec.label)[0]
+                unit_w = body.size(spec.unit)[0] + 8 if spec.unit else 0
+                inline = spec.inline and label_w + 10 + box_w + unit_w <= cw
+                if inline:
+                    box = pygame.Rect(x0 + label_w + 10, y, box_w, box_h)
+                    p = _Placed(spec, box, pygame.Rect(0, 0, 0, 0), label_y=y, inline=True)
+                else:
+                    lines = wrap_text(spec.label, cw, measure_sm)
+                    box_w = min(box_w, cw - unit_w)
+                    box = pygame.Rect(x0, y + len(lines) * lh_sm + 4, box_w, box_h)
+                    p = _Placed(spec, box, pygame.Rect(0, 0, 0, 0), label_y=y, lines=lines)
+                y = extras(p, box.bottom + 4, spec.field, spec.help, cw)
+                p.bounds = pygame.Rect(x0, top, cw, y - top)
+                placed.append(p)
+                y += 8
+            elif isinstance(spec, Choice):
+                lines = wrap_text(spec.label, cw, measure_sm)
+                gap = 10
+                n = len(spec.options)
+                btn_w = min(140, (cw - gap * (n - 1)) // n)
+                by = y + len(lines) * lh_sm + 4
+                options = [
+                    (value, pygame.Rect(x0 + i * (btn_w + gap), by, btn_w, 30))
+                    for i, (value, _) in enumerate(spec.options)
+                ]
+                p = _Placed(spec, pygame.Rect(x0, top, cw, by + 30 - top),
+                            pygame.Rect(0, 0, 0, 0), label_y=y, lines=lines, options=options)
+                y = extras(p, by + 30 + 4, spec.field, spec.help, cw)
+                p.bounds = pygame.Rect(x0, top, cw, y - top)
+                placed.append(p)
+                y += 8
+            elif isinstance(spec, Button):
+                btn = pygame.Rect(x0, y, min(cw, max(150, body.size(spec.label)[0] + 30)), 32)
+                placed.append(_Placed(spec, btn, btn.copy()))
+                y = btn.bottom + 8
+            elif isinstance(spec, Note):
+                lines = wrap_text(spec.text, cw, measure_sm)
+                rect = pygame.Rect(x0, y, cw, len(lines) * lh_sm)
+                placed.append(_Placed(spec, rect, rect.copy(), lines=lines))
+                y = rect.bottom + 8
+            elif isinstance(spec, MicroStatus):
+                text, _ = self._micro_status() if self.form is not None else ("", C_NOTE)
+                lines = wrap_text(text, cw, measure_sm) if text else [""]
+                rect = pygame.Rect(x0, y, cw, len(lines) * lh_sm)
+                placed.append(_Placed(spec, rect, rect.copy(), lines=lines))
+                y = rect.bottom + 8
+        flush_row()
+
+        self._placed = placed
+        self._content_h = y + 14
+        self._update_viewport()
+
+    def _relayout(self) -> None:
+        if self._size is not None:
+            self.layout(*self._size)
+
+    def _update_viewport(self) -> None:
+        """Recompute footer (error summary + buttons) and the scrolling viewport."""
+        if self._size is None:
+            return
+        w, h = self._size
+        _, _, sm = self._fonts()
+        lh_sm = sm.get_linesize()
+        self._summary_lines = []
+        if self._errors:
+            n = len(self._errors)
+            tabs = sorted({self._field_tab[f] for f in self._errors if f in self._field_tab})
+            where = ", ".join(self._tabs[i].label for i in tabs)
+            text = f"Fix {n} error{'s' if n > 1 else ''} before saving"
+            text += f" ({where})" if where else ""
+            self._summary_lines = wrap_text(text, max(50, w - 2 * _PAD), lambda s: sm.size(s)[0])
+        errors_h = len(self._summary_lines) * lh_sm + (8 if self._summary_lines else 0)
+        footer_h = 14 + errors_h + _BTN_H + 14
+        footer_top = max(self._header_h, h - footer_h)
+        self._footer_top = footer_top
+        btn_y = footer_top + 14 + errors_h
+        self._btn_cancel = pygame.Rect(w - _PAD - _BTN_W, btn_y, _BTN_W, _BTN_H)
+        self._btn_save = pygame.Rect(self._btn_cancel.x - 10 - _BTN_W, btn_y, _BTN_W, _BTN_H)
+        self._viewport = pygame.Rect(0, self._header_h, w, max(0, footer_top - self._header_h))
+        self._scroll.set_sizes(self._viewport.height, self._content_h)
+
+    def _scroll_into_view(self, rect: pygame.Rect) -> None:
+        s = self._scroll
+        if rect.top < s.offset:
+            s.offset = rect.top - 8
+        elif rect.bottom > s.offset + s.viewport_h:
+            s.offset = min(rect.top - 8, rect.bottom - s.viewport_h + 8)
+        s.set_sizes(s.viewport_h, s.content_h)  # re-clamp
+
+    def _placed_for(self, name: str) -> _Placed | None:
+        for p in self._placed:
+            if getattr(p.spec, "field", None) == name:
+                return p
+        return None
+
+    # ── state helpers ─────────────────────────────────────────────────────────
+
+    def _is_active(self, key: str) -> bool:
+        """Whether a control keyed by a form field or button action is interactive."""
+        form = self.form
+        assert form is not None
+        if key in ("voice", "test_voice"):
+            return form.bools["voice_enabled"]
+        if key == "test_microcontroller":
+            return form.is_enabled(key) and bool(form.texts["microcontroller_port"])
+        return form.is_enabled(key)
+
+    def _text_fields(self) -> list[str]:
+        """Enabled text fields of the active tab, in display order."""
+        return [p.spec.field for p in self._placed
+                if isinstance(p.spec, TextInput) and self._is_active(p.spec.field)]
+
+    def _activate(self, name: str | None) -> None:
+        self._active_field = name
+        self._cursor_visible = True
+        self._cursor_timer = 0
+        if name is not None:
+            p = self._placed_for(name)
+            if p is not None:
+                self._scroll_into_view(p.bounds)
+
+    def _cycle_field(self, step: int) -> None:
+        fields = self._text_fields()
+        if not fields:
+            return
+        if self._active_field in fields:
+            idx = (fields.index(self._active_field) + step) % len(fields)
+        else:
+            idx = 0 if step > 0 else len(fields) - 1
+        self._activate(fields[idx])
+
+    def _switch_tab(self, index: int) -> None:
+        """Show tab ``index`` from the top, dropping keyboard focus."""
+        if index == self._tab_bar.active and self._placed:
+            return
+        self._tab_bar.select(index)
+        self._active_field = None
+        self._scroll.reset()
+        self._relayout()
+
+    def _clear_error(self, name: str) -> None:
+        if self._errors.pop(name, None) is not None:
+            self._relayout()
+
+    def _on_text_changed(self, name: str) -> None:
+        if name == "microcontroller_port":
+            self._micro_test_result = None
+            self._relayout()   # the status line depends on the port
+        self._clear_error(name)
+        self._cursor_visible = True
+        self._cursor_timer = 0
+
+    def _save(self) -> Action:
+        assert self.form is not None
+        errors = self.form.validate()
+        if not errors:
+            self._errors = {}
+            return "saved"
+        self._errors = errors
+        # First field in error, in tab order then display order.
+        first: str | None = None
+        for tab in self._tabs:
+            for spec in tab.controls:
+                name = getattr(spec, "field", None)
+                if name in errors:
+                    first = name
+                    break
+            if first is not None:
+                break
+        if first is not None and self._field_tab[first] != self._tab_bar.active:
+            self._switch_tab(self._field_tab[first])
+        else:
+            self._relayout()
+        if first is not None:
+            p = self._placed_for(first)
+            if p is not None and isinstance(p.spec, TextInput) and self._is_active(first):
+                self._activate(first)
+            elif p is not None:
+                self._scroll_into_view(p.bounds)
+        return None
+
+    # ── events ────────────────────────────────────────────────────────────────
+
+    def handle_event(self, event: pygame.event.Event) -> Action:
+        if self.form is None:
+            return None
+        if event.type == pygame.MOUSEMOTION:
+            self._mouse = event.pos
+        elif event.type == pygame.WINDOWLEAVE:
+            self._mouse = None
+        elif event.type == pygame.MOUSEWHEEL:
+            self._scroll.scroll(event.y)
+        elif event.type == pygame.KEYDOWN:
+            return self._handle_key(event)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self._mouse = event.pos
+            return self._handle_click(event.pos)
+        return None
+
+    def _handle_key(self, event: pygame.event.Event) -> Action:
+        form = self.form
+        assert form is not None
+        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            return self._save()
+        if event.key == pygame.K_ESCAPE:
+            return "cancelled"
+        if event.key == pygame.K_TAB:
+            self._cycle_field(-1 if event.mod & pygame.KMOD_SHIFT else 1)
+            return None
+        name = self._active_field
+        if name is None or not self._is_active(name):
+            if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                n = len(self._tabs)
+                step = 1 if event.key == pygame.K_RIGHT else -1
+                self._switch_tab((self._tab_bar.active + step) % n)
+            return None
+        if event.key == pygame.K_BACKSPACE:
+            changed = form.backspace(name)
+        else:
+            changed = bool(event.unicode) and form.type_char(name, event.unicode)
+        if changed:
+            self._on_text_changed(name)
+        return None
+
+    def _handle_click(self, pos: tuple[int, int]) -> Action:
+        form = self.form
+        assert form is not None
+        if self._btn_save.collidepoint(pos):
+            return self._save()
+        if self._btn_cancel.collidepoint(pos):
+            return "cancelled"
+        tab = self._tab_bar.hit(pos)
+        if tab is not None:
+            self._switch_tab(tab)
+            return None
+        if not self._viewport.collidepoint(pos):
+            return None
+        cpos = (pos[0], self._scroll.to_content(pos[1], self._viewport.top))
+        for p in self._placed:
+            spec = p.spec
+            if isinstance(spec, Checkbox) and p.rect.collidepoint(cpos):
+                if self._is_active(spec.field):
+                    form.toggle(spec.field)
+                    if spec.field == "microcontroller_enabled":
+                        self._micro_test_result = None
+                    self._relayout()   # dependent fields / status line may change
+                return None
+            if isinstance(spec, TextInput) and p.rect.collidepoint(cpos):
+                if self._is_active(spec.field):
+                    self._activate(spec.field)
+                return None
+            if isinstance(spec, Choice):
+                for value, rect in p.options:
+                    if rect.collidepoint(cpos):
+                        if self._is_active(spec.field):
+                            setattr(form, spec.field, value)
+                            self._clear_error(spec.field)
+                        return None
+            if isinstance(spec, Button) and p.rect.collidepoint(cpos):
+                return spec.action if self._is_active(spec.action) else None
+        self._active_field = None
+        return None
+
+    # ── drawing ───────────────────────────────────────────────────────────────
+
+    def draw(self, surface: pygame.Surface, dt_ms: int) -> None:
+        if self.form is None:
+            return
+        if self._size != surface.get_size():
+            self.layout(*surface.get_size())
+
+        self._cursor_timer += dt_ms
+        if self._cursor_timer >= _CURSOR_BLINK_MS:
+            self._cursor_timer = 0
+            self._cursor_visible = not self._cursor_visible
+
+        md, body, sm = self._fonts()
+        w, h = surface.get_size()
+        surface.fill(C_CARD)
+
+        # Scrolling content
+        vp = self._viewport
+        dy = vp.top - self._scroll.offset
+        old_clip = surface.get_clip()
+        surface.set_clip(vp)
+        for p in self._placed:
+            if p.bounds.bottom + dy < vp.top or p.bounds.top + dy > vp.bottom:
+                continue
+            self._draw_control(surface, p, dy)
+        surface.set_clip(old_clip)
+
+        thumb = self._scroll.indicator()
+        if thumb is not None:
+            top, height = thumb
+            bar = pygame.Rect(w - _SCROLLBAR_W - 4, vp.top + top, _SCROLLBAR_W, height)
+            pygame.draw.rect(surface, C_BORDER, bar, border_radius=3)
+
+        # Fixed header: title + tab bar
+        surface.fill(C_CARD, pygame.Rect(0, 0, w, self._header_h))
+        surface.blit(md.render("Settings", True, C_TEXT), (_PAD, _TITLE_Y))
+        pygame.draw.line(surface, C_BORDER, (0, self._header_h - 1), (w, self._header_h - 1))
+        for i, rect in enumerate(self._tab_bar.rects):
+            active = i == self._tab_bar.active
+            hover = not active and self._mouse is not None and rect.collidepoint(self._mouse)
+            bg = C_TAB_ACTIVE if active else (C_INPUT_ACTIVE if hover else C_INPUT_BG)
+            pygame.draw.rect(surface, bg, rect, border_top_left_radius=6,
+                             border_top_right_radius=6)
+            pygame.draw.rect(surface, C_ACCENT if active else C_BORDER, rect, 1,
+                             border_top_left_radius=6, border_top_right_radius=6)
+            label = body.render(self._tab_bar.labels[i], True, C_TEXT if active else C_TEXT_MUTED)
+            surface.set_clip(rect)
+            surface.blit(label, label.get_rect(center=rect.center))
+            surface.set_clip(old_clip)
+
+        # Fixed footer
+        surface.fill(C_CARD, pygame.Rect(0, self._footer_top, w, h - self._footer_top))
+        pygame.draw.line(surface, C_BORDER, (0, self._footer_top), (w, self._footer_top))
+        y = self._footer_top + 14
+        for line in self._summary_lines:
+            surface.blit(sm.render(line, True, C_ERROR), (_PAD, y))
+            y += sm.get_linesize()
+        hover_save = self._mouse is not None and self._btn_save.collidepoint(self._mouse)
+        hover_cancel = self._mouse is not None and self._btn_cancel.collidepoint(self._mouse)
+        self._draw_btn(surface, self._btn_save, "Save", C_BTN_HOVER if hover_save else C_BTN_SAVE)
+        self._draw_btn(surface, self._btn_cancel, "Cancel",
+                       C_BTN_CANCEL_HOVER if hover_cancel else C_BTN_CANCEL)
+
+    def _draw_btn(self, surface: pygame.Surface, rect: pygame.Rect, text: str,
+                  color: tuple[int, int, int]) -> None:
+        _, body, _ = self._fonts()
+        pygame.draw.rect(surface, color, rect, border_radius=6)
+        pygame.draw.rect(surface, C_BORDER, rect, 1, border_radius=6)
+        surf = body.render(text, True, C_TEXT)
+        surface.blit(surf, surf.get_rect(center=rect.center))
+
+    def _draw_extras(self, surface: pygame.Surface, p: _Placed, x: int, dy: int,
+                     enabled: bool) -> None:
+        """Inline error (red) then helper text (dimmer) under a field."""
+        _, _, sm = self._fonts()
+        lh = sm.get_linesize()
+        for i, line in enumerate(p.error_lines):
+            surface.blit(sm.render(line, True, C_ERROR), (x, p.error_y + dy + i * lh))
+        color = C_TEXT_MUTED if enabled else C_DIM
+        for i, line in enumerate(p.help_lines):
+            surface.blit(sm.render(line, True, color), (x, p.help_y + dy + i * lh))
+
+    def _draw_control(self, surface: pygame.Surface, p: _Placed, dy: int) -> None:
+        form = self.form
+        assert form is not None
+        _, body, sm = self._fonts()
+        spec = p.spec
+        rect = p.rect.move(0, dy)
+        lh_sm = sm.get_linesize()
+
+        if isinstance(spec, Section):
+            line_y = rect.y + (12 if spec.major else 4)
+            if spec.line:
+                if spec.major:
+                    pygame.draw.line(surface, C_BORDER, (0, line_y), (surface.get_width(), line_y))
+                else:
+                    pygame.draw.line(surface, C_DIVIDER, (rect.x, line_y), (rect.right, line_y))
+            color = C_TEXT_MUTED if spec.major else C_GROUP_LABEL
+            surface.blit(sm.render(spec.title, True, color), (rect.x, p.label_y + dy))
+
+        elif isinstance(spec, Checkbox):
+            enabled = self._is_active(spec.field)
+            box = pygame.Rect(rect.x, rect.y + 2, _CHECK, _CHECK)
+            edge = C_ACCENT if enabled else C_BORDER_DISABLED
+            pygame.draw.rect(surface, C_INPUT_BG, box, border_radius=3)
+            pygame.draw.rect(surface, edge, box, 1, border_radius=3)
+            if form.bools[spec.field]:
+                pygame.draw.rect(surface, edge, box.inflate(-5, -5), border_radius=2)
+            color = C_TEXT if enabled else C_DIM
+            lh = body.get_linesize()
+            ty = box.y + (_CHECK - lh) // 2
+            for i, line in enumerate(p.lines):
+                surface.blit(body.render(line, True, color), (box.right + 10, ty + i * lh))
+            self._draw_extras(surface, p, box.right + 10, dy, enabled)
+
+        elif isinstance(spec, TextInput):
+            self._draw_text_input(surface, p, spec, rect, dy)
+
+        elif isinstance(spec, Choice):
+            enabled = self._is_active(spec.field)
+            label_color = C_GROUP_LABEL if enabled else C_DIM
+            for i, line in enumerate(p.lines):
+                surface.blit(sm.render(line, True, label_color),
+                             (rect.x, p.label_y + dy + i * lh_sm))
+            current = getattr(form, spec.field)
+            labels = dict(spec.options)
+            for value, opt in p.options:
+                r = opt.move(0, dy)
+                selected = current == value
+                if not enabled:
+                    bg, edge, fg = C_INPUT_DISABLED, C_BORDER_DISABLED, C_DIM
+                elif selected:
+                    bg, edge, fg = C_ACCENT, C_ACCENT, C_TEXT_ON_ACCENT
+                else:
+                    bg, edge, fg = C_INPUT_BG, C_BORDER, C_TEXT
+                if spec.field in self._errors:
+                    edge = C_ERROR
+                pygame.draw.rect(surface, bg, r, border_radius=6)
+                pygame.draw.rect(surface, edge, r, 1, border_radius=6)
+                surf = body.render(labels[value], True, fg)
+                surface.blit(surf, surf.get_rect(center=r.center))
+            self._draw_extras(surface, p, rect.x, dy, enabled)
+
+        elif isinstance(spec, Button):
+            enabled = self._is_active(spec.action)
+            bg, edge, fg = ((C_BTN_TEST, C_BTN_TEST_BORDER, C_TEXT) if enabled
+                            else (C_INPUT_DISABLED, C_BORDER_DISABLED, C_DIM))
+            pygame.draw.rect(surface, bg, rect, border_radius=6)
+            pygame.draw.rect(surface, edge, rect, 1, border_radius=6)
+            surf = body.render(spec.label, True, fg)
+            surface.blit(surf, surf.get_rect(center=rect.center))
+
+        elif isinstance(spec, Note):
+            active = spec.enabled_by is None or self._is_active(spec.enabled_by)
+            color = C_NOTE if active else C_DIM
+            for i, line in enumerate(p.lines):
+                surface.blit(sm.render(line, True, color), (rect.x, rect.y + i * lh_sm))
+
+        elif isinstance(spec, MicroStatus):
+            text, color = self._micro_status()
+            if text:
+                lines = wrap_text(text, rect.width, lambda s: sm.size(s)[0])
+                for i, line in enumerate(lines):
+                    surface.blit(sm.render(line, True, color), (rect.x, rect.y + i * lh_sm))
+
+    def _micro_status(self) -> tuple[str, tuple[int, int, int]]:
+        form = self.form
+        assert form is not None
+        if self._micro_test_result is None:
+            missing = form.bools["microcontroller_enabled"] and not form.texts["microcontroller_port"]
+            return ("No serial port detected automatically; enter one manually"
+                    if missing else "", C_NOTE)
+        if self._micro_test_result:
+            return "Connected: the device replied PONG", C_SUCCESS
+        return "No response from the device", C_ERROR
+
+    def _draw_text_input(self, surface: pygame.Surface, p: _Placed, spec: TextInput,
+                         box: pygame.Rect, dy: int) -> None:
+        form = self.form
+        assert form is not None
+        md, body, sm = self._fonts()
+        enabled = self._is_active(spec.field)
+        active = enabled and self._active_field == spec.field
+        has_error = spec.field in self._errors
+
+        label_color = C_GROUP_LABEL if enabled else C_DIM
+        if p.inline:
+            lbl = body.render(spec.label, True, label_color)
+            surface.blit(lbl, (p.bounds.x, box.y + (box.height - lbl.get_height()) // 2))
+        else:
+            lh = sm.get_linesize()
+            for i, line in enumerate(p.lines):
+                surface.blit(sm.render(line, True, label_color), (box.x, p.label_y + dy + i * lh))
+
+        if not enabled:
+            bg, edge = C_INPUT_DISABLED, C_BORDER_DISABLED
+        else:
+            bg = C_INPUT_ACTIVE if active else C_INPUT_BG
+            edge = C_ACCENT if active else C_BORDER
+        if has_error:
+            edge = C_ERROR
+        pygame.draw.rect(surface, bg, box, border_radius=6)
+        pygame.draw.rect(surface, edge, box, 1, border_radius=6)
+
+        font = md if spec.large else body
+        text = form.texts[spec.field] + ("|" if active and self._cursor_visible else "")
+        surf = font.render(text, True, C_TEXT if enabled else C_DIM)
+        inner_w = box.width - 16
+        # Keep the end of an overlong value (where the cursor is) visible.
+        area = pygame.Rect(max(0, surf.get_width() - inner_w), 0, inner_w, surf.get_height())
+        surface.blit(surf, (box.x + 8, box.y + (box.height - surf.get_height()) // 2), area)
+
+        if spec.unit:
+            unit = body.render(spec.unit, True, label_color)
+            surface.blit(unit, (box.right + 8, box.y + (box.height - unit.get_height()) // 2))
+
+        self._draw_extras(surface, p, p.bounds.x, dy, enabled)
