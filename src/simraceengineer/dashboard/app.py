@@ -25,11 +25,12 @@ from ..strategy.stint_tracker import StintTracker
 from ..strategy.strategy_advisor import StrategyAdvisor, StrategyReport
 from ..telemetry.models import TelemetryData
 from ..telemetry.tire_wear_estimator import TireWearEstimator
+from .ui.panel_window import PanelWindow
 from .widgets.bar import draw_bar
 from .widgets.g_meter import draw_g_meter
 from .widgets.gauge import draw_gauge
 from .widgets.help_panel import HelpPanel
-from .widgets.settings_panel import SettingsPanel
+from .widgets.settings_panel import SettingsPanel, auto_detect_port
 from .widgets.slip_angle import draw_slip_angle
 from .widgets.strategy_panel import StrategyPanel
 from .widgets.suffix_panel import SuffixInputPanel
@@ -63,6 +64,13 @@ ERROR_BAR_H = 22
 # In a PyInstaller bundle __file__ is inside a temp dir; assets land in sys._MEIPASS.
 _BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
 _IMG_DIR = _BASE / "simraceengineer" / "img" if hasattr(sys, "_MEIPASS") else Path(__file__).parent.parent / "img"
+
+
+def _window_sizes(
+    preferred: tuple[int, int], minimum: tuple[int, int]
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Initial size (preferred, grown to the minimum if needed) and the minimum size."""
+    return (max(preferred[0], minimum[0]), max(preferred[1], minimum[1])), minimum
 
 
 def _fmt_lap(ms: int) -> str:
@@ -169,6 +177,8 @@ class DashboardApp:
         self._recorder = LapRecorder(suffix=self._config.recording_suffix)
         self._settings: SettingsPanel | None = None
         self._help: HelpPanel | None = None
+        self._help_win: PanelWindow | None = None
+        self._settings_win: PanelWindow | None = None
         self._strategy_panel: StrategyPanel | None = None
         self._suffix_panel: SuffixInputPanel | None = None
         _btn_y = (HEADER_H - 28) // 2
@@ -675,14 +685,22 @@ class DashboardApp:
         pygame.init()
         pygame.display.set_caption("Sim Race Engineer")
         icon_path = _IMG_DIR / "icon-1.png"
-        if icon_path.exists():
-            pygame.display.set_icon(pygame.image.load(str(icon_path)))
+        window_icon = pygame.image.load(str(icon_path)) if icon_path.exists() else None
+        if window_icon is not None:
+            pygame.display.set_icon(window_icon)
         screen = pygame.display.set_mode((WIN_W, WIN_H))
         clock = pygame.time.Clock()
 
         self._load_assets()
-        self._settings = SettingsPanel(WIN_W, WIN_H, show_microcontroller=self._config.microcontroller_unlocked)
+        self._settings = SettingsPanel(show_microcontroller=self._config.microcontroller_unlocked,
+                                       detect_port=auto_detect_port)
+        self._settings_win = PanelWindow("Settings — Sim Race Engineer",
+                                         *_window_sizes((640, 760), self._settings.min_size()),
+                                         icon=window_icon)
         self._help = HelpPanel(show_microcontroller=self._config.microcontroller_unlocked)
+        self._help_win = PanelWindow("Help — Sim Race Engineer",
+                                     *_window_sizes((1100, 760), self._help.min_size()),
+                                     icon=window_icon)
         self._strategy_panel = StrategyPanel(WIN_W, WIN_H)
         self._suffix_panel = SuffixInputPanel(WIN_W, WIN_H)
 
@@ -691,27 +709,7 @@ class DashboardApp:
 
         # Open settings automatically if no IP configured
         if not self._config.device_ip:
-            self._settings.open(self._config.device_ip, self._config.fuel_estimation,
-                        self._config.recording_on_start,
-                        self._config.voice_enabled, self._config.voice_language,
-                        self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
-                        self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
-                        self._config.voice_alert_final_lap, self._config.voice_alert_race_report,
-                        self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
-                        self._config.voice_alert_tire_inner_temp,
-                        self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
-                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
-                        self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
-                        self._config.voice_alert_overtake,
-                        self._config.voice_alert_laps_to_finish,
-                        self._config.voice_alert_fuel_save,
-                        self._config.voice_alert_strategy_check_in,
-                        self._config.voice_alert_strategy_revised,
-                        self._config.voice_alert_fuel_save_recommend,
-                        self._config.voice_alert_advisor_pit_window,
-                        self._config.microcontroller_enabled,
-                        self._config.microcontroller_port,
-                        self._config.fan_speed_ceiling_kmh)
+            self._open_settings(activate_ip=True)
 
         font_xl  = pygame.font.SysFont("monospace", 64, bold=True)
         font_spd = pygame.font.SysFont("monospace", 48, bold=True)
@@ -737,6 +735,11 @@ class DashboardApp:
                     self._running = False
                     continue
 
+                # Panel windows (Help, ...) get their own events; the main window's
+                # close button stops the app (SDL only emits QUIT for the last window).
+                if self._dispatch_panel_window_event(event):
+                    continue
+
                 # Suffix panel absorbs all events when open
                 if self._suffix_panel and self._suffix_panel.active:
                     self._suffix_panel.update()
@@ -746,11 +749,6 @@ class DashboardApp:
                         self._recorder.suffix = result
                         self._config.save()
                         log.info("Recording suffix set to %r", result)
-                    continue
-
-                # Help panel absorbs all events when open
-                if self._help and self._help.active:
-                    self._help.handle_event(event)
                     continue
 
                 # Strategy panel absorbs all events when open
@@ -768,57 +766,6 @@ class DashboardApp:
                             self._voice_service.update_planned_strategy(self._config)
                         log.info("Strategy saved: stops=%d windows=%s",
                                  self._config.planned_stops, self._config.planned_stop_windows)
-                    continue
-
-                # Settings panel absorbs all events when open
-                if self._settings and self._settings.active:
-                    action = self._settings.handle_event(event)
-                    if action == "test_voice":
-                        if self._voice_service:
-                            self._voice_service.speak_test(self._settings.voice_language)
-                    elif action == "test_microcontroller":
-                        if self._microcontroller_service:
-                            success = self._microcontroller_service.test_connection(
-                                self._settings.microcontroller_port
-                            )
-                            self._settings.set_microcontroller_test_result(success)
-                    elif action == "saved":
-                        self._config.device_ip = self._settings.ip_text
-                        self._config.fuel_estimation = self._settings.fuel_estimation
-                        self._config.recording_on_start = self._settings.recording_on_start
-                        self._recording = self._settings.recording_on_start
-                        self._config.voice_enabled = self._settings.voice_enabled
-                        self._config.voice_language = self._settings.voice_language
-                        self._config.voice_alert_fuel_critical = self._settings.voice_alert_fuel_critical
-                        self._config.voice_alert_fuel_low = self._settings.voice_alert_fuel_low
-                        self._config.voice_alert_lap_completed = self._settings.voice_alert_lap_completed
-                        self._config.voice_alert_best_lap = self._settings.voice_alert_best_lap
-                        self._config.voice_alert_final_lap = self._settings.voice_alert_final_lap
-                        self._config.voice_alert_race_report = self._settings.voice_alert_race_report
-                        self._config.voice_alert_engine_temp = self._settings.voice_alert_engine_temp
-                        self._config.voice_alert_tire_temp = self._settings.voice_alert_tire_temp
-                        self._config.voice_alert_tire_inner_temp = self._settings.voice_alert_tire_inner_temp
-                        self._config.voice_alert_oil_temp = self._settings.voice_alert_oil_temp
-                        self._config.voice_alert_tire_pressure = self._settings.voice_alert_tire_pressure
-                        self._config.voice_alert_lap_delta = self._settings.voice_alert_lap_delta
-                        self._config.voice_alert_pit_window = self._settings.voice_alert_pit_window
-                        self._config.voice_alert_tyre_wear = self._settings.voice_alert_tyre_wear
-                        self._config.voice_tyre_wear_threshold_pct = self._settings.voice_tyre_wear_threshold_pct
-                        self._config.voice_alert_overtake = self._settings.voice_alert_overtake
-                        self._config.voice_alert_laps_to_finish = self._settings.voice_alert_laps_to_finish
-                        self._config.voice_alert_fuel_save = self._settings.voice_alert_fuel_save
-                        self._config.voice_alert_strategy_check_in = self._settings.voice_alert_strategy_check_in
-                        self._config.voice_alert_strategy_revised = self._settings.voice_alert_strategy_revised
-                        self._config.voice_alert_fuel_save_recommend = self._settings.voice_alert_fuel_save_recommend
-                        self._config.voice_alert_advisor_pit_window = self._settings.voice_alert_advisor_pit_window
-                        self._config.microcontroller_enabled = self._settings.microcontroller_enabled
-                        self._config.microcontroller_port = self._settings.microcontroller_port
-                        self._config.fan_speed_ceiling_kmh = self._settings.fan_speed_ceiling_kmh
-                        self._config.save()
-                        log.info("Config saved: device_ip=%s", self._config.device_ip)
-                        if self._config.device_ip and self._get_status_fn() != "connected":
-                            if self._connect_fn:
-                                self._connect_fn()
                     continue
 
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -855,29 +802,9 @@ class DashboardApp:
                                 self._config.voice_alert_strategy,
                             )
                     elif self._gear_btn.collidepoint(event.pos):
-                        self._settings.open(self._config.device_ip, self._config.fuel_estimation,
-                        self._config.recording_on_start,
-                        self._config.voice_enabled, self._config.voice_language,
-                        self._config.voice_alert_fuel_critical, self._config.voice_alert_fuel_low,
-                        self._config.voice_alert_lap_completed, self._config.voice_alert_best_lap,
-                        self._config.voice_alert_final_lap, self._config.voice_alert_race_report,
-                        self._config.voice_alert_engine_temp, self._config.voice_alert_tire_temp,
-                        self._config.voice_alert_tire_inner_temp,
-                        self._config.voice_alert_oil_temp, self._config.voice_alert_tire_pressure,
-                        self._config.voice_alert_lap_delta, self._config.voice_alert_pit_window,
-                        self._config.voice_alert_tyre_wear, self._config.voice_tyre_wear_threshold_pct,
-                        self._config.voice_alert_overtake,
-                        self._config.voice_alert_laps_to_finish,
-                        self._config.voice_alert_fuel_save,
-                        self._config.voice_alert_strategy_check_in,
-                        self._config.voice_alert_strategy_revised,
-                        self._config.voice_alert_fuel_save_recommend,
-                        self._config.voice_alert_advisor_pit_window,
-                        self._config.microcontroller_enabled,
-                        self._config.microcontroller_port,
-                        self._config.fan_speed_ceiling_kmh)
+                        self._open_settings()
                     elif self._help_btn.collidepoint(event.pos):
-                        self._help.open()
+                        self._open_help()
 
             while not self._queue.empty():
                 try:
@@ -891,25 +818,153 @@ class DashboardApp:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                 screen.fill(C_BG)
                 self._draw(screen, font_xl, font_spd, font_lg, font_md, font_sm)
-                if self._settings:
-                    self._settings.draw(screen, font_md, font_sm, dt)
                 if self._strategy_panel:
                     self._strategy_panel.draw(screen, font_md, font_sm, dt, self._strategy_report)
                 if self._suffix_panel and self._suffix_panel.active:
                     self._suffix_panel.draw(screen, font_md, font_sm)
-                if self._help:
-                    self._help.draw(screen, font_md, font_sm, self._icon_close,
-                                    icons=self._help_icons)
                 pygame.display.flip()
             except Exception:
                 log.exception("Draw error — skipping frame")
 
+            self._draw_settings_window(dt)
+            self._draw_help_window()
+
+        self._close_settings()
+        self._close_help()
         if self._recorder.active:
             log.info("App closing — saving session in progress")
             self._recorder.stop_session()
         if self._analysis_proc and self._analysis_proc.poll() is None:
             self._analysis_proc.terminate()
         pygame.quit()
+
+    # ── Panel windows ─────────────────────────────────────────────────────────
+
+    def _dispatch_panel_window_event(self, event: pygame.event.Event) -> bool:
+        """Route window-close and panel-window events. Returns True when consumed.
+
+        Order: WINDOWCLOSE (panel → close it, main → stop the app), then events
+        owned by each open panel window. New panel windows add one branch each.
+        """
+        if event.type == pygame.WINDOWCLOSE:
+            window = getattr(event, "window", None)
+            if self._settings_win is not None and self._settings_win.owns(event):
+                self._close_settings()  # native close = Cancel
+            elif self._help_win is not None and self._help_win.owns(event):
+                self._close_help()
+            elif window is None:
+                log.info("Main window closed — stopping")
+                self._running = False
+            # A close event for an already-destroyed panel window is ignored.
+            return True
+
+        if self._settings_win is not None and self._settings_win.owns(event):
+            self._handle_settings_event(event)
+            return True
+
+        if self._help_win is not None and self._help_win.owns(event):
+            self._handle_help_event(event)
+            return True
+
+        return False
+
+    def _open_settings(self, activate_ip: bool = False) -> None:
+        """Open the Settings window, or focus it if it is already open."""
+        if self._settings is None or self._settings_win is None:
+            return
+        if self._settings_win.open():
+            self._settings.open(self._config, active_field="device_ip" if activate_ip else None)
+            self._settings.layout(*self._settings_win.size())
+
+    def _close_settings(self) -> None:
+        """Close the Settings window, discarding unsaved edits."""
+        if self._settings is not None:
+            self._settings.close()
+        if self._settings_win is not None:
+            self._settings_win.close()
+
+    def _handle_settings_event(self, event: pygame.event.Event) -> None:
+        if self._settings is None or self._settings_win is None:
+            return
+        if event.type == pygame.WINDOWRESIZED:
+            self._settings.layout(*self._settings_win.size())
+            return
+        form = self._settings.form
+        if form is None:
+            return
+        action = self._settings.handle_event(event)
+        if action == "test_voice":
+            if self._voice_service:
+                self._voice_service.speak_test(form.voice_language)
+        elif action == "test_microcontroller":
+            if self._microcontroller_service:
+                success = self._microcontroller_service.test_connection(
+                    form.texts["microcontroller_port"]
+                )
+                self._settings.set_microcontroller_test_result(success)
+        elif action == "saved":
+            if self._apply_settings():
+                self._close_settings()
+        elif action == "cancelled":
+            self._close_settings()
+
+    def _apply_settings(self) -> bool:
+        """Persist the Settings form into the config. Returns False if it was invalid."""
+        if self._settings is None or self._settings.form is None:
+            return False
+        try:
+            self._settings.form.apply_to(self._config)
+        except ValueError:
+            log.warning("Settings not saved — form is invalid", exc_info=True)
+            return False
+        self._recording = self._config.recording_on_start
+        self._config.save()
+        log.info("Config saved: device_ip=%s", self._config.device_ip)
+        if self._config.device_ip and self._get_status_fn() != "connected":
+            if self._connect_fn:
+                self._connect_fn()
+        return True
+
+    def _draw_settings_window(self, dt_ms: int) -> None:
+        if self._settings is None or self._settings_win is None or not self._settings_win.is_open:
+            return
+        try:
+            self._settings.draw(self._settings_win.surface(), dt_ms)
+            self._settings_win.present()
+        except Exception:
+            log.exception("Settings window draw error — skipping frame")
+
+    def _open_help(self) -> None:
+        """Open the Help window, or focus it if it is already open."""
+        if self._help is None or self._help_win is None:
+            return
+        if self._help_win.open():
+            self._help.open()
+            self._help.layout(*self._help_win.size())
+
+    def _close_help(self) -> None:
+        if self._help is not None:
+            self._help.close()
+        if self._help_win is not None:
+            self._help_win.close()
+
+    def _handle_help_event(self, event: pygame.event.Event) -> None:
+        if self._help is None or self._help_win is None:
+            return
+        if event.type == pygame.WINDOWRESIZED:
+            self._help.layout(*self._help_win.size())
+            return
+        if self._help.handle_event(event) == "closed":
+            self._close_help()
+
+    def _draw_help_window(self) -> None:
+        if self._help is None or self._help_win is None or not self._help_win.is_open:
+            return
+        try:
+            self._help.draw(self._help_win.surface(), icons=self._help_icons)
+            self._help_win.present()
+        except Exception:
+            log.exception("Help window draw error — skipping frame")
 
     def _draw(self, screen, font_xl, font_spd, font_lg, font_md, font_sm) -> None:
         d = self._data if self._data is not None else TelemetryData()
